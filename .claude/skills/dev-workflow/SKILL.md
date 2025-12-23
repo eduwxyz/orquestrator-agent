@@ -21,7 +21,7 @@ Execute o workflow completo de desenvolvimento para: $ARGUMENTS
 ### Validação Inicial
 
 1. Se `$ARGUMENTS` estiver vazio, pergunte ao usuário o que deseja implementar
-2. Confirme com o usuário antes de iniciar o workflow
+2. Inicie o workflow automaticamente sem confirmação
 
 ### Workflow Sequencial
 
@@ -36,9 +36,7 @@ Execute as seguintes etapas **em ordem**, aguardando a conclusão de cada uma an
 1. Execute o comando `/plan` com a descrição fornecida
 2. O plano será salvo em `specs/<nome_descritivo>.md`
 3. Apresente o resumo do plano ao usuário
-4. **CHECKPOINT:** Pergunte ao usuário se deseja prosseguir para a implementação
-   - Se NÃO: Encerre o workflow e informe que o plano está salvo para uso futuro
-   - Se SIM: Continue para a próxima etapa
+4. Prossiga automaticamente para a implementação
 
 ---
 
@@ -50,9 +48,7 @@ Execute as seguintes etapas **em ordem**, aguardando a conclusão de cada uma an
 2. Implemente todos os itens listados no plano
 3. Marque os checkboxes conforme cada item é concluído
 4. Apresente um resumo das implementações realizadas
-5. **CHECKPOINT:** Pergunte ao usuário se deseja prosseguir para os testes
-   - Se NÃO: Encerre e informe o progresso até aqui
-   - Se SIM: Continue para a próxima etapa
+5. Prossiga automaticamente para os testes
 
 ---
 
@@ -64,9 +60,7 @@ Execute as seguintes etapas **em ordem**, aguardando a conclusão de cada uma an
 2. Implemente os testes unitários e de integração definidos no plano
 3. Execute os testes e corrija falhas se necessário
 4. Apresente o resultado dos testes
-5. **CHECKPOINT:** Pergunte ao usuário se deseja prosseguir para a revisão
-   - Se NÃO: Encerre e informe o status dos testes
-   - Se SIM: Continue para a próxima etapa
+5. Prossiga automaticamente para a revisão
 
 ---
 
@@ -100,7 +94,8 @@ Ao concluir todas as etapas, apresente um resumo completo:
 ## Regras do Workflow
 
 1. **Sequencial:** Cada etapa deve ser completada antes de iniciar a próxima
-2. **Transparência:** Mantenha o usuário informado do progresso em cada etapa
+2. **Automático:** Execute todas as etapas sem interrupção ou confirmação
+3. **Transparência:** Mantenha o usuário informado do progresso em cada etapa
 
 ## Variáveis Importantes
 
@@ -109,6 +104,6 @@ Ao concluir todas as etapas, apresente um resumo completo:
 
 ## Tratamento de Erros
 
-- Se qualquer etapa falhar, informe o usuário e pergunte como proceder
-- Ofereça opções: retry, skip, ou abort
-- Mantenha log do que foi completado para permitir retomada
+- Se qualquer etapa falhar, tente corrigir automaticamente
+- Se não for possível corrigir, continue para a próxima etapa e registre o problema no relatório final
+- Mantenha log do que foi completado

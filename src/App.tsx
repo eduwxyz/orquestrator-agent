@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { Card as CardType, ColumnId, COLUMNS } from './types';
 import { Board } from './components/Board/Board';
 import { Card } from './components/Card/Card';
+import { useAgentExecution } from './hooks/useAgentExecution';
 import styles from './App.module.css';
 
 function App() {
   const [cards, setCards] = useState<CardType[]>([]);
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
+  const dragStartColumnRef = useRef<ColumnId | null>(null);
+  const { executePlan, getExecutionStatus } = useAgentExecution();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -49,6 +52,7 @@ function App() {
     const card = cards.find(c => c.id === active.id);
     if (card) {
       setActiveCard(card);
+      dragStartColumnRef.current = card.columnId;
     }
   };
 
@@ -81,17 +85,36 @@ function App() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    const startColumn = dragStartColumnRef.current;
     setActiveCard(null);
+    dragStartColumnRef.current = null;
 
     if (!over) return;
 
     const activeId = active.id as string;
     const overId = over.id as string;
 
+    // Get the card and determine final column
+    const card = cards.find(c => c.id === activeId);
+    let finalColumnId: ColumnId | null = null;
+
     // Check if dropped on a column
     const isOverColumn = COLUMNS.some(col => col.id === overId);
     if (isOverColumn) {
-      moveCard(activeId, overId as ColumnId);
+      finalColumnId = overId as ColumnId;
+      moveCard(activeId, finalColumnId);
+    } else {
+      // Dropped on another card - get that card's column
+      const overCard = cards.find(c => c.id === overId);
+      if (overCard) {
+        finalColumnId = overCard.columnId;
+      }
+    }
+
+    // Detect backlog → plan transition and trigger /plan execution
+    if (card && startColumn === 'backlog' && finalColumnId === 'plan') {
+      console.log(`[App] Card moved from backlog to plan: ${card.title}`);
+      executePlan(card);
     }
   };
 
@@ -113,6 +136,7 @@ function App() {
             cards={cards}
             onAddCard={addCard}
             onRemoveCard={removeCard}
+            getExecutionStatus={getExecutionStatus}
           />
           <DragOverlay>
             {activeCard ? (

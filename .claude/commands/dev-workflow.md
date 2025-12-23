@@ -20,21 +20,21 @@ Execute as seguintes etapas **sequencialmente**, aguardando conclusão de cada u
 - Execute o fluxo do comando `/plan` com: $ARGUMENTS
 - Salve o plano em `specs/<nome_descritivo>.md`
 - Armazene o caminho do arquivo para uso nas próximas etapas
-- **Pergunte:** "Plano criado. Deseja prosseguir para a implementação?"
+- Prossiga automaticamente para a próxima etapa
 
 ### 2. Implementação
 
 - Execute o fluxo do comando `/implement` com o arquivo de spec criado
 - Implemente todos os itens do plano
 - Atualize checkboxes no arquivo de spec
-- **Pergunte:** "Implementação concluída. Deseja prosseguir para os testes?"
+- Prossiga automaticamente para a próxima etapa
 
 ### 3. Testes
 
 - Execute o fluxo do comando `/test-implementation` referenciando o spec
 - Implemente e execute os testes definidos no plano
 - Corrija falhas se necessário
-- **Pergunte:** "Testes finalizados. Deseja prosseguir para a revisão?"
+- Prossiga automaticamente para a próxima etapa
 
 ### 4. Revisão
 
@@ -53,6 +53,6 @@ Apresente resumo:
 
 ## Regras
 
-- Sempre pergunte antes de avançar para a próxima etapa
-- Se o usuário disser "não" em qualquer checkpoint, encerre e informe o progresso
+- Execute todas as etapas automaticamente sem interrupção
 - Mantenha transparência sobre o que está sendo feito em cada etapa
+- Se houver erro crítico, corrija e continue automaticamente
