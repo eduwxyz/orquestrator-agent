@@ -108,3 +108,83 @@
   min-height: 120px;
   padding: var(--space-1);
 }
+
+/* ========================================
+   UNIQUE LANE BORDERS - Minimal Approach
+   ======================================== */
+
+/* BACKLOG - Purple */
+.column_backlog {
+  border-top: 3px solid rgba(168, 85, 247, 0.6);
+}
+
+.column_backlog .title {
+  color: rgba(168, 85, 247, 0.8);
+}
+
+/* PLAN - Cyan/Blue */
+.column_plan {
+  border-top: 3px solid rgba(0, 212, 255, 0.6);
+}
+
+.column_plan .title {
+  color: rgba(0, 212, 255, 0.8);
+}
+
+/* IN-PROGRESS - Bright Cyan */
+.column_in-progress {
+  border-top: 3px solid rgba(0, 212, 255, 0.9);
+  background: rgba(0, 212, 255, 0.03);
+}
+
+.column_in-progress .title {
+  color: var(--accent-cyan);
+}
+
+/* TEST - Green */
+.column_test {
+  border-top: 3px solid rgba(52, 211, 153, 0.6);
+}
+
+.column_test .title {
+  color: rgba(52, 211, 153, 0.8);
+}
+
+/* REVIEW - Amber */
+.column_review {
+  border-top: 3px solid rgba(251, 191, 36, 0.6);
+}
+
+.column_review .title {
+  color: rgba(251, 191, 36, 0.8);
+}
+
+/* DONE - Emerald Green */
+.column_done {
+  border-top: 3px solid rgba(52, 211, 153, 0.8);
+  border-left: 2px solid rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.02);
+}
+
+.column_done .title {
+  color: rgba(52, 211, 153, 0.9);
+}
+
+/* Toggle Archived Button */
+.toggleArchived {
+  margin-left: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #6b7280;
+}
+
+.toggleArchived:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+  color: #374151;
+}

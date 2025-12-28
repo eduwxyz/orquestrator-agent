@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -6,19 +7,42 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .agent import execute_plan, get_execution, get_all_executions
+from .agent import execute_plan, execute_implement, execute_test_implementation, execute_review, get_execution, get_all_executions
+from .database import create_tables
 from .execution import (
     ExecutePlanRequest,
     ExecutePlanResponse,
+    ExecuteImplementRequest,
+    ExecuteImplementResponse,
     ExecutionsResponse,
     HealthResponse,
     LogsResponse,
 )
+from .routes.cards import router as cards_router
+from .database import get_db, async_session_maker
+from .repositories.card_repository import CardRepository
+
+# Import models to register them with SQLAlchemy
+from .models.card import Card  # noqa: F401
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler."""
+    # Startup: Create database tables
+    print("[Server] Creating database tables...")
+    await create_tables()
+    print("[Server] Database tables created successfully")
+    yield
+    # Shutdown: cleanup if needed
+    print("[Server] Shutting down...")
+
 
 app = FastAPI(
     title="Kanban Agent Server",
     description="Backend server for Kanban + Claude Agent SDK integration",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Configure CORS
@@ -29,6 +53,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(cards_router)
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -93,11 +120,19 @@ async def execute_plan_endpoint(request: ExecutePlanRequest):
         )
 
         if result.success:
+            # Save spec_path to database if available
+            if result.spec_path:
+                async with async_session_maker() as session:
+                    repo = CardRepository(session)
+                    await repo.update_spec_path(request.card_id, result.spec_path)
+                    await session.commit()
+
             return ExecutePlanResponse(
                 success=True,
                 cardId=request.card_id,
                 result=result.result,
                 logs=result.logs,
+                specPath=result.spec_path,
             )
         else:
             error_response = ExecutePlanResponse(
@@ -126,6 +161,173 @@ async def execute_plan_endpoint(request: ExecutePlanRequest):
         )
 
 
+@app.post("/api/execute-implement", response_model=ExecuteImplementResponse)
+async def execute_implement_endpoint(request: ExecuteImplementRequest):
+    """Execute /implement command with spec path."""
+    # Validate request
+    if not request.card_id or not request.spec_path:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required fields: cardId and specPath are required",
+        )
+
+    print(f"[Server] Received implement request for card: {request.card_id}")
+    print(f"[Server] Spec path: {request.spec_path}")
+
+    try:
+        # Use parent directory as working directory (the main project)
+        cwd = str(Path.cwd().parent)
+
+        result = await execute_implement(
+            card_id=request.card_id,
+            spec_path=request.spec_path,
+            cwd=cwd,
+        )
+
+        if result.success:
+            return ExecuteImplementResponse(
+                success=True,
+                cardId=request.card_id,
+                result=result.result,
+                logs=result.logs,
+            )
+        else:
+            error_response = ExecuteImplementResponse(
+                success=False,
+                cardId=request.card_id,
+                error=result.error,
+                logs=result.logs,
+            )
+            return JSONResponse(
+                status_code=500,
+                content=error_response.model_dump(by_alias=True),
+            )
+
+    except Exception as e:
+        error_message = str(e)
+        print(f"[Server] Error: {error_message}")
+        error_response = ExecuteImplementResponse(
+            success=False,
+            cardId=request.card_id,
+            error=error_message,
+            logs=[],
+        )
+        return JSONResponse(
+            status_code=500,
+            content=error_response.model_dump(by_alias=True),
+        )
+
+
+@app.post("/api/execute-test", response_model=ExecuteImplementResponse)
+async def execute_test_endpoint(request: ExecuteImplementRequest):
+    """Execute /test-implementation command with spec path."""
+    if not request.card_id or not request.spec_path:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required fields: cardId and specPath are required",
+        )
+
+    print(f"[Server] Received test request for card: {request.card_id}")
+    print(f"[Server] Spec path: {request.spec_path}")
+
+    try:
+        cwd = str(Path.cwd().parent)
+
+        result = await execute_test_implementation(
+            card_id=request.card_id,
+            spec_path=request.spec_path,
+            cwd=cwd,
+        )
+
+        if result.success:
+            return ExecuteImplementResponse(
+                success=True,
+                cardId=request.card_id,
+                result=result.result,
+                logs=result.logs,
+            )
+        else:
+            error_response = ExecuteImplementResponse(
+                success=False,
+                cardId=request.card_id,
+                error=result.error,
+                logs=result.logs,
+            )
+            return JSONResponse(
+                status_code=500,
+                content=error_response.model_dump(by_alias=True),
+            )
+
+    except Exception as e:
+        error_message = str(e)
+        print(f"[Server] Error: {error_message}")
+        error_response = ExecuteImplementResponse(
+            success=False,
+            cardId=request.card_id,
+            error=error_message,
+            logs=[],
+        )
+        return JSONResponse(
+            status_code=500,
+            content=error_response.model_dump(by_alias=True),
+        )
+
+
+@app.post("/api/execute-review", response_model=ExecuteImplementResponse)
+async def execute_review_endpoint(request: ExecuteImplementRequest):
+    """Execute /review command with spec path."""
+    if not request.card_id or not request.spec_path:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required fields: cardId and specPath are required",
+        )
+
+    print(f"[Server] Received review request for card: {request.card_id}")
+    print(f"[Server] Spec path: {request.spec_path}")
+
+    try:
+        cwd = str(Path.cwd().parent)
+
+        result = await execute_review(
+            card_id=request.card_id,
+            spec_path=request.spec_path,
+            cwd=cwd,
+        )
+
+        if result.success:
+            return ExecuteImplementResponse(
+                success=True,
+                cardId=request.card_id,
+                result=result.result,
+                logs=result.logs,
+            )
+        else:
+            error_response = ExecuteImplementResponse(
+                success=False,
+                cardId=request.card_id,
+                error=result.error,
+                logs=result.logs,
+            )
+            return JSONResponse(
+                status_code=500,
+                content=error_response.model_dump(by_alias=True),
+            )
+
+    except Exception as e:
+        error_message = str(e)
+        print(f"[Server] Error: {error_message}")
+        error_response = ExecuteImplementResponse(
+            success=False,
+            cardId=request.card_id,
+            error=error_message,
+            logs=[],
+        )
+        return JSONResponse(
+            status_code=500,
+            content=error_response.model_dump(by_alias=True),
+        )
+
+
 def main():
     """Run the server."""
     import uvicorn
@@ -137,6 +339,15 @@ def main():
     print("  - GET  /api/logs/:cardId")
     print("  - GET  /api/executions")
     print("  - POST /api/execute-plan")
+    print("  - POST /api/execute-implement")
+    print("  - POST /api/execute-test")
+    print("  - POST /api/execute-review")
+    print("  - GET  /api/cards")
+    print("  - POST /api/cards")
+    print("  - GET  /api/cards/:id")
+    print("  - PUT  /api/cards/:id")
+    print("  - DELETE /api/cards/:id")
+    print("  - PATCH /api/cards/:id/move")
 
     uvicorn.run(app, host="0.0.0.0", port=port)
 
