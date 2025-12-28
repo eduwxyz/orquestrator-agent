@@ -1,4 +1,4 @@
-export type ColumnId = 'backlog' | 'plan' | 'in-progress' | 'test' | 'review' | 'done';
+export type ColumnId = 'backlog' | 'plan' | 'in-progress' | 'test' | 'review' | 'done' | 'archived';
 
 export interface Card {
   id: string;
@@ -6,7 +6,6 @@ export interface Card {
   description: string;
   columnId: ColumnId;
   specPath?: string; // Caminho do arquivo de spec gerado na etapa de planejamento
-  archived?: boolean; // Se o card está arquivado (apenas para coluna Done)
 }
 
 export interface Column {
@@ -25,6 +24,10 @@ export interface ExecutionStatus {
   status: 'idle' | 'running' | 'success' | 'error';
   result?: string;
   logs: ExecutionLog[];
+  // Metadata fields
+  startedAt?: string; // ISO timestamp
+  completedAt?: string; // ISO timestamp
+  duration?: number; // milliseconds
 }
 
 export const COLUMNS: Column[] = [
@@ -34,6 +37,7 @@ export const COLUMNS: Column[] = [
   { id: 'test', title: 'Test' },
   { id: 'review', title: 'Review' },
   { id: 'done', title: 'Done' },
+  { id: 'archived', title: 'Archived' },
 ];
 
 // Transições permitidas no fluxo SDLC
@@ -43,7 +47,8 @@ export const ALLOWED_TRANSITIONS: Record<ColumnId, ColumnId[]> = {
   'in-progress': ['test'],
   'test': ['review'],
   'review': ['done'],
-  'done': [],
+  'done': ['archived'],
+  'archived': ['done'],
 };
 
 export function isValidTransition(from: ColumnId, to: ColumnId): boolean {

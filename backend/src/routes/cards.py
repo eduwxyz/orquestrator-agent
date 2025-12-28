@@ -9,7 +9,6 @@ from ..schemas.card import (
     CardCreate,
     CardUpdate,
     CardMove,
-    CardArchive,
     CardResponse,
     CardsListResponse,
     CardSingleResponse,
@@ -20,13 +19,10 @@ router = APIRouter(prefix="/api/cards", tags=["cards"])
 
 
 @router.get("", response_model=CardsListResponse)
-async def get_all_cards(
-    include_archived: bool = Query(False),
-    db: AsyncSession = Depends(get_db)
-):
-    """Get all cards, optionally including archived ones."""
+async def get_all_cards(db: AsyncSession = Depends(get_db)):
+    """Get all cards."""
     repo = CardRepository(db)
-    cards = await repo.get_all(include_archived=include_archived)
+    cards = await repo.get_all()
     return CardsListResponse(
         cards=[CardResponse.model_validate(card) for card in cards]
     )
@@ -106,17 +102,3 @@ async def update_spec_path(
     return CardSingleResponse(card=CardResponse.model_validate(card))
 
 
-@router.patch("/{card_id}/archive", response_model=CardSingleResponse)
-async def archive_card(
-    card_id: str,
-    archive_data: CardArchive,
-    db: AsyncSession = Depends(get_db)
-):
-    """Archive or unarchive a card."""
-    repo = CardRepository(db)
-    card = await repo.archive_card(card_id, archive_data.archived)
-
-    if not card:
-        raise HTTPException(status_code=404, detail="Card not found")
-
-    return CardSingleResponse(card=CardResponse.model_validate(card))

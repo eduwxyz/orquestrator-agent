@@ -62,3 +62,6 @@ npm-debug.log*
 
 # Vite
 .vite/
+
+# Auto Claude data directory
+.auto-claude/

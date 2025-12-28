@@ -43,7 +43,18 @@ def add_log(record: ExecutionRecord, log_type: LogType, content: str) -> None:
         content=content,
     )
     record.logs.append(log)
-    print(f"[Agent] [{log_type.value.upper()}] {content}")
+
+    # Criar prefixo com card_id (primeiros 8 caracteres para brevidade)
+    card_id_short = record.card_id[:8] if len(record.card_id) > 8 else record.card_id
+
+    # Se o record tiver título, incluir também (limitado)
+    if hasattr(record, 'title') and record.title:
+        title_short = record.title[:25] + "..." if len(record.title) > 25 else record.title
+        card_prefix = f"[{card_id_short}|{title_short}]"
+    else:
+        card_prefix = f"[{card_id_short}]"
+
+    print(f"{card_prefix} [Agent] [{log_type.value.upper()}] {content}")
 
 
 def extract_spec_path(text: str) -> Optional[str]:
@@ -75,6 +86,7 @@ async def execute_plan(
     # Initialize execution record
     record = ExecutionRecord(
         cardId=card_id,
+        title=title,
         startedAt=datetime.now().isoformat(),
         status=ExecutionStatus.RUNNING,
         logs=[],
@@ -164,9 +176,13 @@ async def execute_implement(
     """Execute /implement command with the spec file path."""
     prompt = f"/implement {spec_path}"
 
+    # Usar spec_path como "título" para contexto visual
+    spec_name = Path(spec_path).stem  # Ex: "feature-x" de "specs/feature-x.md"
+
     # Initialize execution record
     record = ExecutionRecord(
         cardId=card_id,
+        title=f"impl:{spec_name}",  # Prefixo para indicar que é implement
         startedAt=datetime.now().isoformat(),
         status=ExecutionStatus.RUNNING,
         logs=[],
@@ -237,9 +253,13 @@ async def execute_test_implementation(
     """Execute /test-implementation command with the spec file path."""
     prompt = f"/test-implementation {spec_path}"
 
+    # Usar spec_path como "título" para contexto visual
+    spec_name = Path(spec_path).stem  # Ex: "feature-x" de "specs/feature-x.md"
+
     # Initialize execution record
     record = ExecutionRecord(
         cardId=card_id,
+        title=f"test:{spec_name}",  # Prefixo para indicar que é test
         startedAt=datetime.now().isoformat(),
         status=ExecutionStatus.RUNNING,
         logs=[],
@@ -310,9 +330,13 @@ async def execute_review(
     """Execute /review command with the spec file path."""
     prompt = f"/review {spec_path}"
 
+    # Usar spec_path como "título" para contexto visual
+    spec_name = Path(spec_path).stem  # Ex: "feature-x" de "specs/feature-x.md"
+
     # Initialize execution record
     record = ExecutionRecord(
         cardId=card_id,
+        title=f"review:{spec_name}",  # Prefixo para indicar que é review
         startedAt=datetime.now().isoformat(),
         status=ExecutionStatus.RUNNING,
         logs=[],

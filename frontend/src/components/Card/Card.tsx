@@ -11,10 +11,9 @@ interface CardProps {
   executionStatus?: ExecutionStatus;
   workflowStatus?: WorkflowStatus;
   onRunWorkflow?: (card: CardType) => void;
-  onArchive?: (archived: boolean) => void;
 }
 
-export function Card({ card, onRemove, isDragging = false, executionStatus, workflowStatus, onRunWorkflow, onArchive }: CardProps) {
+export function Card({ card, onRemove, isDragging = false, executionStatus, workflowStatus, onRunWorkflow }: CardProps) {
   const [isLogsOpen, setIsLogsOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: card.id,
@@ -39,7 +38,80 @@ export function Card({ card, onRemove, isDragging = false, executionStatus, work
   };
 
   const hasLogs = executionStatus && executionStatus.logs && executionStatus.logs.length > 0;
-  const isArchived = card.archived || false;
+
+  // Função helper para determinar a mensagem de execução
+  const getExecutionMessage = () => {
+    if (!executionStatus || executionStatus.status === 'idle') return null;
+
+    const { status } = executionStatus;
+    const stage = workflowStatus?.stage;
+
+    // Mapear stage para comando
+    const stageToCommand: Record<string, { running: string; success: string; error: string }> = {
+      planning: {
+        running: 'Executing /plan...',
+        success: 'Plan completed',
+        error: 'Plan failed',
+      },
+      implementing: {
+        running: 'Executing /implement...',
+        success: 'Implementation completed',
+        error: 'Implementation failed',
+      },
+      testing: {
+        running: 'Executing /test-implementation...',
+        success: 'Tests completed',
+        error: 'Tests failed',
+      },
+      reviewing: {
+        running: 'Executing /review...',
+        success: 'Review completed',
+        error: 'Review failed',
+      },
+    };
+
+    // Se temos workflowStatus.stage, usar ele para determinar a mensagem
+    if (stage && stage in stageToCommand) {
+      return stageToCommand[stage][status];
+    }
+
+    // Fallback: determinar com base na coluna do card (para execuções manuais)
+    const columnToCommand: Record<string, { running: string; success: string; error: string }> = {
+      plan: {
+        running: 'Executing /plan...',
+        success: 'Plan completed',
+        error: 'Plan failed',
+      },
+      'in-progress': {
+        running: 'Executing /implement...',
+        success: 'Implementation completed',
+        error: 'Implementation failed',
+      },
+      test: {
+        running: 'Executing /test-implementation...',
+        success: 'Tests completed',
+        error: 'Tests failed',
+      },
+      review: {
+        running: 'Executing /review...',
+        success: 'Review completed',
+        error: 'Review failed',
+      },
+    };
+
+    if (card.columnId in columnToCommand) {
+      return columnToCommand[card.columnId][status];
+    }
+
+    // Fallback genérico
+    const genericMessages: Record<string, string> = {
+      running: 'Executing...',
+      success: 'Execution completed',
+      error: 'Execution failed',
+    };
+
+    return genericMessages[status];
+  };
 
   const handleCardClick = (e: React.MouseEvent) => {
     // Only open logs if we have execution data
@@ -54,16 +126,11 @@ export function Card({ card, onRemove, isDragging = false, executionStatus, work
       <div
         ref={setNodeRef}
         style={style}
-        className={`${styles.card} ${isDragging ? styles.dragging : ''} ${isArchived ? styles.archived : ''} ${getStatusClass()} ${hasLogs ? styles.clickable : ''}`}
+        className={`${styles.card} ${isDragging ? styles.dragging : ''} ${getStatusClass()} ${hasLogs ? styles.clickable : ''}`}
         {...listeners}
         {...attributes}
         onClick={handleCardClick}
       >
-        {isArchived && (
-          <div className={styles.archivedBadge}>
-            📦 Archived
-          </div>
-        )}
         <div className={styles.content}>
           <h3 className={styles.title}>{card.title}</h3>
           {card.description && (
@@ -71,27 +138,36 @@ export function Card({ card, onRemove, isDragging = false, executionStatus, work
           )}
           {executionStatus && executionStatus.status !== 'idle' && (
             <div className={styles.executionStatus}>
-              {executionStatus.status === 'running' && (
-                <span className={styles.statusBadge}>
-                  <span className={styles.spinner} />
-                  Executing /plan...
-                </span>
-              )}
-              {executionStatus.status === 'success' && (
-                <span className={styles.statusBadge}>
-                  <span className={styles.checkIcon}>✓</span>
-                  Plan completed
-                </span>
-              )}
-              {executionStatus.status === 'error' && (
-                <span className={styles.statusBadge}>
-                  <span className={styles.errorIcon}>✗</span>
-                  Plan failed
-                </span>
-              )}
-              {hasLogs && (
-                <span className={styles.logsHint}>Click to view logs</span>
-              )}
+              {(() => {
+                const message = getExecutionMessage();
+                if (!message) return null;
+
+                return (
+                  <>
+                    {executionStatus.status === 'running' && (
+                      <span className={styles.statusBadge}>
+                        <span className={styles.spinner} />
+                        {message}
+                      </span>
+                    )}
+                    {executionStatus.status === 'success' && (
+                      <span className={styles.statusBadge}>
+                        <span className={styles.checkIcon}>✓</span>
+                        {message}
+                      </span>
+                    )}
+                    {executionStatus.status === 'error' && (
+                      <span className={styles.statusBadge}>
+                        <span className={styles.errorIcon}>✗</span>
+                        {message}
+                      </span>
+                    )}
+                    {hasLogs && (
+                      <span className={styles.logsHint}>Click to view logs</span>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
         </div>
@@ -149,19 +225,6 @@ export function Card({ card, onRemove, isDragging = false, executionStatus, work
             </span>
           </div>
         )}
-        {card.columnId === 'done' && onArchive && (
-          <button
-            className={styles.archiveButton}
-            onClick={(e) => {
-              e.stopPropagation();
-              onArchive(!isArchived);
-            }}
-            aria-label={isArchived ? 'Unarchive card' : 'Archive card'}
-            title={isArchived ? 'Restore this card' : 'Archive this card'}
-          >
-            {isArchived ? '↩️' : '📦'}
-          </button>
-        )}
         <button
           className={styles.removeButton}
           onClick={(e) => {
@@ -190,6 +253,8 @@ export function Card({ card, onRemove, isDragging = false, executionStatus, work
           title={card.title}
           status={executionStatus.status}
           logs={executionStatus.logs || []}
+          startedAt={executionStatus.startedAt}
+          completedAt={executionStatus.completedAt}
         />
       )}
     </>

@@ -12,7 +12,6 @@ interface CardResponse {
   description: string | null;
   columnId: ColumnId;
   specPath: string | null;
-  archived: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -34,15 +33,14 @@ function mapCardResponseToCard(response: CardResponse): Card {
     description: response.description || '',
     columnId: response.columnId,
     specPath: response.specPath || undefined,
-    archived: response.archived,
   };
 }
 
 /**
  * Fetch all cards from the API.
  */
-export async function fetchCards(includeArchived: boolean = false): Promise<Card[]> {
-  const url = `${API_BASE}/cards${includeArchived ? '?include_archived=true' : ''}`;
+export async function fetchCards(): Promise<Card[]> {
+  const url = `${API_BASE}/cards`;
   const response = await fetch(url);
 
   if (!response.ok) {
@@ -151,22 +149,3 @@ export async function updateSpecPath(cardId: string, specPath: string): Promise<
   return mapCardResponseToCard(data.card);
 }
 
-/**
- * Archive or unarchive a card.
- */
-export async function archiveCard(cardId: string, archived: boolean): Promise<Card> {
-  const response = await fetch(`${API_BASE}/cards/${cardId}/archive`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ archived }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to archive card: ${response.statusText}`);
-  }
-
-  const data: CardSingleResponse = await response.json();
-  return mapCardResponseToCard(data.card);
-}
