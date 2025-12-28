@@ -2,7 +2,7 @@
   "name": "orquestrator-agent",
   "private": true,
   "version": "1.0.0",
-  "description": "Kanban Board with Claude Agent integration",
+  "description": "Board Kanban com integração ao Claude Agent",
   "scripts": {
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:frontend": "npm run dev --prefix frontend",

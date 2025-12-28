@@ -46,6 +46,7 @@ class PlanResult(BaseModel):
     result: Optional[str] = None
     error: Optional[str] = None
     logs: list[ExecutionLog] = []
+    spec_path: Optional[str] = None  # Caminho do arquivo de spec gerado
 
 
 class ExecutePlanRequest(CamelCaseModel):
@@ -71,6 +72,46 @@ class ExecutionsResponse(BaseModel):
 
 
 class ExecutePlanResponse(CamelCaseModel):
+    success: bool
+    card_id: str = Field(alias="cardId")
+    result: Optional[str] = None
+    error: Optional[str] = None
+    logs: list[ExecutionLog] = []
+    spec_path: Optional[str] = Field(default=None, alias="specPath")
+
+
+class ExecuteImplementRequest(CamelCaseModel):
+    card_id: str = Field(alias="cardId")
+    spec_path: str = Field(alias="specPath")
+
+
+class ExecuteImplementResponse(CamelCaseModel):
+    success: bool
+    card_id: str = Field(alias="cardId")
+    result: Optional[str] = None
+    error: Optional[str] = None
+    logs: list[ExecutionLog] = []
+
+
+class ExecuteTestRequest(CamelCaseModel):
+    card_id: str = Field(alias="cardId")
+    spec_path: str = Field(alias="specPath")
+
+
+class ExecuteTestResponse(CamelCaseModel):
+    success: bool
+    card_id: str = Field(alias="cardId")
+    result: Optional[str] = None
+    error: Optional[str] = None
+    logs: list[ExecutionLog] = []
+
+
+class ExecuteReviewRequest(CamelCaseModel):
+    card_id: str = Field(alias="cardId")
+    spec_path: str = Field(alias="specPath")
+
+
+class ExecuteReviewResponse(CamelCaseModel):
     success: bool
     card_id: str = Field(alias="cardId")
     result: Optional[str] = None

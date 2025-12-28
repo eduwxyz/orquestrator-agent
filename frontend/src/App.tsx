@@ -1,16 +1,65 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { Card as CardType, ColumnId, COLUMNS } from './types';
+import { Card as CardType, ColumnId, COLUMNS, isValidTransition } from './types';
 import { Board } from './components/Board/Board';
 import { Card } from './components/Card/Card';
 import { useAgentExecution } from './hooks/useAgentExecution';
+import { useWorkflowAutomation } from './hooks/useWorkflowAutomation';
+import * as cardsApi from './api/cards';
 import styles from './App.module.css';
 
 function App() {
   const [cards, setCards] = useState<CardType[]>([]);
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showArchived, setShowArchived] = useState(false);
   const dragStartColumnRef = useRef<ColumnId | null>(null);
-  const { executePlan, getExecutionStatus } = useAgentExecution();
+  const { executePlan, executeImplement, executeTest, executeReview, getExecutionStatus } = useAgentExecution();
+
+  // Define moveCard and updateCardSpecPath BEFORE useWorkflowAutomation
+  const moveCard = (cardId: string, newColumnId: ColumnId) => {
+    setCards(prev =>
+      prev.map(card =>
+        card.id === cardId ? { ...card, columnId: newColumnId } : card
+      )
+    );
+  };
+
+  const updateCardSpecPath = (cardId: string, specPath: string) => {
+    setCards(prev =>
+      prev.map(card =>
+        card.id === cardId ? { ...card, specPath } : card
+      )
+    );
+  };
+
+  const {
+    runWorkflow,
+    getWorkflowStatus,
+    clearWorkflowStatus,
+  } = useWorkflowAutomation({
+    executePlan,
+    executeImplement,
+    executeTest,
+    executeReview,
+    onCardMove: moveCard,
+    onSpecPathUpdate: updateCardSpecPath,
+  });
+
+  // Load cards from API on mount
+  useEffect(() => {
+    const loadCards = async () => {
+      try {
+        const loadedCards = await cardsApi.fetchCards(showArchived);
+        setCards(loadedCards);
+      } catch (error) {
+        console.error('[App] Failed to load cards:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadCards();
+  }, [showArchived]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -20,31 +69,44 @@ function App() {
     })
   );
 
-  const addCard = (title: string, description: string, columnId: ColumnId) => {
+  const addCard = async (title: string, description: string, columnId: ColumnId) => {
     if (columnId !== 'backlog') {
       console.warn('Cards só podem ser criados na raia backlog');
       return;
     }
 
-    const newCard: CardType = {
-      id: crypto.randomUUID(),
-      title,
-      description,
-      columnId,
-    };
-    setCards(prev => [...prev, newCard]);
+    try {
+      const newCard = await cardsApi.createCard(title, description);
+      setCards(prev => [...prev, newCard]);
+    } catch (error) {
+      console.error('[App] Failed to create card:', error);
+      alert('Falha ao criar card. Verifique se o servidor está rodando.');
+    }
   };
 
-  const removeCard = (cardId: string) => {
-    setCards(prev => prev.filter(card => card.id !== cardId));
+  const removeCard = async (cardId: string) => {
+    try {
+      await cardsApi.deleteCard(cardId);
+      setCards(prev => prev.filter(card => card.id !== cardId));
+    } catch (error) {
+      console.error('[App] Failed to delete card:', error);
+      alert('Falha ao remover card.');
+    }
   };
 
-  const moveCard = (cardId: string, newColumnId: ColumnId) => {
-    setCards(prev =>
-      prev.map(card =>
-        card.id === cardId ? { ...card, columnId: newColumnId } : card
-      )
-    );
+  const toggleArchiveCard = async (cardId: string, archived: boolean) => {
+    try {
+      await cardsApi.archiveCard(cardId, archived);
+      // Atualizar estado local
+      setCards(prev =>
+        prev.map(card =>
+          card.id === cardId ? { ...card, archived } : card
+        )
+      );
+    } catch (error) {
+      console.error('[App] Failed to archive card:', error);
+      alert('Falha ao arquivar card.');
+    }
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -62,47 +124,54 @@ function App() {
 
     const activeId = active.id as string;
     const overId = over.id as string;
+    const startColumn = dragStartColumnRef.current;
 
-    const activeCard = cards.find(c => c.id === activeId);
-    if (!activeCard) return;
+    const activeCardData = cards.find(c => c.id === activeId);
+    if (!activeCardData || !startColumn) return;
 
     // Check if we're over a column
     const isOverColumn = COLUMNS.some(col => col.id === overId);
     if (isOverColumn) {
       const newColumnId = overId as ColumnId;
-      if (activeCard.columnId !== newColumnId) {
-        moveCard(activeId, newColumnId);
+      // Só move visualmente se for uma transição válida ou mesma coluna
+      if (activeCardData.columnId !== newColumnId) {
+        if (isValidTransition(startColumn, newColumnId)) {
+          moveCard(activeId, newColumnId);
+        }
       }
       return;
     }
 
     // Check if we're over another card
     const overCard = cards.find(c => c.id === overId);
-    if (overCard && activeCard.columnId !== overCard.columnId) {
-      moveCard(activeId, overCard.columnId);
+    if (overCard && activeCardData.columnId !== overCard.columnId) {
+      if (isValidTransition(startColumn, overCard.columnId)) {
+        moveCard(activeId, overCard.columnId);
+      }
     }
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     const startColumn = dragStartColumnRef.current;
     setActiveCard(null);
     dragStartColumnRef.current = null;
 
-    if (!over) return;
+    if (!over || !startColumn) return;
 
     const activeId = active.id as string;
     const overId = over.id as string;
 
     // Get the card and determine final column
     const card = cards.find(c => c.id === activeId);
+    if (!card) return;
+
     let finalColumnId: ColumnId | null = null;
 
     // Check if dropped on a column
     const isOverColumn = COLUMNS.some(col => col.id === overId);
     if (isOverColumn) {
       finalColumnId = overId as ColumnId;
-      moveCard(activeId, finalColumnId);
     } else {
       // Dropped on another card - get that card's column
       const overCard = cards.find(c => c.id === overId);
@@ -111,17 +180,90 @@ function App() {
       }
     }
 
-    // Detect backlog → plan transition and trigger /plan execution
-    if (card && startColumn === 'backlog' && finalColumnId === 'plan') {
+    if (!finalColumnId || finalColumnId === startColumn) return;
+
+    // Validar transição SDLC
+    if (!isValidTransition(startColumn, finalColumnId)) {
+      // Reverter para coluna original
+      moveCard(activeId, startColumn);
+      alert(`Transição inválida: ${startColumn} → ${finalColumnId}.\nSiga o fluxo SDLC: backlog → plan → in-progress → test → review → done`);
+      return;
+    }
+
+    // Mover card para a coluna final (visual update)
+    moveCard(activeId, finalColumnId);
+
+    // Persist move to API
+    try {
+      await cardsApi.moveCard(activeId, finalColumnId);
+    } catch (error) {
+      console.error('[App] Failed to persist move:', error);
+      moveCard(activeId, startColumn);
+      alert('Falha ao mover card. Verifique se o servidor está rodando.');
+      return;
+    }
+
+    // Triggers baseados na transição
+    if (startColumn === 'backlog' && finalColumnId === 'plan') {
       console.log(`[App] Card moved from backlog to plan: ${card.title}`);
-      executePlan(card);
+      const result = await executePlan(card);
+      if (result.success && result.specPath) {
+        updateCardSpecPath(card.id, result.specPath);
+        console.log(`[App] Spec path saved: ${result.specPath}`);
+      }
+    } else if (startColumn === 'plan' && finalColumnId === 'in-progress') {
+      // Buscar o card atualizado (pode ter specPath agora)
+      const updatedCard = cards.find(c => c.id === activeId);
+      if (updatedCard?.specPath) {
+        console.log(`[App] Card moved from plan to in-progress: ${updatedCard.title}`);
+        console.log(`[App] Executing /implement with spec: ${updatedCard.specPath}`);
+        executeImplement(updatedCard);
+      } else {
+        alert('Este card não possui um plano associado. Execute primeiro a etapa de planejamento.');
+        moveCard(activeId, startColumn);
+      }
+    } else if (startColumn === 'in-progress' && finalColumnId === 'test') {
+      // Trigger: in-progress → test - Executar /test-implementation
+      const updatedCard = cards.find(c => c.id === activeId);
+      if (updatedCard?.specPath) {
+        console.log(`[App] Card moved from in-progress to test: ${updatedCard.title}`);
+        console.log(`[App] Executing /test-implementation with spec: ${updatedCard.specPath}`);
+        executeTest(updatedCard);
+      } else {
+        alert('Este card não possui um plano associado. Execute primeiro a etapa de planejamento.');
+        moveCard(activeId, startColumn);
+      }
+    } else if (startColumn === 'test' && finalColumnId === 'review') {
+      // Trigger: test → review - Executar /review
+      const updatedCard = cards.find(c => c.id === activeId);
+      if (updatedCard?.specPath) {
+        console.log(`[App] Card moved from test to review: ${updatedCard.title}`);
+        console.log(`[App] Executing /review with spec: ${updatedCard.specPath}`);
+        executeReview(updatedCard);
+      } else {
+        alert('Este card não possui um plano associado. Execute primeiro a etapa de planejamento.');
+        moveCard(activeId, startColumn);
+      }
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className={styles.app}>
+        <header className={styles.header}>
+          <h1 className={styles.title}>Board Kanban</h1>
+        </header>
+        <main className={styles.main}>
+          <p>Carregando cards...</p>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.app}>
       <header className={styles.header}>
-        <h1 className={styles.title}>Kanban Board</h1>
+        <h1 className={styles.title}>Board Kanban</h1>
       </header>
       <main className={styles.main}>
         <DndContext
@@ -137,6 +279,11 @@ function App() {
             onAddCard={addCard}
             onRemoveCard={removeCard}
             getExecutionStatus={getExecutionStatus}
+            getWorkflowStatus={getWorkflowStatus}
+            onRunWorkflow={runWorkflow}
+            showArchived={showArchived}
+            onToggleShowArchived={() => setShowArchived(!showArchived)}
+            onArchiveCard={toggleArchiveCard}
           />
           <DragOverlay>
             {activeCard ? (

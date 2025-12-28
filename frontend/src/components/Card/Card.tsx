@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
-import { Card as CardType, ExecutionStatus } from '../../types';
+import { Card as CardType, ExecutionStatus, WorkflowStatus } from '../../types';
 import { LogsModal } from '../LogsModal';
 import styles from './Card.module.css';
 
@@ -9,13 +9,18 @@ interface CardProps {
   onRemove: () => void;
   isDragging?: boolean;
   executionStatus?: ExecutionStatus;
+  workflowStatus?: WorkflowStatus;
+  onRunWorkflow?: (card: CardType) => void;
+  onArchive?: (archived: boolean) => void;
 }
 
-export function Card({ card, onRemove, isDragging = false, executionStatus }: CardProps) {
+export function Card({ card, onRemove, isDragging = false, executionStatus, workflowStatus, onRunWorkflow, onArchive }: CardProps) {
   const [isLogsOpen, setIsLogsOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: card.id,
   });
+
+  const isRunning = workflowStatus && workflowStatus.stage !== 'idle' && workflowStatus.stage !== 'completed';
 
   const style = transform
     ? {
@@ -34,6 +39,7 @@ export function Card({ card, onRemove, isDragging = false, executionStatus }: Ca
   };
 
   const hasLogs = executionStatus && executionStatus.logs && executionStatus.logs.length > 0;
+  const isArchived = card.archived || false;
 
   const handleCardClick = (e: React.MouseEvent) => {
     // Only open logs if we have execution data
@@ -48,11 +54,16 @@ export function Card({ card, onRemove, isDragging = false, executionStatus }: Ca
       <div
         ref={setNodeRef}
         style={style}
-        className={`${styles.card} ${isDragging ? styles.dragging : ''} ${getStatusClass()} ${hasLogs ? styles.clickable : ''}`}
+        className={`${styles.card} ${isDragging ? styles.dragging : ''} ${isArchived ? styles.archived : ''} ${getStatusClass()} ${hasLogs ? styles.clickable : ''}`}
         {...listeners}
         {...attributes}
         onClick={handleCardClick}
       >
+        {isArchived && (
+          <div className={styles.archivedBadge}>
+            📦 Archived
+          </div>
+        )}
         <div className={styles.content}>
           <h3 className={styles.title}>{card.title}</h3>
           {card.description && (
@@ -84,6 +95,73 @@ export function Card({ card, onRemove, isDragging = false, executionStatus }: Ca
             </div>
           )}
         </div>
+        {card.columnId === 'backlog' && !isRunning && (
+          <button
+            className={styles.runButton}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRunWorkflow?.(card);
+            }}
+            aria-label="Run workflow"
+            title="Executar workflow completo automaticamente"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+            >
+              <path d="M4 2l10 6-10 6V2z" />
+            </svg>
+            Run
+          </button>
+        )}
+        {card.columnId === 'done' && (
+          <button
+            className={styles.createPrButton}
+            onClick={(e) => {
+              e.stopPropagation();
+              // Placeholder: funcionalidade será implementada futuramente
+            }}
+            aria-label="Create Pull Request"
+            title="Criar Pull Request para esta feature"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+            >
+              <path d="M13 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm0-1a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM3 13a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm0-1a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0-10a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM3 1a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm9.5 4.5V8h-1V5.5h1zM4 4.5v7h-1v-7h1zm8.5 8V10h1v2.5a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 0-1.5 1.5v.5h-1v-.5A2.5 2.5 0 0 1 5 13h7a.5.5 0 0 0 .5-.5z"/>
+            </svg>
+            Create PR
+          </button>
+        )}
+        {workflowStatus && workflowStatus.stage !== 'idle' && (
+          <div className={styles.workflowProgress}>
+            <span className={styles.progressBadge}>
+              {workflowStatus.stage === 'planning' && '📋 Planning...'}
+              {workflowStatus.stage === 'implementing' && '⚙️ Implementing...'}
+              {workflowStatus.stage === 'testing' && '🧪 Testing...'}
+              {workflowStatus.stage === 'reviewing' && '👁️ Reviewing...'}
+              {workflowStatus.stage === 'completed' && '✅ Completed'}
+              {workflowStatus.stage === 'error' && '❌ Failed'}
+            </span>
+          </div>
+        )}
+        {card.columnId === 'done' && onArchive && (
+          <button
+            className={styles.archiveButton}
+            onClick={(e) => {
+              e.stopPropagation();
+              onArchive(!isArchived);
+            }}
+            aria-label={isArchived ? 'Unarchive card' : 'Archive card'}
+            title={isArchived ? 'Restore this card' : 'Archive this card'}
+          >
+            {isArchived ? '↩️' : '📦'}
+          </button>
+        )}
         <button
           className={styles.removeButton}
           onClick={(e) => {

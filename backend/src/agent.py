@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -8,6 +9,7 @@ from claude_agent_sdk import (
     AssistantMessage,
     TextBlock,
     ToolUseBlock,
+    ToolResultBlock,
     ResultMessage,
 )
 
@@ -44,6 +46,23 @@ def add_log(record: ExecutionRecord, log_type: LogType, content: str) -> None:
     print(f"[Agent] [{log_type.value.upper()}] {content}")
 
 
+def extract_spec_path(text: str) -> Optional[str]:
+    """Extrai o caminho do arquivo de spec do texto de resultado."""
+    # Padrões comuns para detectar criação de arquivo de spec
+    patterns = [
+        r"specs/[\w\-]+\.md",
+        r"created.*?(specs/[\w\-]+\.md)",
+        r"saved.*?(specs/[\w\-]+\.md)",
+        r"File created.*?(specs/[\w\-]+\.md)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            # Retorna o grupo 1 se existir, senão o match completo
+            return match.group(1) if match.lastindex else match.group(0)
+    return None
+
+
 async def execute_plan(
     card_id: str,
     title: str,
@@ -67,6 +86,7 @@ async def execute_plan(
     add_log(record, LogType.INFO, f"Prompt: {prompt}")
 
     result_text = ""
+    spec_path: Optional[str] = None
 
     try:
         # Configure agent options
@@ -85,6 +105,96 @@ async def execute_plan(
                     if isinstance(block, TextBlock):
                         add_log(record, LogType.TEXT, block.text)
                         result_text += block.text + "\n"
+                        # Tentar extrair spec_path do texto
+                        if not spec_path:
+                            spec_path = extract_spec_path(block.text)
+                    elif isinstance(block, ToolUseBlock):
+                        add_log(record, LogType.TOOL, f"Using tool: {block.name}")
+                        # Se for Write tool, captura o file_path
+                        if block.name == "Write" and hasattr(block, "input"):
+                            tool_input = block.input
+                            if isinstance(tool_input, dict) and "file_path" in tool_input:
+                                file_path = tool_input["file_path"]
+                                if "specs/" in file_path and file_path.endswith(".md"):
+                                    spec_path = file_path
+                                    add_log(record, LogType.INFO, f"Spec file detected: {spec_path}")
+
+            elif isinstance(message, ResultMessage):
+                if hasattr(message, "result") and message.result:
+                    result_text = message.result
+                    add_log(record, LogType.RESULT, message.result)
+                    # Tentar extrair spec_path do resultado
+                    if not spec_path:
+                        spec_path = extract_spec_path(message.result)
+
+        # Mark as success
+        record.completed_at = datetime.now().isoformat()
+        record.status = ExecutionStatus.SUCCESS
+        record.result = result_text
+        add_log(record, LogType.INFO, "Plan execution completed successfully")
+        if spec_path:
+            add_log(record, LogType.INFO, f"Spec path: {spec_path}")
+
+        return PlanResult(
+            success=True,
+            result=result_text,
+            logs=record.logs,
+            spec_path=spec_path,
+        )
+
+    except Exception as e:
+        error_message = str(e)
+        record.completed_at = datetime.now().isoformat()
+        record.status = ExecutionStatus.ERROR
+        record.result = error_message
+        add_log(record, LogType.ERROR, f"Execution error: {error_message}")
+
+        return PlanResult(
+            success=False,
+            error=error_message,
+            logs=record.logs,
+        )
+
+
+async def execute_implement(
+    card_id: str,
+    spec_path: str,
+    cwd: str,
+) -> PlanResult:
+    """Execute /implement command with the spec file path."""
+    prompt = f"/implement {spec_path}"
+
+    # Initialize execution record
+    record = ExecutionRecord(
+        cardId=card_id,
+        startedAt=datetime.now().isoformat(),
+        status=ExecutionStatus.RUNNING,
+        logs=[],
+    )
+    executions[card_id] = record
+
+    add_log(record, LogType.INFO, f"Starting implementation for: {spec_path}")
+    add_log(record, LogType.INFO, f"Working directory: {cwd}")
+    add_log(record, LogType.INFO, f"Prompt: {prompt}")
+
+    result_text = ""
+
+    try:
+        # Configure agent options
+        options = ClaudeAgentOptions(
+            cwd=Path(cwd),
+            setting_sources=["user", "project"],
+            allowed_tools=["Skill", "Read", "Write", "Edit", "Bash", "Glob", "Grep", "TodoWrite"],
+            permission_mode="acceptEdits",
+        )
+
+        # Execute using claude-agent-sdk
+        async for message in query(prompt=prompt, options=options):
+            if isinstance(message, AssistantMessage):
+                for block in message.content:
+                    if isinstance(block, TextBlock):
+                        add_log(record, LogType.TEXT, block.text)
+                        result_text += block.text + "\n"
                     elif isinstance(block, ToolUseBlock):
                         add_log(record, LogType.TOOL, f"Using tool: {block.name}")
 
@@ -97,7 +207,153 @@ async def execute_plan(
         record.completed_at = datetime.now().isoformat()
         record.status = ExecutionStatus.SUCCESS
         record.result = result_text
-        add_log(record, LogType.INFO, "Plan execution completed successfully")
+        add_log(record, LogType.INFO, "Implementation completed successfully")
+
+        return PlanResult(
+            success=True,
+            result=result_text,
+            logs=record.logs,
+        )
+
+    except Exception as e:
+        error_message = str(e)
+        record.completed_at = datetime.now().isoformat()
+        record.status = ExecutionStatus.ERROR
+        record.result = error_message
+        add_log(record, LogType.ERROR, f"Execution error: {error_message}")
+
+        return PlanResult(
+            success=False,
+            error=error_message,
+            logs=record.logs,
+        )
+
+
+async def execute_test_implementation(
+    card_id: str,
+    spec_path: str,
+    cwd: str,
+) -> PlanResult:
+    """Execute /test-implementation command with the spec file path."""
+    prompt = f"/test-implementation {spec_path}"
+
+    # Initialize execution record
+    record = ExecutionRecord(
+        cardId=card_id,
+        startedAt=datetime.now().isoformat(),
+        status=ExecutionStatus.RUNNING,
+        logs=[],
+    )
+    executions[card_id] = record
+
+    add_log(record, LogType.INFO, f"Starting test-implementation for: {spec_path}")
+    add_log(record, LogType.INFO, f"Working directory: {cwd}")
+    add_log(record, LogType.INFO, f"Prompt: {prompt}")
+
+    result_text = ""
+
+    try:
+        # Configure agent options
+        options = ClaudeAgentOptions(
+            cwd=Path(cwd),
+            setting_sources=["user", "project"],
+            allowed_tools=["Skill", "Read", "Write", "Edit", "Bash", "Glob", "Grep", "TodoWrite"],
+            permission_mode="acceptEdits",
+        )
+
+        # Execute using claude-agent-sdk
+        async for message in query(prompt=prompt, options=options):
+            if isinstance(message, AssistantMessage):
+                for block in message.content:
+                    if isinstance(block, TextBlock):
+                        add_log(record, LogType.TEXT, block.text)
+                        result_text += block.text + "\n"
+                    elif isinstance(block, ToolUseBlock):
+                        add_log(record, LogType.TOOL, f"Using tool: {block.name}")
+
+            elif isinstance(message, ResultMessage):
+                if hasattr(message, "result") and message.result:
+                    result_text = message.result
+                    add_log(record, LogType.RESULT, message.result)
+
+        # Mark as success
+        record.completed_at = datetime.now().isoformat()
+        record.status = ExecutionStatus.SUCCESS
+        record.result = result_text
+        add_log(record, LogType.INFO, "Test-implementation completed successfully")
+
+        return PlanResult(
+            success=True,
+            result=result_text,
+            logs=record.logs,
+        )
+
+    except Exception as e:
+        error_message = str(e)
+        record.completed_at = datetime.now().isoformat()
+        record.status = ExecutionStatus.ERROR
+        record.result = error_message
+        add_log(record, LogType.ERROR, f"Execution error: {error_message}")
+
+        return PlanResult(
+            success=False,
+            error=error_message,
+            logs=record.logs,
+        )
+
+
+async def execute_review(
+    card_id: str,
+    spec_path: str,
+    cwd: str,
+) -> PlanResult:
+    """Execute /review command with the spec file path."""
+    prompt = f"/review {spec_path}"
+
+    # Initialize execution record
+    record = ExecutionRecord(
+        cardId=card_id,
+        startedAt=datetime.now().isoformat(),
+        status=ExecutionStatus.RUNNING,
+        logs=[],
+    )
+    executions[card_id] = record
+
+    add_log(record, LogType.INFO, f"Starting review for: {spec_path}")
+    add_log(record, LogType.INFO, f"Working directory: {cwd}")
+    add_log(record, LogType.INFO, f"Prompt: {prompt}")
+
+    result_text = ""
+
+    try:
+        # Configure agent options
+        options = ClaudeAgentOptions(
+            cwd=Path(cwd),
+            setting_sources=["user", "project"],
+            allowed_tools=["Skill", "Read", "Write", "Edit", "Bash", "Glob", "Grep", "TodoWrite"],
+            permission_mode="acceptEdits",
+        )
+
+        # Execute using claude-agent-sdk
+        async for message in query(prompt=prompt, options=options):
+            if isinstance(message, AssistantMessage):
+                for block in message.content:
+                    if isinstance(block, TextBlock):
+                        add_log(record, LogType.TEXT, block.text)
+                        result_text += block.text + "\n"
+                    elif isinstance(block, ToolUseBlock):
+                        add_log(record, LogType.TOOL, f"Using tool: {block.name}")
+
+            elif isinstance(message, ResultMessage):
+                if hasattr(message, "result") and message.result:
+                    result_text = message.result
+                    add_log(record, LogType.RESULT, message.result)
+
+        # Mark as success
+        record.completed_at = datetime.now().isoformat()
+        record.status = ExecutionStatus.SUCCESS
+        record.result = result_text
+        add_log(record, LogType.INFO, "Review completed successfully")
 
         return PlanResult(
             success=True,
