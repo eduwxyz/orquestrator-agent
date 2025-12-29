@@ -12,7 +12,7 @@ function App() {
   const [cards, setCards] = useState<CardType[]>([]);
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showArchived, setShowArchived] = useState(false);
+  const [isArchivedCollapsed, setIsArchivedCollapsed] = useState(false);
   const dragStartColumnRef = useRef<ColumnId | null>(null);
   const { executePlan, executeImplement, executeTest, executeReview, getExecutionStatus } = useAgentExecution();
 
@@ -50,7 +50,7 @@ function App() {
   useEffect(() => {
     const loadCards = async () => {
       try {
-        const loadedCards = await cardsApi.fetchCards(showArchived);
+        const loadedCards = await cardsApi.fetchCards();
         setCards(loadedCards);
       } catch (error) {
         console.error('[App] Failed to load cards:', error);
@@ -59,7 +59,7 @@ function App() {
       }
     };
     loadCards();
-  }, [showArchived]);
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -91,21 +91,6 @@ function App() {
     } catch (error) {
       console.error('[App] Failed to delete card:', error);
       alert('Falha ao remover card.');
-    }
-  };
-
-  const toggleArchiveCard = async (cardId: string, archived: boolean) => {
-    try {
-      await cardsApi.archiveCard(cardId, archived);
-      // Atualizar estado local
-      setCards(prev =>
-        prev.map(card =>
-          card.id === cardId ? { ...card, archived } : card
-        )
-      );
-    } catch (error) {
-      console.error('[App] Failed to archive card:', error);
-      alert('Falha ao arquivar card.');
     }
   };
 
@@ -281,9 +266,8 @@ function App() {
             getExecutionStatus={getExecutionStatus}
             getWorkflowStatus={getWorkflowStatus}
             onRunWorkflow={runWorkflow}
-            showArchived={showArchived}
-            onToggleShowArchived={() => setShowArchived(!showArchived)}
-            onArchiveCard={toggleArchiveCard}
+            isArchivedCollapsed={isArchivedCollapsed}
+            onToggleArchivedCollapse={() => setIsArchivedCollapsed(!isArchivedCollapsed)}
           />
           <DragOverlay>
             {activeCard ? (

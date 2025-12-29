@@ -17,7 +17,8 @@ ALLOWED_TRANSITIONS: dict[str, list[str]] = {
     "in-progress": ["test"],
     "test": ["review"],
     "review": ["done"],
-    "done": [],
+    "done": ["archived"],
+    "archived": ["done"],
 }
 
 
@@ -27,12 +28,9 @@ class CardRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_all(self, include_archived: bool = False) -> list[Card]:
-        """Get all cards ordered by creation date, optionally including archived ones."""
-        query = select(Card)
-        if not include_archived:
-            query = query.filter(Card.archived == False)
-        query = query.order_by(Card.created_at)
+    async def get_all(self, include_archived: bool = True) -> list[Card]:
+        """Get all cards ordered by creation date."""
+        query = select(Card).order_by(Card.created_at)
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
@@ -114,13 +112,3 @@ class CardRepository:
         await self.session.refresh(card)
         return card
 
-    async def archive_card(self, card_id: str, archived: bool) -> Optional[Card]:
-        """Archive or unarchive a card."""
-        card = await self.get_by_id(card_id)
-        if not card:
-            return None
-
-        card.archived = archived
-        await self.session.flush()
-        await self.session.refresh(card)
-        return card

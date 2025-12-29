@@ -10,29 +10,31 @@ interface BoardProps {
   getExecutionStatus?: (cardId: string) => ExecutionStatus | undefined;
   getWorkflowStatus?: (cardId: string) => WorkflowStatus | undefined;
   onRunWorkflow?: (card: CardType) => void;
-  showArchived?: boolean;
-  onToggleShowArchived?: () => void;
-  onArchiveCard?: (cardId: string, archived: boolean) => void;
+  isArchivedCollapsed?: boolean;
+  onToggleArchivedCollapse?: () => void;
 }
 
-export function Board({ columns, cards, onAddCard, onRemoveCard, getExecutionStatus, getWorkflowStatus, onRunWorkflow, showArchived, onToggleShowArchived, onArchiveCard }: BoardProps) {
+export function Board({ columns, cards, onAddCard, onRemoveCard, getExecutionStatus, getWorkflowStatus, onRunWorkflow, isArchivedCollapsed, onToggleArchivedCollapse }: BoardProps) {
   return (
     <div className={styles.board}>
-      {columns.map(column => (
-        <Column
-          key={column.id}
-          column={column}
-          cards={cards.filter(card => card.columnId === column.id)}
-          onAddCard={onAddCard}
-          onRemoveCard={onRemoveCard}
-          getExecutionStatus={getExecutionStatus}
-          getWorkflowStatus={getWorkflowStatus}
-          onRunWorkflow={onRunWorkflow}
-          showArchived={showArchived}
-          onToggleShowArchived={onToggleShowArchived}
-          onArchiveCard={onArchiveCard}
-        />
-      ))}
+      {columns.map(column => {
+        const isArchived = column.id === 'archived';
+
+        return (
+          <Column
+            key={column.id}
+            column={column}
+            cards={cards.filter(card => card.columnId === column.id)}
+            onAddCard={onAddCard}
+            onRemoveCard={onRemoveCard}
+            getExecutionStatus={getExecutionStatus}
+            getWorkflowStatus={getWorkflowStatus}
+            onRunWorkflow={onRunWorkflow}
+            isCollapsed={isArchived ? isArchivedCollapsed : false}
+            onToggleCollapse={isArchived ? onToggleArchivedCollapse : undefined}
+          />
+        );
+      })}
     </div>
   );
 }

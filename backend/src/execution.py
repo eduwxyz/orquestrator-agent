@@ -34,6 +34,7 @@ class ExecutionLog(BaseModel):
 
 class ExecutionRecord(CamelCaseModel):
     card_id: str = Field(alias="cardId")
+    title: Optional[str] = None
     started_at: str = Field(alias="startedAt")
     completed_at: Optional[str] = Field(default=None, alias="completedAt")
     status: ExecutionStatus

@@ -6,7 +6,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 
-ColumnId = Literal["backlog", "plan", "in-progress", "test", "review", "done"]
+ColumnId = Literal["backlog", "plan", "in-progress", "test", "review", "done", "archived"]
 
 
 class CardBase(BaseModel):
@@ -61,10 +61,6 @@ class CardResponse(BaseModel):
         from_attributes = True
 
 
-class CardArchive(BaseModel):
-    """Schema for archiving/unarchiving a card."""
-
-    archived: bool
 
 
 class CardsListResponse(BaseModel):
