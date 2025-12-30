@@ -2,19 +2,24 @@ import { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { Card as CardType, ExecutionStatus, WorkflowStatus } from '../../types';
 import { LogsModal } from '../LogsModal';
+import { CardEditModal } from '../CardEditModal';
+import { removeImage } from '../../utils/imageHandler';
 import styles from './Card.module.css';
 
 interface CardProps {
   card: CardType;
   onRemove: () => void;
+  onUpdateCard?: (card: CardType) => void;
   isDragging?: boolean;
   executionStatus?: ExecutionStatus;
   workflowStatus?: WorkflowStatus;
   onRunWorkflow?: (card: CardType) => void;
 }
 
-export function Card({ card, onRemove, isDragging = false, executionStatus, workflowStatus, onRunWorkflow }: CardProps) {
+export function Card({ card, onRemove, onUpdateCard, isDragging = false, executionStatus, workflowStatus, onRunWorkflow }: CardProps) {
   const [isLogsOpen, setIsLogsOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [removingImageId, setRemovingImageId] = useState<string | null>(null);
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: card.id,
   });
@@ -38,6 +43,26 @@ export function Card({ card, onRemove, isDragging = false, executionStatus, work
   };
 
   const hasLogs = executionStatus && executionStatus.logs && executionStatus.logs.length > 0;
+
+  const handleRemoveImage = async (imageId: string) => {
+    try {
+      setRemovingImageId(imageId);
+      await removeImage(imageId);
+
+      // Atualizar o card removendo a imagem
+      if (onUpdateCard && card.images) {
+        const updatedCard = {
+          ...card,
+          images: card.images.filter(img => img.id !== imageId)
+        };
+        onUpdateCard(updatedCard);
+      }
+    } catch (error) {
+      console.error('Failed to remove image:', error);
+    } finally {
+      setRemovingImageId(null);
+    }
+  };
 
   // Função helper para determinar a mensagem de execução
   const getExecutionMessage = () => {
@@ -113,28 +138,43 @@ export function Card({ card, onRemove, isDragging = false, executionStatus, work
     return genericMessages[status];
   };
 
-  const handleCardClick = (e: React.MouseEvent) => {
-    // Only open logs if we have execution data
-    if (executionStatus && executionStatus.status !== 'idle') {
-      e.stopPropagation();
-      setIsLogsOpen(true);
-    }
-  };
-
   return (
     <>
       <div
         ref={setNodeRef}
         style={style}
-        className={`${styles.card} ${isDragging ? styles.dragging : ''} ${getStatusClass()} ${hasLogs ? styles.clickable : ''}`}
+        className={`${styles.card} ${isDragging ? styles.dragging : ''} ${getStatusClass()}`}
         {...listeners}
         {...attributes}
-        onClick={handleCardClick}
       >
         <div className={styles.content}>
           <h3 className={styles.title}>{card.title}</h3>
           {card.description && (
             <p className={styles.description}>{card.description}</p>
+          )}
+          {card.images && card.images.length > 0 && (
+            <div className={styles.imagePreview}>
+              {card.images.map(image => (
+                <div key={image.id} className={styles.imageThumb}>
+                  <img
+                    src={`http://localhost:3001/api/images/${image.id}`}
+                    alt={image.filename}
+                    title={image.filename}
+                  />
+                  <button
+                    className={styles.removeImageButton}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveImage(image.id);
+                    }}
+                    disabled={removingImageId === image.id}
+                    aria-label={`Remove ${image.filename}`}
+                  >
+                    {removingImageId === image.id ? '...' : '✕'}
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
           {executionStatus && executionStatus.status !== 'idle' && (
             <div className={styles.executionStatus}>
@@ -163,7 +203,23 @@ export function Card({ card, onRemove, isDragging = false, executionStatus, work
                       </span>
                     )}
                     {hasLogs && (
-                      <span className={styles.logsHint}>Click to view logs</span>
+                      <button
+                        className={styles.viewLogsButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsLogsOpen(true);
+                        }}
+                        aria-label="View execution logs"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <polyline points="14 2 14 8 20 8"/>
+                          <line x1="16" y1="13" x2="8" y2="13"/>
+                          <line x1="16" y1="17" x2="8" y2="17"/>
+                          <line x1="10" y1="9" x2="8" y2="9"/>
+                        </svg>
+                        View Logs
+                      </button>
                     )}
                   </>
                 );
@@ -226,6 +282,27 @@ export function Card({ card, onRemove, isDragging = false, executionStatus, work
           </div>
         )}
         <button
+          className={styles.editButton}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsEditOpen(true);
+          }}
+          aria-label="Edit card"
+          title="Edit card (add images)"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 14 14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
+            <path d="M10.5 1.5l2 2-8 8H2.5v-2l8-8z" />
+          </svg>
+        </button>
+        <button
           className={styles.removeButton}
           onClick={(e) => {
             e.stopPropagation();
@@ -255,6 +332,14 @@ export function Card({ card, onRemove, isDragging = false, executionStatus, work
           logs={executionStatus.logs || []}
           startedAt={executionStatus.startedAt}
           completedAt={executionStatus.completedAt}
+        />
+      )}
+      {onUpdateCard && (
+        <CardEditModal
+          isOpen={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          card={card}
+          onUpdateCard={onUpdateCard}
         />
       )}
     </>

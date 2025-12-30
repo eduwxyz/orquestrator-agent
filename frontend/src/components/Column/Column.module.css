@@ -180,6 +180,21 @@
   color: rgba(156, 163, 175, 0.8);
 }
 
+/* CANCELADO - Red/Warning */
+.column_cancelado {
+  border-top: 3px solid rgba(239, 68, 68, 0.6);
+  background: rgba(239, 68, 68, 0.02);
+  opacity: 0.85; /* Levemente mais transparente para indicar estado final */
+}
+
+.column_cancelado .title {
+  color: rgba(239, 68, 68, 0.8);
+}
+
+.column_cancelado.collapsed {
+  opacity: 0.7;
+}
+
 /* Collapsed state */
 .column.collapsed {
   flex: 0 0 80px; /* Largura reduzida quando colapsada */
@@ -198,7 +213,7 @@
   transform: rotate(180deg);
 }
 
-/* Clickable header (apenas para Archived) */
+/* Clickable header (para Archived e Cancelado) */
 .clickableHeader {
   position: relative;
   user-select: none;

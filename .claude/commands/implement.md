@@ -1,7 +1,10 @@
 ---
 description: Implementa um plano de specs/*.md gerado pelo comando /plan. Lê o plano, implementa cada item e marca como concluído.
 argument-hint: [caminho/para/spec.md]
+model: opus
 ---
+
+**Nota:** O modelo Claude usado para este comando pode ser configurado por card na UI. O padrão é Opus 4.5.
 
 # Implement
 

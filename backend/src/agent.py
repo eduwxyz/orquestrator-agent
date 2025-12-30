@@ -79,9 +79,25 @@ async def execute_plan(
     title: str,
     description: str,
     cwd: str,
+    model: str = "opus-4.5",
+    images: Optional[list] = None,
 ) -> PlanResult:
     """Execute a plan using Claude Agent SDK."""
+    # Mapear nome de modelo para valor do SDK
+    model_map = {
+        "opus-4.5": "opus",
+        "sonnet-4.5": "sonnet",
+        "haiku-4.5": "haiku",
+    }
+    sdk_model = model_map.get(model, "opus")
+
     prompt = f"/plan {title}: {description}"
+
+    # Add image references if available
+    if images:
+        prompt += "\n\nImagens anexadas neste card:\n"
+        for img in images:
+            prompt += f"- {img.get('filename', 'image')}: {img.get('path', '')}\n"
 
     # Initialize execution record
     record = ExecutionRecord(
@@ -107,6 +123,7 @@ async def execute_plan(
             setting_sources=["user", "project"],  # Load Skills from .claude/skills/
             allowed_tools=["Skill", "Read", "Write", "Edit", "Bash", "Glob", "Grep", "TodoWrite"],
             permission_mode="acceptEdits",
+            model=sdk_model,
         )
 
         # Execute using claude-agent-sdk
@@ -172,9 +189,25 @@ async def execute_implement(
     card_id: str,
     spec_path: str,
     cwd: str,
+    model: str = "opus-4.5",
+    images: Optional[list] = None,
 ) -> PlanResult:
     """Execute /implement command with the spec file path."""
+    # Mapear nome de modelo para valor do SDK
+    model_map = {
+        "opus-4.5": "opus",
+        "sonnet-4.5": "sonnet",
+        "haiku-4.5": "haiku",
+    }
+    sdk_model = model_map.get(model, "opus")
+
     prompt = f"/implement {spec_path}"
+
+    # Add image references if available
+    if images:
+        prompt += "\n\nImagens anexadas neste card:\n"
+        for img in images:
+            prompt += f"- {img.get('filename', 'image')}: {img.get('path', '')}\n"
 
     # Usar spec_path como "título" para contexto visual
     spec_name = Path(spec_path).stem  # Ex: "feature-x" de "specs/feature-x.md"
@@ -202,6 +235,7 @@ async def execute_implement(
             setting_sources=["user", "project"],
             allowed_tools=["Skill", "Read", "Write", "Edit", "Bash", "Glob", "Grep", "TodoWrite"],
             permission_mode="acceptEdits",
+            model=sdk_model,
         )
 
         # Execute using claude-agent-sdk
@@ -249,9 +283,25 @@ async def execute_test_implementation(
     card_id: str,
     spec_path: str,
     cwd: str,
+    model: str = "opus-4.5",
+    images: Optional[list] = None,
 ) -> PlanResult:
     """Execute /test-implementation command with the spec file path."""
+    # Mapear nome de modelo para valor do SDK
+    model_map = {
+        "opus-4.5": "opus",
+        "sonnet-4.5": "sonnet",
+        "haiku-4.5": "haiku",
+    }
+    sdk_model = model_map.get(model, "opus")
+
     prompt = f"/test-implementation {spec_path}"
+
+    # Add image references if available
+    if images:
+        prompt += "\n\nImagens anexadas neste card:\n"
+        for img in images:
+            prompt += f"- {img.get('filename', 'image')}: {img.get('path', '')}\n"
 
     # Usar spec_path como "título" para contexto visual
     spec_name = Path(spec_path).stem  # Ex: "feature-x" de "specs/feature-x.md"
@@ -279,6 +329,7 @@ async def execute_test_implementation(
             setting_sources=["user", "project"],
             allowed_tools=["Skill", "Read", "Write", "Edit", "Bash", "Glob", "Grep", "TodoWrite"],
             permission_mode="acceptEdits",
+            model=sdk_model,
         )
 
         # Execute using claude-agent-sdk
@@ -326,9 +377,25 @@ async def execute_review(
     card_id: str,
     spec_path: str,
     cwd: str,
+    model: str = "opus-4.5",
+    images: Optional[list] = None,
 ) -> PlanResult:
     """Execute /review command with the spec file path."""
+    # Mapear nome de modelo para valor do SDK
+    model_map = {
+        "opus-4.5": "opus",
+        "sonnet-4.5": "sonnet",
+        "haiku-4.5": "haiku",
+    }
+    sdk_model = model_map.get(model, "opus")
+
     prompt = f"/review {spec_path}"
+
+    # Add image references if available
+    if images:
+        prompt += "\n\nImagens anexadas neste card:\n"
+        for img in images:
+            prompt += f"- {img.get('filename', 'image')}: {img.get('path', '')}\n"
 
     # Usar spec_path como "título" para contexto visual
     spec_name = Path(spec_path).stem  # Ex: "feature-x" de "specs/feature-x.md"
@@ -356,6 +423,7 @@ async def execute_review(
             setting_sources=["user", "project"],
             allowed_tools=["Skill", "Read", "Write", "Edit", "Bash", "Glob", "Grep", "TodoWrite"],
             permission_mode="acceptEdits",
+            model=sdk_model,
         )
 
         # Execute using claude-agent-sdk

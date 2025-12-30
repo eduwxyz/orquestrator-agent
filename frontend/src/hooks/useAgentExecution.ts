@@ -1,7 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Card, ExecutionStatus, ExecutionLog } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const POLLING_INTERVAL = 1500; // Poll every 1.5 seconds
 
 interface ExecutePlanResult {
   success: boolean;
@@ -16,10 +17,96 @@ interface ExecuteImplementResult {
   error?: string;
 }
 
-export function useAgentExecution() {
+export function useAgentExecution(initialExecutions?: Map<string, ExecutionStatus>) {
   const [executions, setExecutions] = useState<Map<string, ExecutionStatus>>(
-    new Map()
+    initialExecutions || new Map()
   );
+  const pollingIntervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  // Cleanup polling intervals on unmount
+  useEffect(() => {
+    return () => {
+      pollingIntervalsRef.current.forEach((interval) => clearInterval(interval));
+      pollingIntervalsRef.current.clear();
+    };
+  }, []);
+
+  // Restore polling for running executions
+  useEffect(() => {
+    if (initialExecutions) {
+      initialExecutions.forEach((execution, cardId) => {
+        if (execution.status === 'running') {
+          console.log(`[useAgentExecution] Restoring polling for card: ${cardId}`);
+          startPolling(cardId);
+        }
+      });
+    }
+  }, []); // Only run once on mount
+
+  // Function to fetch logs from API
+  const fetchLogs = useCallback(async (cardId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/logs/${cardId}`);
+      if (!response.ok) return null;
+      const data = await response.json();
+      if (data.success && data.execution) {
+        return data.execution;
+      }
+      return null;
+    } catch (error) {
+      console.error(`[useAgentExecution] Failed to fetch logs for ${cardId}:`, error);
+      return null;
+    }
+  }, []);
+
+  // Start polling for a card
+  const startPolling = useCallback((cardId: string) => {
+    // Don't start if already polling
+    if (pollingIntervalsRef.current.has(cardId)) return;
+
+    console.log(`[useAgentExecution] Starting log polling for card: ${cardId}`);
+
+    const interval = setInterval(async () => {
+      const execution = await fetchLogs(cardId);
+      if (execution) {
+        setExecutions((prev) => {
+          const next = new Map(prev);
+          const current = next.get(cardId);
+
+          // Only update if we have new logs
+          if (!current || execution.logs.length > (current.logs?.length || 0)) {
+            next.set(cardId, {
+              cardId: execution.cardId,
+              status: execution.status,
+              result: execution.result,
+              logs: execution.logs || [],
+              startedAt: execution.startedAt,
+              completedAt: execution.completedAt,
+            });
+          }
+
+          // Stop polling if execution completed
+          if (execution.status !== 'running') {
+            stopPolling(cardId);
+          }
+
+          return next;
+        });
+      }
+    }, POLLING_INTERVAL);
+
+    pollingIntervalsRef.current.set(cardId, interval);
+  }, [fetchLogs]);
+
+  // Stop polling for a card
+  const stopPolling = useCallback((cardId: string) => {
+    const interval = pollingIntervalsRef.current.get(cardId);
+    if (interval) {
+      console.log(`[useAgentExecution] Stopping log polling for card: ${cardId}`);
+      clearInterval(interval);
+      pollingIntervalsRef.current.delete(cardId);
+    }
+  }, []);
 
   const executePlan = useCallback(async (card: Card): Promise<ExecutePlanResult> => {
     console.log(`[useAgentExecution] Starting plan execution for: ${card.title}`);
@@ -39,9 +126,13 @@ export function useAgentExecution() {
         cardId: card.id,
         status: "running",
         logs: initialLogs,
+        startedAt: new Date().toISOString(),
       });
       return next;
     });
+
+    // Start polling for real-time logs
+    startPolling(card.id);
 
     try {
       const response = await fetch(`${API_URL}/api/execute-plan`, {
@@ -57,6 +148,9 @@ export function useAgentExecution() {
       const result = await response.json();
       const logs: ExecutionLog[] = result.logs || [];
 
+      // Stop polling and update final state
+      stopPolling(card.id);
+
       setExecutions((prev) => {
         const next = new Map(prev);
         next.set(card.id, {
@@ -64,6 +158,7 @@ export function useAgentExecution() {
           status: result.success ? "success" : "error",
           result: result.result || result.error,
           logs: logs,
+          completedAt: new Date().toISOString(),
         });
         return next;
       });
@@ -76,6 +171,7 @@ export function useAgentExecution() {
         error: result.error,
       };
     } catch (error) {
+      stopPolling(card.id);
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
 
@@ -102,7 +198,7 @@ export function useAgentExecution() {
       console.error(`[useAgentExecution] Error:`, errorMessage);
       return { success: false, error: errorMessage };
     }
-  }, []);
+  }, [startPolling, stopPolling]);
 
   const executeImplement = useCallback(async (card: Card): Promise<ExecuteImplementResult> => {
     if (!card.specPath) {
@@ -127,9 +223,13 @@ export function useAgentExecution() {
         cardId: card.id,
         status: "running",
         logs: initialLogs,
+        startedAt: new Date().toISOString(),
       });
       return next;
     });
+
+    // Start polling for real-time logs
+    startPolling(card.id);
 
     try {
       const response = await fetch(`${API_URL}/api/execute-implement`, {
@@ -144,6 +244,9 @@ export function useAgentExecution() {
       const result = await response.json();
       const logs: ExecutionLog[] = result.logs || [];
 
+      // Stop polling and update final state
+      stopPolling(card.id);
+
       setExecutions((prev) => {
         const next = new Map(prev);
         next.set(card.id, {
@@ -151,6 +254,7 @@ export function useAgentExecution() {
           status: result.success ? "success" : "error",
           result: result.result || result.error,
           logs: logs,
+          completedAt: new Date().toISOString(),
         });
         return next;
       });
@@ -162,6 +266,7 @@ export function useAgentExecution() {
         error: result.error,
       };
     } catch (error) {
+      stopPolling(card.id);
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
 
@@ -188,7 +293,7 @@ export function useAgentExecution() {
       console.error(`[useAgentExecution] Error:`, errorMessage);
       return { success: false, error: errorMessage };
     }
-  }, []);
+  }, [startPolling, stopPolling]);
 
   const getExecutionStatus = useCallback(
     (cardId: string): ExecutionStatus | undefined => {
@@ -219,9 +324,13 @@ export function useAgentExecution() {
         cardId: card.id,
         status: "running",
         logs: initialLogs,
+        startedAt: new Date().toISOString(),
       });
       return next;
     });
+
+    // Start polling for real-time logs
+    startPolling(card.id);
 
     try {
       const response = await fetch(`${API_URL}/api/execute-test`, {
@@ -236,6 +345,9 @@ export function useAgentExecution() {
       const result = await response.json();
       const logs: ExecutionLog[] = result.logs || [];
 
+      // Stop polling and update final state
+      stopPolling(card.id);
+
       setExecutions((prev) => {
         const next = new Map(prev);
         next.set(card.id, {
@@ -243,6 +355,7 @@ export function useAgentExecution() {
           status: result.success ? "success" : "error",
           result: result.result || result.error,
           logs: logs,
+          completedAt: new Date().toISOString(),
         });
         return next;
       });
@@ -254,6 +367,7 @@ export function useAgentExecution() {
         error: result.error,
       };
     } catch (error) {
+      stopPolling(card.id);
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
 
@@ -280,7 +394,7 @@ export function useAgentExecution() {
       console.error(`[useAgentExecution] Error:`, errorMessage);
       return { success: false, error: errorMessage };
     }
-  }, []);
+  }, [startPolling, stopPolling]);
 
   const executeReview = useCallback(async (card: Card): Promise<ExecuteImplementResult> => {
     if (!card.specPath) {
@@ -304,9 +418,13 @@ export function useAgentExecution() {
         cardId: card.id,
         status: "running",
         logs: initialLogs,
+        startedAt: new Date().toISOString(),
       });
       return next;
     });
+
+    // Start polling for real-time logs
+    startPolling(card.id);
 
     try {
       const response = await fetch(`${API_URL}/api/execute-review`, {
@@ -321,6 +439,9 @@ export function useAgentExecution() {
       const result = await response.json();
       const logs: ExecutionLog[] = result.logs || [];
 
+      // Stop polling and update final state
+      stopPolling(card.id);
+
       setExecutions((prev) => {
         const next = new Map(prev);
         next.set(card.id, {
@@ -328,6 +449,7 @@ export function useAgentExecution() {
           status: result.success ? "success" : "error",
           result: result.result || result.error,
           logs: logs,
+          completedAt: new Date().toISOString(),
         });
         return next;
       });
@@ -339,6 +461,7 @@ export function useAgentExecution() {
         error: result.error,
       };
     } catch (error) {
+      stopPolling(card.id);
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
 
@@ -365,15 +488,16 @@ export function useAgentExecution() {
       console.error(`[useAgentExecution] Error:`, errorMessage);
       return { success: false, error: errorMessage };
     }
-  }, []);
+  }, [startPolling, stopPolling]);
 
   const clearExecution = useCallback((cardId: string) => {
+    stopPolling(cardId);
     setExecutions((prev) => {
       const next = new Map(prev);
       next.delete(cardId);
       return next;
     });
-  }, []);
+  }, [stopPolling]);
 
   return {
     executions,

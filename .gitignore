@@ -6,6 +6,7 @@ dist/
 .venv/
 venv/
 hello_claude.py
+*.pyc
 
 # Python
 __pycache__/
@@ -65,3 +66,7 @@ npm-debug.log*
 
 # Auto Claude data directory
 .auto-claude/
+
+# Temporary image uploads
+/tmp/
+tmp/

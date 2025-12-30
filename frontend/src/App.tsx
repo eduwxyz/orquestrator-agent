@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { Card as CardType, ColumnId, COLUMNS, isValidTransition } from './types';
+import { Card as CardType, ColumnId, COLUMNS, isValidTransition, ExecutionStatus } from './types';
 import { Board } from './components/Board/Board';
 import { Card } from './components/Card/Card';
 import { useAgentExecution } from './hooks/useAgentExecution';
@@ -13,8 +13,10 @@ function App() {
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isArchivedCollapsed, setIsArchivedCollapsed] = useState(false);
+  const [isCanceladoCollapsed, setIsCanceladoCollapsed] = useState(false);
+  const [initialExecutions, setInitialExecutions] = useState<Map<string, ExecutionStatus> | undefined>();
   const dragStartColumnRef = useRef<ColumnId | null>(null);
-  const { executePlan, executeImplement, executeTest, executeReview, getExecutionStatus } = useAgentExecution();
+  const { executePlan, executeImplement, executeTest, executeReview, getExecutionStatus } = useAgentExecution(initialExecutions);
 
   // Define moveCard and updateCardSpecPath BEFORE useWorkflowAutomation
   const moveCard = (cardId: string, newColumnId: ColumnId) => {
@@ -36,7 +38,7 @@ function App() {
   const {
     runWorkflow,
     getWorkflowStatus,
-    clearWorkflowStatus,
+    // clearWorkflowStatus, // Não está sendo usado no momento
   } = useWorkflowAutomation({
     executePlan,
     executeImplement,
@@ -46,12 +48,57 @@ function App() {
     onSpecPathUpdate: updateCardSpecPath,
   });
 
-  // Load cards from API on mount
+  // Load cards and active executions from API on mount
   useEffect(() => {
     const loadCards = async () => {
       try {
         const loadedCards = await cardsApi.fetchCards();
         setCards(loadedCards);
+
+        // Construir mapa de execuções ativas
+        const executionsMap = new Map<string, ExecutionStatus>();
+
+        for (const card of loadedCards) {
+          if (card.activeExecution) {
+            // Buscar logs completos da execução se estiver em andamento
+            if (card.activeExecution.status === 'running') {
+              try {
+                const logsData = await cardsApi.fetchLogs(card.id);
+                executionsMap.set(card.id, {
+                  cardId: card.id,
+                  status: logsData.status,
+                  startedAt: logsData.startedAt,
+                  completedAt: logsData.completedAt,
+                  logs: logsData.logs || [],
+                  result: logsData.result,
+                });
+              } catch (error) {
+                console.warn(`[App] Failed to fetch logs for card ${card.id}:`, error);
+                // Usar informações básicas da execução ativa
+                executionsMap.set(card.id, {
+                  cardId: card.id,
+                  status: card.activeExecution.status,
+                  startedAt: card.activeExecution.startedAt,
+                  completedAt: card.activeExecution.completedAt,
+                  logs: [],
+                });
+              }
+            } else {
+              // Para execuções completas, apenas usar as informações básicas
+              executionsMap.set(card.id, {
+                cardId: card.id,
+                status: card.activeExecution.status,
+                startedAt: card.activeExecution.startedAt,
+                completedAt: card.activeExecution.completedAt,
+                logs: [],
+              });
+            }
+          }
+        }
+
+        if (executionsMap.size > 0) {
+          setInitialExecutions(executionsMap);
+        }
       } catch (error) {
         console.error('[App] Failed to load cards:', error);
       } finally {
@@ -69,19 +116,18 @@ function App() {
     })
   );
 
-  const addCard = async (title: string, description: string, columnId: ColumnId) => {
+  const addCard = async (
+    _title: string,
+    _description: string,
+    columnId: ColumnId
+  ) => {
+    // Nota: Esta função agora é apenas para compatibilidade
+    // O AddCard.tsx cria o card diretamente via API e faz reload da página
     if (columnId !== 'backlog') {
       console.warn('Cards só podem ser criados na raia backlog');
       return;
     }
-
-    try {
-      const newCard = await cardsApi.createCard(title, description);
-      setCards(prev => [...prev, newCard]);
-    } catch (error) {
-      console.error('[App] Failed to create card:', error);
-      alert('Falha ao criar card. Verifique se o servidor está rodando.');
-    }
+    // O AddCard já gerencia tudo internamente
   };
 
   const removeCard = async (cardId: string) => {
@@ -92,6 +138,14 @@ function App() {
       console.error('[App] Failed to delete card:', error);
       alert('Falha ao remover card.');
     }
+  };
+
+  const updateCard = (updatedCard: CardType) => {
+    setCards(prev =>
+      prev.map(card =>
+        card.id === updatedCard.id ? updatedCard : card
+      )
+    );
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -263,11 +317,14 @@ function App() {
             cards={cards}
             onAddCard={addCard}
             onRemoveCard={removeCard}
+            onUpdateCard={updateCard}
             getExecutionStatus={getExecutionStatus}
             getWorkflowStatus={getWorkflowStatus}
             onRunWorkflow={runWorkflow}
             isArchivedCollapsed={isArchivedCollapsed}
             onToggleArchivedCollapse={() => setIsArchivedCollapsed(!isArchivedCollapsed)}
+            isCanceladoCollapsed={isCanceladoCollapsed}
+            onToggleCanceladoCollapse={() => setIsCanceladoCollapsed(!isCanceladoCollapsed)}
           />
           <DragOverlay>
             {activeCard ? (

@@ -1,6 +1,7 @@
 """Card routes for the API."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -13,6 +14,7 @@ from ..schemas.card import (
     CardsListResponse,
     CardSingleResponse,
     CardDeleteResponse,
+    ActiveExecution,
 )
 
 router = APIRouter(prefix="/api/cards", tags=["cards"])
@@ -20,12 +22,46 @@ router = APIRouter(prefix="/api/cards", tags=["cards"])
 
 @router.get("", response_model=CardsListResponse)
 async def get_all_cards(db: AsyncSession = Depends(get_db)):
-    """Get all cards."""
+    """Get all cards with active executions."""
     repo = CardRepository(db)
     cards = await repo.get_all()
-    return CardsListResponse(
-        cards=[CardResponse.model_validate(card) for card in cards]
-    )
+
+    # Para cada card, buscar execução ativa se houver
+    cards_with_execution = []
+    for card in cards:
+        card_dict = card.__dict__.copy()
+
+        # Buscar execução ativa no banco (usar SQL direto por enquanto)
+        result = await db.execute(
+            select(1).select_from(text("executions"))
+            .where(text("card_id = :card_id AND is_active = 1"))
+            .params(card_id=card.id)
+        )
+        execution = result.first()
+
+        if execution:
+            # Buscar detalhes da execução
+            exec_result = await db.execute(
+                text("""
+                    SELECT id, status, command, started_at, completed_at
+                    FROM executions
+                    WHERE card_id = :card_id AND is_active = 1
+                """).params(card_id=card.id)
+            )
+            exec_data = exec_result.first()
+
+            if exec_data:
+                card_dict["activeExecution"] = ActiveExecution(
+                    id=exec_data[0],
+                    status=exec_data[1],
+                    command=exec_data[2],
+                    startedAt=exec_data[3].isoformat() if exec_data[3] else None,
+                    completedAt=exec_data[4].isoformat() if exec_data[4] else None
+                )
+
+        cards_with_execution.append(CardResponse.model_validate(card_dict))
+
+    return CardsListResponse(cards=cards_with_execution)
 
 
 @router.get("/{card_id}", response_model=CardSingleResponse)

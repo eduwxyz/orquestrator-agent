@@ -1,4 +1,20 @@
-export type ColumnId = 'backlog' | 'plan' | 'in-progress' | 'test' | 'review' | 'done' | 'archived';
+export type ColumnId = 'backlog' | 'plan' | 'in-progress' | 'test' | 'review' | 'done' | 'archived' | 'cancelado';
+export type ModelType = 'opus-4.5' | 'sonnet-4.5' | 'haiku-4.5';
+
+export interface CardImage {
+  id: string;
+  filename: string;
+  path: string; // Caminho no servidor /tmp/xxx
+  uploadedAt: string;
+}
+
+export interface ActiveExecution {
+  id: string;
+  status: 'idle' | 'running' | 'success' | 'error';
+  command?: string;
+  startedAt?: string;
+  completedAt?: string;
+}
 
 export interface Card {
   id: string;
@@ -6,6 +22,12 @@ export interface Card {
   description: string;
   columnId: ColumnId;
   specPath?: string; // Caminho do arquivo de spec gerado na etapa de planejamento
+  modelPlan: ModelType;
+  modelImplement: ModelType;
+  modelTest: ModelType;
+  modelReview: ModelType;
+  images?: CardImage[];
+  activeExecution?: ActiveExecution; // Execução ativa persistida no banco
 }
 
 export interface Column {
@@ -38,17 +60,19 @@ export const COLUMNS: Column[] = [
   { id: 'review', title: 'Review' },
   { id: 'done', title: 'Done' },
   { id: 'archived', title: 'Archived' },
+  { id: 'cancelado', title: 'Cancelado' },
 ];
 
 // Transições permitidas no fluxo SDLC
 export const ALLOWED_TRANSITIONS: Record<ColumnId, ColumnId[]> = {
-  'backlog': ['plan'],
-  'plan': ['in-progress'],
-  'in-progress': ['test'],
-  'test': ['review'],
-  'review': ['done'],
-  'done': ['archived'],
+  'backlog': ['plan', 'cancelado'],
+  'plan': ['in-progress', 'cancelado'],
+  'in-progress': ['test', 'cancelado'],
+  'test': ['review', 'cancelado'],
+  'review': ['done', 'cancelado'],
+  'done': ['archived', 'cancelado'],
   'archived': ['done'],
+  'cancelado': [], // Não permite sair de cancelado
 };
 
 export function isValidTransition(from: ColumnId, to: ColumnId): boolean {

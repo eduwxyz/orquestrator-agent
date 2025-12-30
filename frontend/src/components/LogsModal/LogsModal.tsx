@@ -12,11 +12,6 @@ interface LogsModalProps {
   completedAt?: string;
 }
 
-interface LogGroup {
-  type: ExecutionLog['type'];
-  entries: ExecutionLog[];
-}
-
 export function LogsModal({
   isOpen,
   onClose,
@@ -78,23 +73,6 @@ export function LogsModal({
 
     return end - start;
   }, [startedAt, completedAt]);
-
-  // Group consecutive logs of the same type
-  const groupedLogs = useMemo(() => {
-    const groups: LogGroup[] = [];
-    let currentGroup: LogGroup | null = null;
-
-    logs.forEach((log) => {
-      if (!currentGroup || currentGroup.type !== log.type) {
-        currentGroup = { type: log.type, entries: [log] };
-        groups.push(currentGroup);
-      } else {
-        currentGroup.entries.push(log);
-      }
-    });
-
-    return groups;
-  }, [logs]);
 
   if (!isOpen) return null;
 
@@ -174,7 +152,7 @@ export function LogsModal({
 
   return (
     <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()}> {/* Prevent closing modal when clicking inside */}
         {/* Header */}
         <div className={styles.header}>
           <div className={styles.titleSection}>
@@ -277,29 +255,21 @@ export function LogsModal({
         <div className={styles.logsContainer}>
           {logs.length === 0 ? (
             <div className={styles.emptyState}>
-              Nenhum log disponível ainda...
+              {status === 'running' ? 'Aguardando logs...' : 'Nenhum log disponível ainda...'}
             </div>
           ) : (
             <div className={styles.logGroups}>
-              {groupedLogs.map((group, groupIdx) => (
-                <div key={groupIdx} className={styles.logGroup}>
-                  <div className={styles.logGroupHeader}>
-                    <span className={getLogTypeClass(group.type)}>
-                      {group.type.toUpperCase()}
-                    </span>
-                    <span className={styles.logCount}>
-                      {group.entries.length} {group.entries.length === 1 ? 'entrada' : 'entradas'}
+              {logs.map((log, idx) => (
+                <div key={idx} className={`${styles.logEntry} ${getLogTypeClass(log.type)}`}>
+                  <div className={styles.logEntryHeader}>
+                    <span className={styles.timestamp}>{formatTimestamp(log.timestamp)}</span>
+                    <span className={`${styles.logType} ${getLogTypeClass(log.type)}`}>
+                      {log.type.toUpperCase()}
                     </span>
                   </div>
-                  {group.entries.map((log, entryIdx) => (
-                    <div key={entryIdx} className={`${styles.logEntry} ${getLogTypeClass(log.type)}`}>
-                      <span className={styles.timestamp}>{formatTimestamp(log.timestamp)}</span>
-                      <span className={styles.logType}>[{log.type.toUpperCase()}]</span>
-                      <div className={styles.logContent}>
-                        {formatLogContent(log.content)}
-                      </div>
-                    </div>
-                  ))}
+                  <div className={styles.logContent}>
+                    {formatLogContent(log.content)}
+                  </div>
                 </div>
               ))}
               <div ref={logsEndRef} />

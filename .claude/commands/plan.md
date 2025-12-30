@@ -2,7 +2,10 @@
 description: Cria planos de implementação detalhados para features, bugs ou refatorações. Use antes de implementar tarefas complexas.
 argument-hint: [descrição da tarefa]
 allowed-tools: Read, Glob, Grep, Write, Task
+model: opus
 ---
+
+**Nota:** O modelo Claude usado para este comando pode ser configurado por card na UI. O padrão é Opus 4.5.
 
 # Plan
 

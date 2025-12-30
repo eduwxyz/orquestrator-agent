@@ -7,18 +7,22 @@ interface BoardProps {
   cards: CardType[];
   onAddCard: (title: string, description: string, columnId: ColumnId) => void;
   onRemoveCard: (cardId: string) => void;
+  onUpdateCard?: (card: CardType) => void;
   getExecutionStatus?: (cardId: string) => ExecutionStatus | undefined;
   getWorkflowStatus?: (cardId: string) => WorkflowStatus | undefined;
   onRunWorkflow?: (card: CardType) => void;
   isArchivedCollapsed?: boolean;
   onToggleArchivedCollapse?: () => void;
+  isCanceladoCollapsed?: boolean;
+  onToggleCanceladoCollapse?: () => void;
 }
 
-export function Board({ columns, cards, onAddCard, onRemoveCard, getExecutionStatus, getWorkflowStatus, onRunWorkflow, isArchivedCollapsed, onToggleArchivedCollapse }: BoardProps) {
+export function Board({ columns, cards, onAddCard, onRemoveCard, onUpdateCard, getExecutionStatus, getWorkflowStatus, onRunWorkflow, isArchivedCollapsed, onToggleArchivedCollapse, isCanceladoCollapsed, onToggleCanceladoCollapse }: BoardProps) {
   return (
     <div className={styles.board}>
       {columns.map(column => {
         const isArchived = column.id === 'archived';
+        const isCancelado = column.id === 'cancelado';
 
         return (
           <Column
@@ -27,11 +31,20 @@ export function Board({ columns, cards, onAddCard, onRemoveCard, getExecutionSta
             cards={cards.filter(card => card.columnId === column.id)}
             onAddCard={onAddCard}
             onRemoveCard={onRemoveCard}
+            onUpdateCard={onUpdateCard}
             getExecutionStatus={getExecutionStatus}
             getWorkflowStatus={getWorkflowStatus}
             onRunWorkflow={onRunWorkflow}
-            isCollapsed={isArchived ? isArchivedCollapsed : false}
-            onToggleCollapse={isArchived ? onToggleArchivedCollapse : undefined}
+            isCollapsed={
+              isArchived ? isArchivedCollapsed :
+              isCancelado ? isCanceladoCollapsed :
+              false
+            }
+            onToggleCollapse={
+              isArchived ? onToggleArchivedCollapse :
+              isCancelado ? onToggleCanceladoCollapse :
+              undefined
+            }
           />
         );
       })}

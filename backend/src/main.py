@@ -19,6 +19,7 @@ from .execution import (
     LogsResponse,
 )
 from .routes.cards import router as cards_router
+from .routes.images import router as images_router
 from .database import get_db, async_session_maker
 from .repositories.card_repository import CardRepository
 
@@ -56,6 +57,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(cards_router)
+app.include_router(images_router)
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -112,11 +114,20 @@ async def execute_plan_endpoint(request: ExecutePlanRequest):
         # Use parent directory as working directory (the main project)
         cwd = str(Path.cwd().parent)
 
+        # Buscar card do banco para obter o modelo configurado e imagens
+        async with async_session_maker() as session:
+            repo = CardRepository(session)
+            card = await repo.get_by_id(request.card_id)
+            model = card.model_plan if card else "opus-4.5"
+            images = card.images if card else None
+
         result = await execute_plan(
             card_id=request.card_id,
             title=request.title,
             description=request.description or "",
             cwd=cwd,
+            model=model,
+            images=images,
         )
 
         if result.success:
@@ -178,10 +189,19 @@ async def execute_implement_endpoint(request: ExecuteImplementRequest):
         # Use parent directory as working directory (the main project)
         cwd = str(Path.cwd().parent)
 
+        # Buscar card do banco para obter o modelo configurado e imagens
+        async with async_session_maker() as session:
+            repo = CardRepository(session)
+            card = await repo.get_by_id(request.card_id)
+            model = card.model_implement if card else "opus-4.5"
+            images = card.images if card else None
+
         result = await execute_implement(
             card_id=request.card_id,
             spec_path=request.spec_path,
             cwd=cwd,
+            model=model,
+            images=images,
         )
 
         if result.success:
@@ -233,10 +253,19 @@ async def execute_test_endpoint(request: ExecuteImplementRequest):
     try:
         cwd = str(Path.cwd().parent)
 
+        # Buscar card do banco para obter o modelo configurado e imagens
+        async with async_session_maker() as session:
+            repo = CardRepository(session)
+            card = await repo.get_by_id(request.card_id)
+            model = card.model_test if card else "opus-4.5"
+            images = card.images if card else None
+
         result = await execute_test_implementation(
             card_id=request.card_id,
             spec_path=request.spec_path,
             cwd=cwd,
+            model=model,
+            images=images,
         )
 
         if result.success:
@@ -288,10 +317,19 @@ async def execute_review_endpoint(request: ExecuteImplementRequest):
     try:
         cwd = str(Path.cwd().parent)
 
+        # Buscar card do banco para obter o modelo configurado e imagens
+        async with async_session_maker() as session:
+            repo = CardRepository(session)
+            card = await repo.get_by_id(request.card_id)
+            model = card.model_review if card else "opus-4.5"
+            images = card.images if card else None
+
         result = await execute_review(
             card_id=request.card_id,
             spec_path=request.spec_path,
             cwd=cwd,
+            model=model,
+            images=images,
         )
 
         if result.success:
@@ -348,6 +386,10 @@ def main():
     print("  - PUT  /api/cards/:id")
     print("  - DELETE /api/cards/:id")
     print("  - PATCH /api/cards/:id/move")
+    print("  - POST /api/images/upload")
+    print("  - GET  /api/images/:id")
+    print("  - DELETE /api/images/:id")
+    print("  - POST /api/images/cleanup")
 
     uvicorn.run(app, host="0.0.0.0", port=port)
 
