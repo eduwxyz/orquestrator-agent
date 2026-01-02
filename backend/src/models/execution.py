@@ -16,13 +16,18 @@ class Execution(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     card_id = Column(String, ForeignKey("cards.id"), nullable=False)
-    status = Column(Enum(ExecutionStatus), default=ExecutionStatus.IDLE)
+    status = Column(Enum(ExecutionStatus, native_enum=False, values_callable=lambda obj: [e.value for e in obj]), default=ExecutionStatus.IDLE)
     command = Column(String)  # /plan, /implement, /test, /review
+    title = Column(String, nullable=True)  # título da execução
     started_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
     duration = Column(Integer, nullable=True)  # em segundos
     result = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)  # última execução ativa
+
+    # Campos para rastrear estágio do workflow
+    workflow_stage = Column(String, nullable=True)  # plan, implement, test, review, completed
+    workflow_error = Column(Text, nullable=True)  # erro do workflow se houver
 
     # Relacionamentos
     card = relationship("Card", back_populates="executions")

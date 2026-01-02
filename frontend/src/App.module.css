@@ -106,6 +106,9 @@ body {
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .header::before {
@@ -129,6 +132,12 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.projectActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .main {

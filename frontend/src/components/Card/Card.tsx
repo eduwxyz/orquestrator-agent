@@ -4,6 +4,7 @@ import { Card as CardType, ExecutionStatus, WorkflowStatus } from '../../types';
 import { LogsModal } from '../LogsModal';
 import { CardEditModal } from '../CardEditModal';
 import { removeImage } from '../../utils/imageHandler';
+import { API_ENDPOINTS } from '../../api/config';
 import styles from './Card.module.css';
 
 interface CardProps {
@@ -20,11 +21,13 @@ export function Card({ card, onRemove, onUpdateCard, isDragging = false, executi
   const [isLogsOpen, setIsLogsOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [removingImageId, setRemovingImageId] = useState<string | null>(null);
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: card.id,
-  });
 
   const isRunning = workflowStatus && workflowStatus.stage !== 'idle' && workflowStatus.stage !== 'completed';
+
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: card.id,
+    disabled: isRunning // Apenas desabilitar drag durante execução do workflow
+  });
 
   const style = transform
     ? {
@@ -143,10 +146,15 @@ export function Card({ card, onRemove, onUpdateCard, isDragging = false, executi
       <div
         ref={setNodeRef}
         style={style}
-        className={`${styles.card} ${isDragging ? styles.dragging : ''} ${getStatusClass()}`}
+        className={`${styles.card} ${isDragging ? styles.dragging : ''} ${getStatusClass()} ${card.isFixCard ? styles.fixCard : ''}`}
         {...listeners}
         {...attributes}
       >
+        {card.isFixCard && (
+          <div className={styles.fixBadge}>
+            🔧 Correção
+          </div>
+        )}
         <div className={styles.content}>
           <h3 className={styles.title}>{card.title}</h3>
           {card.description && (
@@ -157,7 +165,7 @@ export function Card({ card, onRemove, onUpdateCard, isDragging = false, executi
               {card.images.map(image => (
                 <div key={image.id} className={styles.imageThumb}>
                   <img
-                    src={`http://localhost:3001/api/images/${image.id}`}
+                    src={`${API_ENDPOINTS.images}/${image.id}`}
                     alt={image.filename}
                     title={image.filename}
                   />

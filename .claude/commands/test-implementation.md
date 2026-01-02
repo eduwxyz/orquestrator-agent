@@ -1,7 +1,7 @@
 ---
 description: Valida e testa o que foi implementado pelo comando /implement. Verifica arquivos, executa testes e gera relatório.
 argument-hint: [caminho/para/spec.md]
-model: opus
+model: haiku
 ---
 
 **Nota:** O modelo Claude usado para este comando pode ser configurado por card na UI. O padrão é Opus 4.5.

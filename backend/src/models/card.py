@@ -1,7 +1,7 @@
 """Card database model."""
 
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, JSON, String, Text
+from sqlalchemy import Boolean, DateTime, JSON, String, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import List, Dict, Any
 
@@ -31,8 +31,28 @@ class Card(Base):
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
 
+    # Novos campos para rastreamento de correções
+    parent_card_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("cards.id", ondelete="SET NULL"),
+        nullable=True
+    )
+    is_fix_card: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+    test_error_context: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True
+    )
+
     # Relacionamento com execuções
     executions = relationship("Execution", back_populates="card", cascade="all, delete-orphan")
+
+    # Relacionamento auto-referencial
+    parent_card = relationship("Card", back_populates="fix_cards", remote_side=[id])
+    fix_cards = relationship("Card", back_populates="parent_card")
 
     def __repr__(self) -> str:
         return f"<Card(id={self.id}, title={self.title}, column={self.column_id})>"

@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Card, ExecutionStatus, ExecutionLog } from "../types";
+import { API_ENDPOINTS } from "../api/config";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const POLLING_INTERVAL = 1500; // Poll every 1.5 seconds
 
 interface ExecutePlanResult {
@@ -46,7 +46,7 @@ export function useAgentExecution(initialExecutions?: Map<string, ExecutionStatu
   // Function to fetch logs from API
   const fetchLogs = useCallback(async (cardId: string) => {
     try {
-      const response = await fetch(`${API_URL}/api/logs/${cardId}`);
+      const response = await fetch(`${API_ENDPOINTS.logs}/${cardId}`);
       if (!response.ok) return null;
       const data = await response.json();
       if (data.success && data.execution) {
@@ -135,7 +135,7 @@ export function useAgentExecution(initialExecutions?: Map<string, ExecutionStatu
     startPolling(card.id);
 
     try {
-      const response = await fetch(`${API_URL}/api/execute-plan`, {
+      const response = await fetch(API_ENDPOINTS.execution.plan, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -232,7 +232,7 @@ export function useAgentExecution(initialExecutions?: Map<string, ExecutionStatu
     startPolling(card.id);
 
     try {
-      const response = await fetch(`${API_URL}/api/execute-implement`, {
+      const response = await fetch(API_ENDPOINTS.execution.implement, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -333,7 +333,7 @@ export function useAgentExecution(initialExecutions?: Map<string, ExecutionStatu
     startPolling(card.id);
 
     try {
-      const response = await fetch(`${API_URL}/api/execute-test`, {
+      const response = await fetch(API_ENDPOINTS.execution.test, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -427,7 +427,7 @@ export function useAgentExecution(initialExecutions?: Map<string, ExecutionStatu
     startPolling(card.id);
 
     try {
-      const response = await fetch(`${API_URL}/api/execute-review`, {
+      const response = await fetch(API_ENDPOINTS.execution.review, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

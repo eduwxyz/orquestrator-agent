@@ -1,7 +1,7 @@
 ---
 description: Revisa a implementacao comparando com a spec original. Verifica se faz sentido, se faltou algo, e se segue os padroes definidos.
 argument-hint: [caminho/para/spec.md]
-model: opus
+model: haiku
 ---
 
 **Nota:** O modelo Claude usado para este comando pode ser configurado por card na UI. O padrão é Opus 4.5.

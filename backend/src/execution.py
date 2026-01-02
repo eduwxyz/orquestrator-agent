@@ -48,6 +48,8 @@ class PlanResult(BaseModel):
     error: Optional[str] = None
     logs: list[ExecutionLog] = []
     spec_path: Optional[str] = None  # Caminho do arquivo de spec gerado
+    fix_card_created: bool = False  # Indica se um card de correção foi criado
+    fix_card_id: Optional[str] = None  # ID do card de correção criado
 
 
 class ExecutePlanRequest(CamelCaseModel):
@@ -108,6 +110,8 @@ class ExecuteTestResponse(CamelCaseModel):
     result: Optional[str] = None
     error: Optional[str] = None
     logs: list[ExecutionLog] = []
+    fix_card_created: bool = Field(default=False, alias="fixCardCreated")
+    fix_card_id: Optional[str] = Field(default=None, alias="fixCardId")
 
 
 class ExecuteReviewRequest(CamelCaseModel):

@@ -1,7 +1,10 @@
 import re
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from claude_agent_sdk import (
     query,
@@ -21,13 +24,32 @@ from .execution import (
     PlanResult,
 )
 
-# Store executions in memory
+from .repositories.execution_repository import ExecutionRepository
+from .models.execution import ExecutionStatus as DBExecutionStatus
+
+# Store executions in memory (mantido para compatibilidade durante migração)
 executions: dict[str, ExecutionRecord] = {}
 
 
-def get_execution(card_id: str) -> Optional[ExecutionRecord]:
-    """Get execution record by card ID."""
-    return executions.get(card_id)
+async def get_execution(card_id: str, db_session: Optional[AsyncSession] = None) -> Optional[dict]:
+    """Get execution record by card ID from database or memory."""
+    if db_session:
+        # Usar repository se db_session estiver disponível
+        repo = ExecutionRepository(db_session)
+        return await repo.get_execution_with_logs(card_id)
+    else:
+        # Fallback para memória
+        record = executions.get(card_id)
+        if record:
+            return {
+                "cardId": record.cardId,
+                "status": record.status.value,
+                "logs": [
+                    {"timestamp": log.timestamp, "type": log.type.value, "content": log.content}
+                    for log in record.logs
+                ]
+            }
+        return None
 
 
 def get_all_executions() -> list[ExecutionRecord]:
@@ -81,8 +103,16 @@ async def execute_plan(
     cwd: str,
     model: str = "opus-4.5",
     images: Optional[list] = None,
+    db_session: Optional[AsyncSession] = None,
 ) -> PlanResult:
     """Execute a plan using Claude Agent SDK."""
+    # Obter diretório do projeto atual se houver
+    from .project_manager import project_manager as global_project_manager
+
+    if global_project_manager and global_project_manager.current_project:
+        cwd = global_project_manager.get_working_directory()
+        print(f"[Agent] Using project directory: {cwd}")
+
     # Mapear nome de modelo para valor do SDK
     model_map = {
         "opus-4.5": "opus",
@@ -99,7 +129,36 @@ async def execute_plan(
         for img in images:
             prompt += f"- {img.get('filename', 'image')}: {img.get('path', '')}\n"
 
-    # Initialize execution record
+    # Usar repository se disponível, senão usar memória
+    repo = None
+    execution_db = None
+
+    if db_session:
+        repo = ExecutionRepository(db_session)
+        # Criar execução no banco
+        execution_db = await repo.create_execution(
+            card_id=card_id,
+            command="/plan",
+            title=title
+        )
+        # Log inicial no banco
+        await repo.add_log(
+            execution_id=execution_db.id,
+            log_type="info",
+            content=f"Starting plan execution for: {title}"
+        )
+        await repo.add_log(
+            execution_id=execution_db.id,
+            log_type="info",
+            content=f"Working directory: {cwd}"
+        )
+        await repo.add_log(
+            execution_id=execution_db.id,
+            log_type="info",
+            content=f"Prompt: {prompt}"
+        )
+
+    # Initialize execution record (memória - para compatibilidade)
     record = ExecutionRecord(
         cardId=card_id,
         title=title,
@@ -133,12 +192,26 @@ async def execute_plan(
                 for block in message.content:
                     if isinstance(block, TextBlock):
                         add_log(record, LogType.TEXT, block.text)
+                        # Salva log no banco se disponível
+                        if repo and execution_db:
+                            await repo.add_log(
+                                execution_id=execution_db.id,
+                                log_type="text",
+                                content=block.text
+                            )
                         result_text += block.text + "\n"
                         # Tentar extrair spec_path do texto
                         if not spec_path:
                             spec_path = extract_spec_path(block.text)
                     elif isinstance(block, ToolUseBlock):
                         add_log(record, LogType.TOOL, f"Using tool: {block.name}")
+                        # Salva log no banco se disponível
+                        if repo and execution_db:
+                            await repo.add_log(
+                                execution_id=execution_db.id,
+                                log_type="tool",
+                                content=f"Using tool: {block.name}"
+                            )
                         # Se for Write tool, captura o file_path
                         if block.name == "Write" and hasattr(block, "input"):
                             tool_input = block.input
@@ -164,6 +237,23 @@ async def execute_plan(
         if spec_path:
             add_log(record, LogType.INFO, f"Spec path: {spec_path}")
 
+        # Atualizar status no banco se disponível
+        if repo and execution_db:
+            await repo.update_execution_status(
+                execution_id=execution_db.id,
+                status=DBExecutionStatus.SUCCESS,
+                result=result_text
+            )
+            # Busca execução completa para retornar logs
+            execution_data = await repo.get_execution_with_logs(card_id)
+            if execution_data:
+                return PlanResult(
+                    success=True,
+                    result=result_text,
+                    logs=execution_data["logs"],
+                    spec_path=spec_path,
+                )
+
         return PlanResult(
             success=True,
             result=result_text,
@@ -178,6 +268,27 @@ async def execute_plan(
         record.result = error_message
         add_log(record, LogType.ERROR, f"Execution error: {error_message}")
 
+        # Atualizar status de erro no banco se disponível
+        if repo and execution_db:
+            await repo.add_log(
+                execution_id=execution_db.id,
+                log_type="error",
+                content=error_message
+            )
+            await repo.update_execution_status(
+                execution_id=execution_db.id,
+                status=DBExecutionStatus.ERROR,
+                result=error_message
+            )
+            # Busca execução para retornar logs
+            execution_data = await repo.get_execution_with_logs(card_id)
+            if execution_data:
+                return PlanResult(
+                    success=False,
+                    error=error_message,
+                    logs=execution_data["logs"],
+                )
+
         return PlanResult(
             success=False,
             error=error_message,
@@ -191,8 +302,16 @@ async def execute_implement(
     cwd: str,
     model: str = "opus-4.5",
     images: Optional[list] = None,
+    db_session: Optional[AsyncSession] = None,
 ) -> PlanResult:
     """Execute /implement command with the spec file path."""
+    # Obter diretório do projeto atual se houver
+    from .project_manager import project_manager as global_project_manager
+
+    if global_project_manager and global_project_manager.current_project:
+        cwd = global_project_manager.get_working_directory()
+        print(f"[Agent] Using project directory: {cwd}")
+
     # Mapear nome de modelo para valor do SDK
     model_map = {
         "opus-4.5": "opus",
@@ -279,6 +398,65 @@ async def execute_implement(
         )
 
 
+async def create_fix_card_for_test_failure(
+    card_id: str,
+    logs: list[ExecutionLog],
+    spec_path: str,
+    execution_error: Optional[str] = None
+) -> Optional[str]:
+    """Create a fix card when tests fail."""
+    from .database import async_session_maker
+    from .repositories.card_repository import CardRepository
+    from .services.test_result_analyzer import TestResultAnalyzer
+
+    try:
+        # Analyze the test failure
+        analyzer = TestResultAnalyzer()
+        error_info = analyzer.analyze_test_failure(logs)
+
+        # Add execution error if present
+        if execution_error:
+            error_info["error_messages"].insert(0, f"Execution error: {execution_error}")
+            if not error_info["error_type"]:
+                error_info["error_type"] = "execution_error"
+
+        # Generate description for the fix card
+        description = analyzer.generate_fix_description(error_info)
+
+        # Extract context for storage
+        context = analyzer.extract_error_context(logs)
+
+        async with async_session_maker() as session:
+            repo = CardRepository(session)
+
+            # Check if there's already an active fix card
+            existing_fix = await repo.get_active_fix_card(card_id)
+            if existing_fix:
+                print(f"[{card_id[:8]}] Fix card already exists: {existing_fix.id}")
+                return existing_fix.id
+
+            # Create the fix card
+            fix_card = await repo.create_fix_card(
+                card_id,
+                {
+                    "description": description,
+                    "context": context
+                }
+            )
+
+            if fix_card:
+                await session.commit()
+                print(f"[{card_id[:8]}] Created fix card: {fix_card.id}")
+                return fix_card.id
+            else:
+                print(f"[{card_id[:8]}] Failed to create fix card")
+                return None
+
+    except Exception as e:
+        print(f"[{card_id[:8]}] Error creating fix card: {e}")
+        return None
+
+
 async def execute_test_implementation(
     card_id: str,
     spec_path: str,
@@ -287,6 +465,13 @@ async def execute_test_implementation(
     images: Optional[list] = None,
 ) -> PlanResult:
     """Execute /test-implementation command with the spec file path."""
+    # Obter diretório do projeto atual se houver
+    from .project_manager import project_manager as global_project_manager
+
+    if global_project_manager and global_project_manager.current_project:
+        cwd = global_project_manager.get_working_directory()
+        print(f"[Agent] Using project directory: {cwd}")
+
     # Mapear nome de modelo para valor do SDK
     model_map = {
         "opus-4.5": "opus",
@@ -347,17 +532,46 @@ async def execute_test_implementation(
                     result_text = message.result
                     add_log(record, LogType.RESULT, message.result)
 
-        # Mark as success
-        record.completed_at = datetime.now().isoformat()
-        record.status = ExecutionStatus.SUCCESS
-        record.result = result_text
-        add_log(record, LogType.INFO, "Test-implementation completed successfully")
+        # Check if tests failed based on logs
+        test_failed = False
+        for log in record.logs:
+            if log.type == LogType.ERROR or (
+                log.type in [LogType.TEXT, LogType.RESULT] and
+                any(indicator in log.content.lower() for indicator in [
+                    "test failed", "tests failed", "failed test",
+                    "assertion error", "✗", "error:", "failed:"
+                ])
+            ):
+                test_failed = True
+                break
 
-        return PlanResult(
-            success=True,
-            result=result_text,
-            logs=record.logs,
-        )
+        # Mark as success or failure based on test results
+        record.completed_at = datetime.now().isoformat()
+
+        if test_failed:
+            record.status = ExecutionStatus.ERROR
+            add_log(record, LogType.ERROR, "Tests failed - creating fix card")
+
+            # Analyze test failure and create fix card
+            fix_card_id = await create_fix_card_for_test_failure(card_id, record.logs, spec_path)
+
+            return PlanResult(
+                success=False,
+                error="Tests failed. A fix card has been created automatically.",
+                logs=record.logs,
+                fix_card_created=True if fix_card_id else False,
+                fix_card_id=fix_card_id
+            )
+        else:
+            record.status = ExecutionStatus.SUCCESS
+            record.result = result_text
+            add_log(record, LogType.INFO, "Test-implementation completed successfully")
+
+            return PlanResult(
+                success=True,
+                result=result_text,
+                logs=record.logs,
+            )
 
     except Exception as e:
         error_message = str(e)
@@ -366,10 +580,20 @@ async def execute_test_implementation(
         record.result = error_message
         add_log(record, LogType.ERROR, f"Execution error: {error_message}")
 
+        # Create fix card for execution errors as well
+        fix_card_id = await create_fix_card_for_test_failure(
+            card_id,
+            record.logs,
+            spec_path,
+            execution_error=error_message
+        )
+
         return PlanResult(
             success=False,
             error=error_message,
             logs=record.logs,
+            fix_card_created=True if fix_card_id else False,
+            fix_card_id=fix_card_id
         )
 
 
@@ -381,6 +605,13 @@ async def execute_review(
     images: Optional[list] = None,
 ) -> PlanResult:
     """Execute /review command with the spec file path."""
+    # Obter diretório do projeto atual se houver
+    from .project_manager import project_manager as global_project_manager
+
+    if global_project_manager and global_project_manager.current_project:
+        cwd = global_project_manager.get_working_directory()
+        print(f"[Agent] Using project directory: {cwd}")
+
     # Mapear nome de modelo para valor do SDK
     model_map = {
         "opus-4.5": "opus",

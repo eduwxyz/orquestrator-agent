@@ -1,13 +1,12 @@
 import { CardImage } from '../types';
-
-const API_BASE = 'http://localhost:3001/api';
+import { API_ENDPOINTS } from '../api/config';
 
 export async function uploadImage(file: File, cardId: string): Promise<CardImage> {
   const formData = new FormData();
   formData.append('image', file);
   formData.append('cardId', cardId);
 
-  const response = await fetch(`${API_BASE}/images/upload`, {
+  const response = await fetch(`${API_ENDPOINTS.images}/upload`, {
     method: 'POST',
     body: formData,
   });
@@ -32,7 +31,7 @@ export function handlePasteImage(event: ClipboardEvent): File | null {
 }
 
 export async function removeImage(imageId: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/images/${imageId}`, {
+  const response = await fetch(`${API_ENDPOINTS.images}/${imageId}`, {
     method: 'DELETE',
   });
 

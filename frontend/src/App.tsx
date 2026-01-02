@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { Card as CardType, ColumnId, COLUMNS, isValidTransition, ExecutionStatus } from './types';
+import { Card as CardType, ColumnId, COLUMNS, isValidTransition, ExecutionStatus, Project, WorkflowStatus, WorkflowStage } from './types';
 import { Board } from './components/Board/Board';
 import { Card } from './components/Card/Card';
+import { ProjectLoader } from './components/ProjectLoader/ProjectLoader';
+import { ProjectSwitcher } from './components/ProjectSwitcher';
 import { useAgentExecution } from './hooks/useAgentExecution';
 import { useWorkflowAutomation } from './hooks/useWorkflowAutomation';
 import * as cardsApi from './api/cards';
+import { getCurrentProject } from './api/projects';
 import styles from './App.module.css';
 
 function App() {
@@ -15,6 +18,8 @@ function App() {
   const [isArchivedCollapsed, setIsArchivedCollapsed] = useState(false);
   const [isCanceladoCollapsed, setIsCanceladoCollapsed] = useState(false);
   const [initialExecutions, setInitialExecutions] = useState<Map<string, ExecutionStatus> | undefined>();
+  const [initialWorkflowStatuses, setInitialWorkflowStatuses] = useState<Map<string, WorkflowStatus> | undefined>();
+  const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const dragStartColumnRef = useRef<ColumnId | null>(null);
   const { executePlan, executeImplement, executeTest, executeReview, getExecutionStatus } = useAgentExecution(initialExecutions);
 
@@ -46,17 +51,34 @@ function App() {
     executeReview,
     onCardMove: moveCard,
     onSpecPathUpdate: updateCardSpecPath,
+    initialStatuses: initialWorkflowStatuses,
   });
 
-  // Load cards and active executions from API on mount
+  // Load cards, active executions, and current project from API on mount
   useEffect(() => {
-    const loadCards = async () => {
+    const loadInitialData = async () => {
       try {
+        // Load cards
         const loadedCards = await cardsApi.fetchCards();
         setCards(loadedCards);
 
-        // Construir mapa de execuções ativas
+        // Load current project
+        try {
+          const project = await getCurrentProject();
+          if (project) {
+            setCurrentProject(project);
+          }
+        } catch (error) {
+          console.warn('[App] Failed to load current project:', error);
+          // Ignorar erro se o backend não estiver disponível
+          if (error instanceof Error && error.message.includes('Backend não está rodando')) {
+            console.info('[App] Backend não disponível - funcionalidade de projetos desabilitada');
+          }
+        }
+
+        // Construir mapa de execuções ativas e workflow statuses
         const executionsMap = new Map<string, ExecutionStatus>();
+        const workflowMap = new Map<string, WorkflowStatus>();
 
         for (const card of loadedCards) {
           if (card.activeExecution) {
@@ -93,11 +115,26 @@ function App() {
                 logs: [],
               });
             }
+
+            // Restaurar workflow state se existir
+            const activeExecWithWorkflow = card.activeExecution as any;
+            if (activeExecWithWorkflow.workflowStage) {
+              workflowMap.set(card.id, {
+                cardId: card.id,
+                stage: activeExecWithWorkflow.workflowStage as WorkflowStage,
+                currentColumn: card.columnId,
+                error: activeExecWithWorkflow.workflowError,
+              });
+            }
           }
         }
 
         if (executionsMap.size > 0) {
           setInitialExecutions(executionsMap);
+        }
+
+        if (workflowMap.size > 0) {
+          setInitialWorkflowStatuses(workflowMap);
         }
       } catch (error) {
         console.error('[App] Failed to load cards:', error);
@@ -105,7 +142,7 @@ function App() {
         setIsLoading(false);
       }
     };
-    loadCards();
+    loadInitialData();
   }, []);
 
   const sensors = useSensors(
@@ -303,6 +340,16 @@ function App() {
     <div className={styles.app}>
       <header className={styles.header}>
         <h1 className={styles.title}>Board Kanban</h1>
+        <div className={styles.projectActions}>
+          <ProjectSwitcher
+            currentProject={currentProject}
+            onProjectSwitch={setCurrentProject}
+          />
+          <ProjectLoader
+            currentProject={currentProject}
+            onProjectLoad={setCurrentProject}
+          />
+        </div>
       </header>
       <main className={styles.main}>
         <DndContext
@@ -337,6 +384,7 @@ function App() {
           </DragOverlay>
         </DndContext>
       </main>
+      <div id="modal-root" />
     </div>
   );
 }

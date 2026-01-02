@@ -1,4 +1,5 @@
 import { useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { ExecutionLog } from '../../types';
 import styles from './LogsModal.module.css';
 
@@ -76,6 +77,13 @@ export function LogsModal({
 
   if (!isOpen) return null;
 
+  // Obter o elemento root para portals
+  const portalRoot = document.getElementById('modal-root');
+  if (!portalRoot) {
+    console.error('Modal root not found');
+    return null;
+  }
+
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString('pt-BR', {
@@ -150,7 +158,7 @@ export function LogsModal({
     }
   };
 
-  return (
+  return createPortal(
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}> {/* Prevent closing modal when clicking inside */}
         {/* Header */}
@@ -277,6 +285,7 @@ export function LogsModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    portalRoot
   );
 }

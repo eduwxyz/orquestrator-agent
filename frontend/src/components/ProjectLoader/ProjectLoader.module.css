@@ -1,0 +1,451 @@
+/* Sistema de z-index em camadas */
+:root {
+  --z-modal-backdrop: 9998;
+  --z-modal-content: 9999;
+  --z-modal-tooltip: 10000;
+}
+
+/* === BOTÃO PRINCIPAL === */
+.loadButton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.loadButton::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.loadButton:hover::before {
+  opacity: 1;
+}
+
+.loadButton:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:
+    0 10px 25px -5px rgba(102, 126, 234, 0.4),
+    0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+.loadButton:active {
+  transform: translateY(0) scale(1);
+}
+
+.loadButton > * {
+  position: relative;
+  z-index: 1;
+}
+
+.currentProject {
+  font-size: 12px;
+  opacity: 0.9;
+  margin-left: 4px;
+}
+
+/* === MODAL OVERLAY === */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal-backdrop);
+  animation: fadeIn 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* === MODAL === */
+.modal {
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 20px;
+  width: 90%;
+  max-width: 540px;
+  box-shadow:
+    0 24px 48px -12px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  z-index: var(--z-modal-content);
+  overflow: visible;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .modal {
+    background: rgba(30, 30, 35, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* === MODAL HEADER === */
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.modalHeader h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #1f2937 0%, #667eea 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: #6b7280;
+  transition: all 0.2s ease;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.closeButton:hover {
+  color: #1f2937;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+  transform: rotate(90deg);
+}
+
+/* === MODAL CONTENT === */
+.modalContent {
+  padding: 28px;
+}
+
+.currentInfo {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%);
+  padding: 16px;
+  border-radius: 14px;
+  margin-bottom: 24px;
+  font-size: 14px;
+  color: #4b5563;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.currentInfo::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+}
+
+.projectPath {
+  color: #6b7280;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  display: inline-block;
+  margin-top: 4px;
+}
+
+.claudeIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 12px;
+  padding: 3px 10px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+/* === INPUT GROUP === */
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inputGroup label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  letter-spacing: -0.01em;
+}
+
+.pathInput {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  font-size: 14px;
+  background: linear-gradient(#fff, #fff) padding-box,
+              linear-gradient(135deg, #667eea, #764ba2) border-box;
+  transition: all 0.3s ease;
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
+.pathInput:focus {
+  outline: none;
+  transform: translateY(-1px);
+  box-shadow:
+    0 10px 25px -5px rgba(102, 126, 234, 0.15),
+    0 0 0 4px rgba(102, 126, 234, 0.1);
+}
+
+.pathInput:disabled {
+  background: linear-gradient(90deg,
+    #f3f4f6 25%,
+    #e5e7eb 50%,
+    #f3f4f6 75%);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.hint {
+  font-size: 12px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* === ERROR STATE === */
+.error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 14px;
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  border: 1px solid #f87171;
+  border-radius: 10px;
+  color: #dc2626;
+  font-size: 14px;
+  font-weight: 500;
+  animation: shake 0.5s ease;
+}
+
+/* === MODAL FOOTER === */
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 28px 24px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.cancelButton,
+.confirmButton {
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.cancelButton {
+  background: white;
+  border: 2px solid #e5e7eb;
+  color: #6b7280;
+}
+
+.cancelButton:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  transform: translateY(-1px);
+}
+
+.confirmButton {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  color: white;
+  min-width: 140px;
+  position: relative;
+}
+
+.confirmButton::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.confirmButton:active::after {
+  width: 300px;
+  height: 300px;
+}
+
+.confirmButton:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:
+    0 10px 25px -5px rgba(102, 126, 234, 0.4),
+    0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+.cancelButton:disabled,
+.confirmButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* === LOADING SPINNER === */
+.loadingSpinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 8px;
+}
+
+/* === ANIMAÇÕES === */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* === RESPONSIVIDADE === */
+@media (max-width: 640px) {
+  .modal {
+    width: 95%;
+    margin: 20px;
+    border-radius: 16px;
+  }
+
+  .modalHeader {
+    padding: 20px;
+  }
+
+  .modalContent {
+    padding: 20px;
+  }
+
+  .modalFooter {
+    padding: 16px 20px 20px;
+    flex-direction: column-reverse;
+  }
+
+  .cancelButton,
+  .confirmButton {
+    width: 100%;
+  }
+
+  .confirmButton {
+    margin-bottom: 8px;
+  }
+}
+
+/* === ACESSIBILIDADE - HIGH CONTRAST === */
+@media (prefers-contrast: high) {
+  .modal {
+    border: 2px solid #000;
+  }
+
+  .pathInput {
+    border: 2px solid #000;
+  }
+
+  .confirmButton {
+    border: 2px solid #fff;
+  }
+}
+
+/* === REDUCED MOTION === */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

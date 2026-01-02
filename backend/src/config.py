@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "sqlite+aiosqlite:///./auth.db"
 
+    # Multi-Database Configuration
+    project_data_dir: str = ".project_data"
+
     # Server
     port: int = 3001
 

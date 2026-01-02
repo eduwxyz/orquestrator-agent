@@ -45,7 +45,12 @@ class CardBase(BaseModel):
 class CardCreate(CardBase):
     """Schema for creating a new card."""
 
-    pass
+    parent_card_id: Optional[str] = Field(None, alias="parentCardId")
+    is_fix_card: bool = Field(False, alias="isFixCard")
+    test_error_context: Optional[str] = Field(None, alias="testErrorContext")
+
+    class Config:
+        populate_by_name = True
 
 
 class CardUpdate(BaseModel):
@@ -88,6 +93,14 @@ class CardResponse(BaseModel):
     created_at: datetime = Field(..., alias="createdAt")
     updated_at: datetime = Field(..., alias="updatedAt")
     activeExecution: Optional[ActiveExecution] = Field(None, alias="activeExecution")
+    parent_card_id: Optional[str] = Field(None, alias="parentCardId")
+    is_fix_card: bool = Field(False, alias="isFixCard")
+    test_error_context: Optional[str] = Field(None, alias="testErrorContext")
+
+    @property
+    def is_finalized(self) -> bool:
+        """Check if card is in a finalized state."""
+        return self.column_id in ['done', 'archived', 'cancelado']
 
     class Config:
         populate_by_name = True

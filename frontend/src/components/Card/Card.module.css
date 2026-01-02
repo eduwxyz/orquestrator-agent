@@ -511,3 +511,53 @@
   cursor: not-allowed;
   opacity: 0.5;
 }
+
+/* Fix Card Styles */
+.fixCard {
+  border-left: 3px solid var(--accent-amber);
+  background: linear-gradient(135deg,
+    rgba(251, 191, 36, 0.05) 0%,
+    rgba(245, 158, 11, 0.05) 100%
+  );
+}
+
+.fixBadge {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: #78350f;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  z-index: 2;
+  box-shadow: 0 2px 4px rgba(251, 191, 36, 0.2);
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.fixCard:hover {
+  border-left-color: var(--accent-amber);
+  box-shadow:
+    var(--shadow-md),
+    inset 0 0 20px rgba(251, 191, 36, 0.08);
+}
+
+.fixCard .title {
+  padding-top: 24px; /* Espaço para o badge */
+}
+

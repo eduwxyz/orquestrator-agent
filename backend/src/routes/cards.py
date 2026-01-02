@@ -51,12 +51,16 @@ async def get_all_cards(db: AsyncSession = Depends(get_db)):
             exec_data = exec_result.first()
 
             if exec_data:
+                # started_at e completed_at podem vir como string ou datetime do SQLite
+                started_at = exec_data[3]
+                completed_at = exec_data[4]
+
                 card_dict["activeExecution"] = ActiveExecution(
                     id=exec_data[0],
                     status=exec_data[1],
                     command=exec_data[2],
-                    startedAt=exec_data[3].isoformat() if exec_data[3] else None,
-                    completedAt=exec_data[4].isoformat() if exec_data[4] else None
+                    startedAt=started_at if isinstance(started_at, str) else (started_at.isoformat() if started_at else None),
+                    completedAt=completed_at if isinstance(completed_at, str) else (completed_at.isoformat() if completed_at else None)
                 )
 
         cards_with_execution.append(CardResponse.model_validate(card_dict))

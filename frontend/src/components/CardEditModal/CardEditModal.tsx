@@ -6,6 +6,7 @@ import {
   validateImageFile,
   createImagePreview
 } from '../../utils/imageHandler';
+import { API_ENDPOINTS } from '../../api/config';
 import styles from './CardEditModal.module.css';
 
 interface CardEditModalProps {
@@ -168,7 +169,7 @@ export function CardEditModal({ isOpen, onClose, card, onUpdateCard }: CardEditM
                   <div className={styles.imageGrid}>
                     {localCard.images.map(image => (
                       <div key={image.id} className={styles.imageThumb}>
-                        <img src={`http://localhost:3001/api/images/${image.id}`} alt={image.filename} />
+                        <img src={`${API_ENDPOINTS.images}/${image.id}`} alt={image.filename} />
                         <span className={styles.imageFilename}>{image.filename}</span>
                       </div>
                     ))}

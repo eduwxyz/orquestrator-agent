@@ -49,6 +49,13 @@ class CardRepository:
             title=card_data.title,
             description=card_data.description,
             column_id="backlog",
+            model_plan=card_data.model_plan,
+            model_implement=card_data.model_implement,
+            model_test=card_data.model_test,
+            model_review=card_data.model_review,
+            parent_card_id=getattr(card_data, 'parent_card_id', None),
+            is_fix_card=getattr(card_data, 'is_fix_card', False),
+            test_error_context=getattr(card_data, 'test_error_context', None),
         )
         self.session.add(card)
         await self.session.flush()
@@ -82,7 +89,7 @@ class CardRepository:
 
     async def move(self, card_id: str, new_column_id: ColumnId) -> tuple[Optional[Card], Optional[str]]:
         """
-        Move a card to a new column with SDLC validation.
+        Move a card to a new column with SDLC and finalization validation.
 
         Returns:
             tuple: (card, error_message) - card if successful, error_message if failed
@@ -92,9 +99,18 @@ class CardRepository:
             return None, "Card not found"
 
         current_column = card.column_id
-        allowed = ALLOWED_TRANSITIONS.get(current_column, [])
 
-        if new_column_id not in allowed:
+        # Verificar se o card está finalizado
+        finalized_columns = ['done', 'archived', 'cancelado']
+        if current_column not in finalized_columns and current_column != new_column_id:
+            # Card não finalizado - apenas permitir transições SDLC válidas
+            allowed = ALLOWED_TRANSITIONS.get(current_column, [])
+            if new_column_id not in allowed:
+                return None, f"Card precisa ser finalizado antes de poder ser movido. Finalize movendo para Done, Archived ou Cancelado."
+
+        # Validação SDLC existente
+        allowed = ALLOWED_TRANSITIONS.get(current_column, [])
+        if new_column_id not in allowed and current_column != new_column_id:
             return None, f"Invalid transition from '{current_column}' to '{new_column_id}'. Allowed: {allowed}"
 
         card.column_id = new_column_id
@@ -112,4 +128,42 @@ class CardRepository:
         await self.session.flush()
         await self.session.refresh(card)
         return card
+
+    async def get_active_fix_card(self, parent_card_id: str) -> Optional[Card]:
+        """Get an active (non-archived, non-cancelled) fix card for a parent card."""
+        result = await self.session.execute(
+            select(Card).where(
+                Card.parent_card_id == parent_card_id,
+                Card.is_fix_card == True,
+                Card.column_id.notin_(["done", "archived", "cancelado"])
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def create_fix_card(self, parent_card_id: str, error_info: dict) -> Optional[Card]:
+        """Create a fix card for a parent card with test failure."""
+        # Check if there's already an active fix card
+        existing_fix = await self.get_active_fix_card(parent_card_id)
+        if existing_fix:
+            return existing_fix
+
+        # Get parent card to copy configuration
+        parent_card = await self.get_by_id(parent_card_id)
+        if not parent_card:
+            return None
+
+        # Create the fix card
+        fix_card_data = CardCreate(
+            title=f"[FIX] {parent_card.title[:50]}",
+            description=error_info.get("description", ""),
+            model_plan=parent_card.model_plan,
+            model_implement=parent_card.model_implement,
+            model_test=parent_card.model_test,
+            model_review=parent_card.model_review,
+            parent_card_id=parent_card_id,
+            is_fix_card=True,
+            test_error_context=error_info.get("context", "")
+        )
+
+        return await self.create(fix_card_data)
 

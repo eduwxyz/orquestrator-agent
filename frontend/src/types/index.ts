@@ -28,6 +28,9 @@ export interface Card {
   modelReview: ModelType;
   images?: CardImage[];
   activeExecution?: ActiveExecution; // Execução ativa persistida no banco
+  parentCardId?: string; // ID do card pai (quando for um card de correção)
+  isFixCard?: boolean; // Indica se é um card de correção
+  testErrorContext?: string; // Contexto do erro que gerou o card de correção
 }
 
 export interface Column {
@@ -50,6 +53,9 @@ export interface ExecutionStatus {
   startedAt?: string; // ISO timestamp
   completedAt?: string; // ISO timestamp
   duration?: number; // milliseconds
+  // Fix card fields
+  fixCardCreated?: boolean; // Indica se um card de correção foi criado
+  fixCardId?: string; // ID do card de correção criado
 }
 
 export const COLUMNS: Column[] = [
@@ -80,6 +86,11 @@ export function isValidTransition(from: ColumnId, to: ColumnId): boolean {
   return ALLOWED_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
+// Adicionar após a função isValidTransition
+export function isCardFinalized(columnId: ColumnId): boolean {
+  return columnId === 'done' || columnId === 'archived' || columnId === 'cancelado';
+}
+
 export type WorkflowStage = 'idle' | 'planning' | 'implementing' | 'testing' | 'reviewing' | 'completed' | 'error';
 
 export interface WorkflowStatus {
@@ -87,4 +98,36 @@ export interface WorkflowStatus {
   stage: WorkflowStage;
   currentColumn: ColumnId;
   error?: string;
+}
+
+// Tipos para gerenciamento de projetos
+export interface Project {
+  id: string;
+  path: string;
+  name: string;
+  hasClaudeConfig: boolean;
+  loadedAt: string;
+  claudeConfigPath?: string;
+  isFavorite?: boolean;
+  accessCount?: number;
+}
+
+// Tipos para sistema de draft
+export interface DraftImage {
+  id: string;
+  filename: string;
+  preview: string; // Base64 data URL
+  size: number;
+}
+
+export interface CardDraft {
+  title: string;
+  description: string;
+  modelPlan: ModelType;
+  modelImplement: ModelType;
+  modelTest: ModelType;
+  modelReview: ModelType;
+  previewImages: DraftImage[];
+  savedAt: string; // ISO timestamp
+  version: number; // Para controle de versão do draft
 }

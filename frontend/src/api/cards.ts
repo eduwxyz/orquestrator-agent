@@ -3,8 +3,7 @@
  */
 
 import type { Card, CardImage, ColumnId, ModelType, ActiveExecution, ExecutionLog } from '../types';
-
-const API_BASE = 'http://localhost:3001/api';
+import { API_ENDPOINTS } from './config';
 
 interface CardResponse {
   id: string;
@@ -19,7 +18,15 @@ interface CardResponse {
   images?: CardImage[];
   createdAt: string;
   updatedAt: string;
-  activeExecution?: ActiveExecution;
+  activeExecution?: ActiveExecution & {
+    workflowStage?: string;
+    workflowError?: string;
+  };
+}
+
+export interface WorkflowStateUpdate {
+  stage: 'idle' | 'planning' | 'implementing' | 'testing' | 'reviewing' | 'completed' | 'error';
+  error?: string;
 }
 
 interface CardsListResponse {
@@ -52,7 +59,7 @@ function mapCardResponseToCard(response: CardResponse): Card {
  * Fetch all cards from the API.
  */
 export async function fetchCards(): Promise<Card[]> {
-  const url = `${API_BASE}/cards`;
+  const url = API_ENDPOINTS.cards;
   const response = await fetch(url);
 
   if (!response.ok) {
@@ -74,7 +81,7 @@ export async function createCard(
   modelTest: ModelType,
   modelReview: ModelType
 ): Promise<Card> {
-  const response = await fetch(`${API_BASE}/cards`, {
+  const response = await fetch(API_ENDPOINTS.cards, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -104,7 +111,7 @@ export async function updateCard(
   cardId: string,
   updates: Partial<Pick<Card, 'title' | 'description' | 'columnId' | 'specPath'>>
 ): Promise<Card> {
-  const response = await fetch(`${API_BASE}/cards/${cardId}`, {
+  const response = await fetch(`${API_ENDPOINTS.cards}/${cardId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -129,7 +136,7 @@ export async function updateCard(
  * Delete a card.
  */
 export async function deleteCard(cardId: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/cards/${cardId}`, {
+  const response = await fetch(`${API_ENDPOINTS.cards}/${cardId}`, {
     method: 'DELETE',
   });
 
@@ -142,7 +149,7 @@ export async function deleteCard(cardId: string): Promise<void> {
  * Move a card to another column (with SDLC validation on backend).
  */
 export async function moveCard(cardId: string, columnId: ColumnId): Promise<Card> {
-  const response = await fetch(`${API_BASE}/cards/${cardId}/move`, {
+  const response = await fetch(`${API_ENDPOINTS.cards}/${cardId}/move`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -163,7 +170,7 @@ export async function moveCard(cardId: string, columnId: ColumnId): Promise<Card
  * Update the spec path for a card.
  */
 export async function updateSpecPath(cardId: string, specPath: string): Promise<Card> {
-  const response = await fetch(`${API_BASE}/cards/${cardId}/spec-path?spec_path=${encodeURIComponent(specPath)}`, {
+  const response = await fetch(`${API_ENDPOINTS.cards}/${cardId}/spec-path?spec_path=${encodeURIComponent(specPath)}`, {
     method: 'PATCH',
   });
 
@@ -189,7 +196,7 @@ interface LogsResponse {
  * Fetch execution logs for a card.
  */
 export async function fetchLogs(cardId: string): Promise<LogsResponse> {
-  const response = await fetch(`${API_BASE}/logs/${cardId}`);
+  const response = await fetch(`${API_ENDPOINTS.logs}/${cardId}`);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch logs: ${response.statusText}`);
@@ -197,5 +204,23 @@ export async function fetchLogs(cardId: string): Promise<LogsResponse> {
 
   const data = await response.json();
   return data;
+}
+
+/**
+ * Update workflow state for a card.
+ */
+export async function updateWorkflowState(
+  cardId: string,
+  state: WorkflowStateUpdate
+): Promise<void> {
+  const response = await fetch(`${API_ENDPOINTS.cards}/${cardId}/workflow-state`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(state),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update workflow state');
+  }
 }
 

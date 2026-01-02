@@ -2,13 +2,18 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .agent import execute_plan, execute_implement, execute_test_implementation, execute_review, get_execution, get_all_executions
 from .database import create_tables
+from .repositories.execution_repository import ExecutionRepository
+from .models.execution import Execution
 from .execution import (
     ExecutePlanRequest,
     ExecutePlanResponse,
@@ -20,11 +25,13 @@ from .execution import (
 )
 from .routes.cards import router as cards_router
 from .routes.images import router as images_router
+from .routes.projects import router as projects_router
 from .database import get_db, async_session_maker
 from .repositories.card_repository import CardRepository
 
 # Import models to register them with SQLAlchemy
 from .models.card import Card  # noqa: F401
+from .models.project import ActiveProject  # noqa: F401
 
 
 @asynccontextmanager
@@ -58,6 +65,7 @@ app.add_middleware(
 # Include routers
 app.include_router(cards_router)
 app.include_router(images_router)
+app.include_router(projects_router)
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -66,33 +74,6 @@ async def health_check():
     return HealthResponse(
         status="ok",
         timestamp=datetime.now().isoformat(),
-    )
-
-
-@app.get("/api/logs/{card_id}", response_model=LogsResponse)
-async def get_logs(card_id: str):
-    """Get logs for a specific card."""
-    execution = get_execution(card_id)
-
-    if not execution:
-        return LogsResponse(
-            success=False,
-            error="No execution found for this card",
-        )
-
-    return LogsResponse(
-        success=True,
-        execution=execution,
-    )
-
-
-@app.get("/api/executions", response_model=ExecutionsResponse)
-async def get_executions():
-    """Get all executions."""
-    executions = get_all_executions()
-    return ExecutionsResponse(
-        success=True,
-        executions=executions,
     )
 
 
@@ -121,14 +102,17 @@ async def execute_plan_endpoint(request: ExecutePlanRequest):
             model = card.model_plan if card else "opus-4.5"
             images = card.images if card else None
 
-        result = await execute_plan(
-            card_id=request.card_id,
-            title=request.title,
-            description=request.description or "",
-            cwd=cwd,
-            model=model,
-            images=images,
-        )
+        # Passar db_session para persistir logs
+        async with async_session_maker() as db_session:
+            result = await execute_plan(
+                card_id=request.card_id,
+                title=request.title,
+                description=request.description or "",
+                cwd=cwd,
+                model=model,
+                images=images,
+                db_session=db_session,
+            )
 
         if result.success:
             # Save spec_path to database if available
@@ -364,6 +348,62 @@ async def execute_review_endpoint(request: ExecuteImplementRequest):
             status_code=500,
             content=error_response.model_dump(by_alias=True),
         )
+
+
+@app.patch("/api/cards/{card_id}/workflow-state")
+async def update_workflow_state(
+    card_id: str,
+    stage: str,
+    error: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """Atualiza o estado do workflow para um card"""
+    repo = ExecutionRepository(db)
+
+    # Busca execução ativa
+    execution = await repo.get_active_execution(card_id)
+
+    if not execution:
+        # Cria nova execução se não existir
+        execution = await repo.create_execution(
+            card_id=card_id,
+            command="workflow",
+            title="Workflow Automation"
+        )
+
+    # Atualiza workflow stage
+    await db.execute(
+        update(Execution)
+        .where(Execution.id == execution.id)
+        .values(
+            workflow_stage=stage,
+            workflow_error=error
+        )
+    )
+    await db.commit()
+
+    return {"success": True, "stage": stage}
+
+
+@app.get("/api/logs/{card_id}", response_model=LogsResponse)
+async def get_logs_endpoint(card_id: str, db: AsyncSession = Depends(get_db)):
+    """Get execution logs from database"""
+    repo = ExecutionRepository(db)
+    execution = await repo.get_execution_with_logs(card_id)
+
+    if not execution:
+        # Fallback para memória se não houver no banco
+        execution = await get_execution(card_id)
+        if not execution:
+            return LogsResponse(
+                success=False,
+                error="No execution found for this card",
+            )
+
+    return LogsResponse(
+        success=True,
+        execution=execution,
+    )
 
 
 def main():

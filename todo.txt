@@ -7,20 +7,26 @@ objetivo: ensinar o claude code SDLC (OK)
 
 ----------- 
 
-
-
 * Construir a UI para o SDLC (In progress) 
 * Dar vida a UI do SDLC executando as skills e comandos ao arrastar os cards (5/5) - OK
 * Melhorar feature de arquivar - OK
 * Na UI, mesmo em raias diferentes da de planejamento, está mostrando que foi executado /plan - OK
 * Melhorar logs do backend quando for executado mais de 1 task ao mesmo tempo - OK
-* Trazer logs do backend para a UI 
+* Permitir passar imagem nos cards - OK
+* Trazer logs do backend para a UI - OK
+* Ao criar o card, poder selecionar o modelo de execução - Testando
+* Mecanismo de recuperar cards excluidos sem querer
+* Quando o teste de um card der erro, a ideia é criar um novo card associado a aquele para a correção.
+esse novo card deve voltar para in-progress - Precisa testar
 * Utilizar worktree para solicitações em paralelo
 * Dar vida ao botão de criar PR
 * Ensinar o claude code a abrir páginas web e testar a aplicação
-* Permitir passar imagem nos cards
-* Ao criar o card, poder selecionar o modelo de execução
-* Mecanismo de recuperar cards excluidos sem querer
-* Quando o teste de um card der erro, a ideia é criar um novo card associado a aquele para a correção.
-esse novo card deve voltar para in-progress
 * Perca de estado ao dar refresh
+* Não permitir arrastar para outras raias enquanto n tiver finalizado
+
+
+
+
+
+
+* Criar um chat que interaja com a codebase para dúvidas pontuais
