@@ -35,12 +35,26 @@ export function ProjectSwitcher({ currentProject, onProjectSwitch }: ProjectSwit
   };
 
   const handleProjectSelect = async (project: Project) => {
+    // Verifica se é o mesmo projeto já carregado
+    if (currentProject?.path === project.path) {
+      console.log('[ProjectSwitcher] Project already loaded, skipping reload');
+      setIsOpen(false);
+      return;
+    }
+
     try {
       const loaded = await quickSwitchProject(project.path);
       onProjectSwitch(loaded);
       setIsOpen(false);
+
+      // Adiciona um pequeno delay para garantir que o estado foi salvo
+      // antes de fazer o reload completo da página
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
     } catch (error) {
-      console.error('Failed to switch project:', error);
+      console.error('[ProjectSwitcher] Failed to switch project:', error);
+      // Mantém o dropdown aberto em caso de erro
     }
   };
 

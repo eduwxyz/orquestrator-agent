@@ -183,19 +183,21 @@ async def execute_implement_endpoint(request: ExecuteImplementRequest):
         cwd = str(Path.cwd().parent)
 
         # Buscar card do banco para obter o modelo configurado e imagens
+        # Mantém sessão aberta para passar ao execute_implement
         async with async_session_maker() as session:
             repo = CardRepository(session)
             card = await repo.get_by_id(request.card_id)
             model = card.model_implement if card else "opus-4.5"
             images = card.images if card else None
 
-        result = await execute_implement(
-            card_id=request.card_id,
-            spec_path=request.spec_path,
-            cwd=cwd,
-            model=model,
-            images=images,
-        )
+            result = await execute_implement(
+                card_id=request.card_id,
+                spec_path=request.spec_path,
+                cwd=cwd,
+                model=model,
+                images=images,
+                db_session=session,
+            )
 
         if result.success:
             return ExecuteImplementResponse(
@@ -247,19 +249,21 @@ async def execute_test_endpoint(request: ExecuteImplementRequest):
         cwd = str(Path.cwd().parent)
 
         # Buscar card do banco para obter o modelo configurado e imagens
+        # Mantém sessão aberta para passar ao execute_test_implementation
         async with async_session_maker() as session:
             repo = CardRepository(session)
             card = await repo.get_by_id(request.card_id)
             model = card.model_test if card else "opus-4.5"
             images = card.images if card else None
 
-        result = await execute_test_implementation(
-            card_id=request.card_id,
-            spec_path=request.spec_path,
-            cwd=cwd,
-            model=model,
-            images=images,
-        )
+            result = await execute_test_implementation(
+                card_id=request.card_id,
+                spec_path=request.spec_path,
+                cwd=cwd,
+                model=model,
+                images=images,
+                db_session=session,
+            )
 
         if result.success:
             return ExecuteImplementResponse(
@@ -311,19 +315,21 @@ async def execute_review_endpoint(request: ExecuteImplementRequest):
         cwd = str(Path.cwd().parent)
 
         # Buscar card do banco para obter o modelo configurado e imagens
+        # Mantém sessão aberta para passar ao execute_review
         async with async_session_maker() as session:
             repo = CardRepository(session)
             card = await repo.get_by_id(request.card_id)
             model = card.model_review if card else "opus-4.5"
             images = card.images if card else None
 
-        result = await execute_review(
-            card_id=request.card_id,
-            spec_path=request.spec_path,
-            cwd=cwd,
-            model=model,
-            images=images,
-        )
+            result = await execute_review(
+                card_id=request.card_id,
+                spec_path=request.spec_path,
+                cwd=cwd,
+                model=model,
+                images=images,
+                db_session=session,
+            )
 
         if result.success:
             return ExecuteImplementResponse(

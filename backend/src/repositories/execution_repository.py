@@ -25,6 +25,15 @@ class ExecutionRepository:
             .values(is_active=False)
         )
 
+        # Mapear comando para workflow stage correto
+        stage_map = {
+            "/plan": "planning",
+            "/implement": "implementing",
+            "/test-implementation": "testing",
+            "/review": "reviewing",
+        }
+        workflow_stage = stage_map.get(command, command.replace("/", ""))
+
         execution = Execution(
             id=str(uuid.uuid4()),
             card_id=card_id,
@@ -33,7 +42,7 @@ class ExecutionRepository:
             status=ExecutionStatus.RUNNING,
             started_at=datetime.utcnow(),
             is_active=True,
-            workflow_stage=command.replace("/", "")  # plan, implement, test, review
+            workflow_stage=workflow_stage
         )
 
         self.db.add(execution)
@@ -82,7 +91,8 @@ class ExecutionRepository:
         self,
         execution_id: str,
         status: ExecutionStatus,
-        result: Optional[str] = None
+        result: Optional[str] = None,
+        workflow_stage: Optional[str] = None
     ):
         """Atualiza status de uma execução"""
         values = {
@@ -92,6 +102,9 @@ class ExecutionRepository:
 
         if result:
             values["result"] = result
+
+        if workflow_stage:
+            values["workflow_stage"] = workflow_stage
 
         await self.db.execute(
             update(Execution)

@@ -89,10 +89,14 @@ function App() {
 
         for (const card of loadedCards) {
           if (card.activeExecution) {
+            console.log(`[App] Found card ${card.id} with activeExecution:`, card.activeExecution);
+
             // Buscar logs completos da execução se estiver em andamento
             if (card.activeExecution.status === 'running') {
+              console.log(`[App] Card ${card.id} is running, fetching logs...`);
               try {
                 const logsData = await cardsApi.fetchLogs(card.id);
+                console.log(`[App] Fetched logs for card ${card.id}:`, logsData);
                 executionsMap.set(card.id, {
                   cardId: card.id,
                   status: logsData.status,
@@ -100,6 +104,7 @@ function App() {
                   completedAt: logsData.completedAt,
                   logs: logsData.logs || [],
                   result: logsData.result,
+                  workflowStage: logsData.workflowStage, // Incluir workflow stage
                 });
               } catch (error) {
                 console.warn(`[App] Failed to fetch logs for card ${card.id}:`, error);
@@ -110,6 +115,7 @@ function App() {
                   startedAt: card.activeExecution.startedAt,
                   completedAt: card.activeExecution.completedAt,
                   logs: [],
+                  workflowStage: card.activeExecution.workflowStage, // Incluir workflow stage
                 });
               }
             } else {
@@ -120,15 +126,34 @@ function App() {
                 startedAt: card.activeExecution.startedAt,
                 completedAt: card.activeExecution.completedAt,
                 logs: [],
+                workflowStage: card.activeExecution.workflowStage, // Incluir workflow stage
               });
             }
 
             // Restaurar workflow state se existir
             const activeExecWithWorkflow = card.activeExecution as any;
             if (activeExecWithWorkflow.workflowStage) {
+              // Mapear valores antigos para os novos (compatibilidade)
+              const stageMap: Record<string, WorkflowStage> = {
+                'plan': 'planning',
+                'implement': 'implementing',
+                'test': 'testing',
+                'test-implementation': 'testing',
+                'review': 'reviewing',
+                // Valores já corretos
+                'planning': 'planning',
+                'implementing': 'implementing',
+                'testing': 'testing',
+                'reviewing': 'reviewing',
+                'completed': 'completed',
+                'error': 'error',
+                'idle': 'idle',
+              };
+              const mappedStage = stageMap[activeExecWithWorkflow.workflowStage] || 'planning';
+
               workflowMap.set(card.id, {
                 cardId: card.id,
-                stage: activeExecWithWorkflow.workflowStage as WorkflowStage,
+                stage: mappedStage,
                 currentColumn: card.columnId,
                 error: activeExecWithWorkflow.workflowError,
               });

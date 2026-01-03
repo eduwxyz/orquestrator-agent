@@ -356,7 +356,36 @@ async def execute_implement(
     # Usar spec_path como "título" para contexto visual
     spec_name = Path(spec_path).stem  # Ex: "feature-x" de "specs/feature-x.md"
 
-    # Initialize execution record
+    # Usar repository se disponível, senão usar memória
+    repo = None
+    execution_db = None
+
+    if db_session:
+        repo = ExecutionRepository(db_session)
+        # Criar execução no banco
+        execution_db = await repo.create_execution(
+            card_id=card_id,
+            command="/implement",
+            title=f"impl:{spec_name}"
+        )
+        # Log inicial no banco
+        await repo.add_log(
+            execution_id=execution_db.id,
+            log_type="info",
+            content=f"Starting implementation for: {spec_path}"
+        )
+        await repo.add_log(
+            execution_id=execution_db.id,
+            log_type="info",
+            content=f"Working directory: {cwd}"
+        )
+        await repo.add_log(
+            execution_id=execution_db.id,
+            log_type="info",
+            content=f"Prompt: {prompt}"
+        )
+
+    # Initialize execution record (memória - para compatibilidade)
     record = ExecutionRecord(
         cardId=card_id,
         title=f"impl:{spec_name}",  # Prefixo para indicar que é implement
@@ -388,9 +417,23 @@ async def execute_implement(
                 for block in message.content:
                     if isinstance(block, TextBlock):
                         add_log(record, LogType.TEXT, block.text)
+                        # Salva log no banco se disponível
+                        if repo and execution_db:
+                            await repo.add_log(
+                                execution_id=execution_db.id,
+                                log_type="text",
+                                content=block.text
+                            )
                         result_text += block.text + "\n"
                     elif isinstance(block, ToolUseBlock):
                         add_log(record, LogType.TOOL, f"Using tool: {block.name}")
+                        # Salva log no banco se disponível
+                        if repo and execution_db:
+                            await repo.add_log(
+                                execution_id=execution_db.id,
+                                log_type="tool",
+                                content=f"Using tool: {block.name}"
+                            )
 
             elif isinstance(message, ResultMessage):
                 if hasattr(message, "result") and message.result:
@@ -402,6 +445,22 @@ async def execute_implement(
         record.status = ExecutionStatus.SUCCESS
         record.result = result_text
         add_log(record, LogType.INFO, "Implementation completed successfully")
+
+        # Atualizar status no banco se disponível
+        if repo and execution_db:
+            await repo.update_execution_status(
+                execution_id=execution_db.id,
+                status=DBExecutionStatus.SUCCESS,
+                result=result_text
+            )
+            # Busca execução completa para retornar logs
+            execution_data = await repo.get_execution_with_logs(card_id)
+            if execution_data:
+                return PlanResult(
+                    success=True,
+                    result=result_text,
+                    logs=execution_data["logs"],
+                )
 
         return PlanResult(
             success=True,
@@ -415,6 +474,27 @@ async def execute_implement(
         record.status = ExecutionStatus.ERROR
         record.result = error_message
         add_log(record, LogType.ERROR, f"Execution error: {error_message}")
+
+        # Atualizar status de erro no banco se disponível
+        if repo and execution_db:
+            await repo.add_log(
+                execution_id=execution_db.id,
+                log_type="error",
+                content=error_message
+            )
+            await repo.update_execution_status(
+                execution_id=execution_db.id,
+                status=DBExecutionStatus.ERROR,
+                result=error_message
+            )
+            # Busca execução para retornar logs
+            execution_data = await repo.get_execution_with_logs(card_id)
+            if execution_data:
+                return PlanResult(
+                    success=False,
+                    error=error_message,
+                    logs=execution_data["logs"],
+                )
 
         return PlanResult(
             success=False,
@@ -488,6 +568,7 @@ async def execute_test_implementation(
     cwd: str,
     model: str = "opus-4.5",
     images: Optional[list] = None,
+    db_session: Optional[AsyncSession] = None,
 ) -> PlanResult:
     """Execute /test-implementation command with the spec file path."""
     # Obter diretório do projeto atual do banco de dados
@@ -527,7 +608,36 @@ async def execute_test_implementation(
     # Usar spec_path como "título" para contexto visual
     spec_name = Path(spec_path).stem  # Ex: "feature-x" de "specs/feature-x.md"
 
-    # Initialize execution record
+    # Usar repository se disponível, senão usar memória
+    repo = None
+    execution_db = None
+
+    if db_session:
+        repo = ExecutionRepository(db_session)
+        # Criar execução no banco
+        execution_db = await repo.create_execution(
+            card_id=card_id,
+            command="/test-implementation",
+            title=f"test:{spec_name}"
+        )
+        # Log inicial no banco
+        await repo.add_log(
+            execution_id=execution_db.id,
+            log_type="info",
+            content=f"Starting test-implementation for: {spec_path}"
+        )
+        await repo.add_log(
+            execution_id=execution_db.id,
+            log_type="info",
+            content=f"Working directory: {cwd}"
+        )
+        await repo.add_log(
+            execution_id=execution_db.id,
+            log_type="info",
+            content=f"Prompt: {prompt}"
+        )
+
+    # Initialize execution record (memória - para compatibilidade)
     record = ExecutionRecord(
         cardId=card_id,
         title=f"test:{spec_name}",  # Prefixo para indicar que é test
@@ -559,9 +669,23 @@ async def execute_test_implementation(
                 for block in message.content:
                     if isinstance(block, TextBlock):
                         add_log(record, LogType.TEXT, block.text)
+                        # Salva log no banco se disponível
+                        if repo and execution_db:
+                            await repo.add_log(
+                                execution_id=execution_db.id,
+                                log_type="text",
+                                content=block.text
+                            )
                         result_text += block.text + "\n"
                     elif isinstance(block, ToolUseBlock):
                         add_log(record, LogType.TOOL, f"Using tool: {block.name}")
+                        # Salva log no banco se disponível
+                        if repo and execution_db:
+                            await repo.add_log(
+                                execution_id=execution_db.id,
+                                log_type="tool",
+                                content=f"Using tool: {block.name}"
+                            )
 
             elif isinstance(message, ResultMessage):
                 if hasattr(message, "result") and message.result:
@@ -588,8 +712,33 @@ async def execute_test_implementation(
             record.status = ExecutionStatus.ERROR
             add_log(record, LogType.ERROR, "Tests failed - creating fix card")
 
+            # Atualizar status de erro no banco se disponível
+            if repo and execution_db:
+                await repo.add_log(
+                    execution_id=execution_db.id,
+                    log_type="error",
+                    content="Tests failed - creating fix card"
+                )
+                await repo.update_execution_status(
+                    execution_id=execution_db.id,
+                    status=DBExecutionStatus.ERROR,
+                    result="Tests failed"
+                )
+
             # Analyze test failure and create fix card
             fix_card_id = await create_fix_card_for_test_failure(card_id, record.logs, spec_path)
+
+            # Busca execução para retornar logs
+            if repo and execution_db:
+                execution_data = await repo.get_execution_with_logs(card_id)
+                if execution_data:
+                    return PlanResult(
+                        success=False,
+                        error="Tests failed. A fix card has been created automatically.",
+                        logs=execution_data["logs"],
+                        fix_card_created=True if fix_card_id else False,
+                        fix_card_id=fix_card_id
+                    )
 
             return PlanResult(
                 success=False,
@@ -602,6 +751,22 @@ async def execute_test_implementation(
             record.status = ExecutionStatus.SUCCESS
             record.result = result_text
             add_log(record, LogType.INFO, "Test-implementation completed successfully")
+
+            # Atualizar status no banco se disponível
+            if repo and execution_db:
+                await repo.update_execution_status(
+                    execution_id=execution_db.id,
+                    status=DBExecutionStatus.SUCCESS,
+                    result=result_text
+                )
+                # Busca execução completa para retornar logs
+                execution_data = await repo.get_execution_with_logs(card_id)
+                if execution_data:
+                    return PlanResult(
+                        success=True,
+                        result=result_text,
+                        logs=execution_data["logs"],
+                    )
 
             return PlanResult(
                 success=True,
@@ -616,6 +781,19 @@ async def execute_test_implementation(
         record.result = error_message
         add_log(record, LogType.ERROR, f"Execution error: {error_message}")
 
+        # Atualizar status de erro no banco se disponível
+        if repo and execution_db:
+            await repo.add_log(
+                execution_id=execution_db.id,
+                log_type="error",
+                content=error_message
+            )
+            await repo.update_execution_status(
+                execution_id=execution_db.id,
+                status=DBExecutionStatus.ERROR,
+                result=error_message
+            )
+
         # Create fix card for execution errors as well
         fix_card_id = await create_fix_card_for_test_failure(
             card_id,
@@ -623,6 +801,18 @@ async def execute_test_implementation(
             spec_path,
             execution_error=error_message
         )
+
+        # Busca execução para retornar logs
+        if repo and execution_db:
+            execution_data = await repo.get_execution_with_logs(card_id)
+            if execution_data:
+                return PlanResult(
+                    success=False,
+                    error=error_message,
+                    logs=execution_data["logs"],
+                    fix_card_created=True if fix_card_id else False,
+                    fix_card_id=fix_card_id
+                )
 
         return PlanResult(
             success=False,
@@ -639,6 +829,7 @@ async def execute_review(
     cwd: str,
     model: str = "opus-4.5",
     images: Optional[list] = None,
+    db_session: Optional[AsyncSession] = None,
 ) -> PlanResult:
     """Execute /review command with the spec file path."""
     # Obter diretório do projeto atual do banco de dados
@@ -678,7 +869,36 @@ async def execute_review(
     # Usar spec_path como "título" para contexto visual
     spec_name = Path(spec_path).stem  # Ex: "feature-x" de "specs/feature-x.md"
 
-    # Initialize execution record
+    # Usar repository se disponível, senão usar memória
+    repo = None
+    execution_db = None
+
+    if db_session:
+        repo = ExecutionRepository(db_session)
+        # Criar execução no banco
+        execution_db = await repo.create_execution(
+            card_id=card_id,
+            command="/review",
+            title=f"review:{spec_name}"
+        )
+        # Log inicial no banco
+        await repo.add_log(
+            execution_id=execution_db.id,
+            log_type="info",
+            content=f"Starting review for: {spec_path}"
+        )
+        await repo.add_log(
+            execution_id=execution_db.id,
+            log_type="info",
+            content=f"Working directory: {cwd}"
+        )
+        await repo.add_log(
+            execution_id=execution_db.id,
+            log_type="info",
+            content=f"Prompt: {prompt}"
+        )
+
+    # Initialize execution record (memória - para compatibilidade)
     record = ExecutionRecord(
         cardId=card_id,
         title=f"review:{spec_name}",  # Prefixo para indicar que é review
@@ -710,9 +930,23 @@ async def execute_review(
                 for block in message.content:
                     if isinstance(block, TextBlock):
                         add_log(record, LogType.TEXT, block.text)
+                        # Salva log no banco se disponível
+                        if repo and execution_db:
+                            await repo.add_log(
+                                execution_id=execution_db.id,
+                                log_type="text",
+                                content=block.text
+                            )
                         result_text += block.text + "\n"
                     elif isinstance(block, ToolUseBlock):
                         add_log(record, LogType.TOOL, f"Using tool: {block.name}")
+                        # Salva log no banco se disponível
+                        if repo and execution_db:
+                            await repo.add_log(
+                                execution_id=execution_db.id,
+                                log_type="tool",
+                                content=f"Using tool: {block.name}"
+                            )
 
             elif isinstance(message, ResultMessage):
                 if hasattr(message, "result") and message.result:
@@ -724,6 +958,22 @@ async def execute_review(
         record.status = ExecutionStatus.SUCCESS
         record.result = result_text
         add_log(record, LogType.INFO, "Review completed successfully")
+
+        # Atualizar status no banco se disponível
+        if repo and execution_db:
+            await repo.update_execution_status(
+                execution_id=execution_db.id,
+                status=DBExecutionStatus.SUCCESS,
+                result=result_text
+            )
+            # Busca execução completa para retornar logs
+            execution_data = await repo.get_execution_with_logs(card_id)
+            if execution_data:
+                return PlanResult(
+                    success=True,
+                    result=result_text,
+                    logs=execution_data["logs"],
+                )
 
         return PlanResult(
             success=True,
@@ -737,6 +987,27 @@ async def execute_review(
         record.status = ExecutionStatus.ERROR
         record.result = error_message
         add_log(record, LogType.ERROR, f"Execution error: {error_message}")
+
+        # Atualizar status de erro no banco se disponível
+        if repo and execution_db:
+            await repo.add_log(
+                execution_id=execution_db.id,
+                log_type="error",
+                content=error_message
+            )
+            await repo.update_execution_status(
+                execution_id=execution_db.id,
+                status=DBExecutionStatus.ERROR,
+                result=error_message
+            )
+            # Busca execução para retornar logs
+            execution_data = await repo.get_execution_with_logs(card_id)
+            if execution_data:
+                return PlanResult(
+                    success=False,
+                    error=error_message,
+                    logs=execution_data["logs"],
+                )
 
         return PlanResult(
             success=False,

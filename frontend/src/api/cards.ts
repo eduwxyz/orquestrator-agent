@@ -190,6 +190,7 @@ interface LogsResponse {
   duration?: number;
   result?: string;
   logs: ExecutionLog[];
+  workflowStage?: string; // Stage do workflow (plan, implement, test, review)
 }
 
 /**
@@ -203,7 +204,19 @@ export async function fetchLogs(cardId: string): Promise<LogsResponse> {
   }
 
   const data = await response.json();
-  return data;
+
+  // API returns { success: boolean, execution: LogsResponse }
+  // We need to extract the execution object
+  if (data.success && data.execution) {
+    return data.execution;
+  }
+
+  // Fallback for direct response format
+  if (data.cardId) {
+    return data;
+  }
+
+  throw new Error('Invalid response format from logs API');
 }
 
 /**

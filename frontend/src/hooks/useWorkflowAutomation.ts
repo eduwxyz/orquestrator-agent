@@ -28,11 +28,22 @@ export function useWorkflowAutomation({
   registerCompletionCallback,
   executions,
 }: UseWorkflowAutomationProps) {
+  // Sempre iniciar com Map vazio - sync será feito via useEffect
   const [workflowStatuses, setWorkflowStatuses] = useState<Map<string, WorkflowStatus>>(
-    initialStatuses || new Map()
+    new Map()
   );
   // Track which workflows are being recovered to avoid duplicates
   const recoveringWorkflowsRef = useRef<Set<string>>(new Set());
+  // Track if recovery was already processed to avoid duplicates on re-renders
+  const recoveryProcessedRef = useRef(false);
+
+  // Sync workflowStatuses when initialStatuses becomes available
+  useEffect(() => {
+    if (initialStatuses && initialStatuses.size > 0 && !recoveryProcessedRef.current) {
+      console.log(`[WorkflowAutomation] Syncing ${initialStatuses.size} initial statuses`);
+      setWorkflowStatuses(new Map(initialStatuses));
+    }
+  }, [initialStatuses]);
 
   const runWorkflow = useCallback(async (card: Card) => {
     // Validar que o card está em backlog
@@ -310,6 +321,12 @@ export function useWorkflowAutomation({
     if (!initialStatuses || initialStatuses.size === 0) return;
     if (cards.length === 0) return;
 
+    // Only run recovery once to prevent duplicates
+    if (recoveryProcessedRef.current) return;
+    recoveryProcessedRef.current = true;
+
+    console.log(`[WorkflowRecovery] Starting recovery with ${initialStatuses.size} statuses`);
+
     const activeStages: WorkflowStage[] = ['planning', 'implementing', 'testing', 'reviewing'];
 
     initialStatuses.forEach((status, cardId) => {
@@ -323,39 +340,57 @@ export function useWorkflowAutomation({
       const card = cards.find(c => c.id === cardId);
       if (!card) return;
 
-      // Check if execution is still running
+      // Check if execution exists
       const execution = executions.get(cardId);
-      if (!execution || execution.status !== 'running') {
-        // Execution already completed but workflow wasn't continued
-        // This can happen if the execution finished before recovery kicked in
-        if (execution && (execution.status === 'success' || execution.status === 'error')) {
-          console.log(`[WorkflowRecovery] Found completed execution for card ${cardId}, continuing workflow`);
-          recoveringWorkflowsRef.current.add(cardId);
-          continueWorkflowFromStage(card, status.stage, execution.status);
-        }
+
+      if (!execution) {
+        // No execution found - workflow state is stale, just log and skip
+        console.log(`[WorkflowRecovery] No execution found for card ${cardId}, skipping recovery`);
         return;
       }
 
-      // Execution is still running - register callback for when it completes
-      console.log(`[WorkflowRecovery] Registering recovery callback for card ${cardId} at stage: ${status.stage}`);
-      recoveringWorkflowsRef.current.add(cardId);
+      if (execution.status === 'running') {
+        // Execution is still running - register callback for when it completes
+        console.log(`[WorkflowRecovery] Registering recovery callback for card ${cardId} at stage: ${status.stage}`);
+        recoveringWorkflowsRef.current.add(cardId);
 
-      registerCompletionCallback(cardId, (completedExecution) => {
-        console.log(`[WorkflowRecovery] Execution completed for card ${cardId}, status: ${completedExecution.status}`);
-        const executionStatus = completedExecution.status === 'success' ? 'success' : 'error';
+        registerCompletionCallback(cardId, (completedExecution) => {
+          console.log(`[WorkflowRecovery] Execution completed for card ${cardId}, status: ${completedExecution.status}`);
+          const executionStatus = completedExecution.status === 'success' ? 'success' : 'error';
 
-        // Re-fetch card to get latest state (specPath might have been updated)
-        cardsApi.fetchCards().then(latestCards => {
-          const latestCard = latestCards.find(c => c.id === cardId);
-          if (latestCard) {
-            continueWorkflowFromStage(latestCard, status.stage, executionStatus);
-          } else {
+          // Re-fetch card to get latest state (specPath might have been updated)
+          cardsApi.fetchCards().then(latestCards => {
+            const latestCard = latestCards.find(c => c.id === cardId);
+            if (latestCard) {
+              continueWorkflowFromStage(latestCard, status.stage, executionStatus);
+            } else {
+              continueWorkflowFromStage(card, status.stage, executionStatus);
+            }
+          }).catch(() => {
             continueWorkflowFromStage(card, status.stage, executionStatus);
-          }
-        }).catch(() => {
-          continueWorkflowFromStage(card, status.stage, executionStatus);
+          });
         });
-      });
+      } else {
+        // Execution already completed BEFORE refresh
+        // DON'T automatically continue - user refreshed after execution finished
+        // The card is already in the correct position, just update workflow status if needed
+        console.log(`[WorkflowRecovery] Execution already ${execution.status} for card ${cardId}, NOT continuing automatically`);
+
+        if (execution.status === 'error') {
+          // Update workflow status to reflect error state
+          setWorkflowStatuses(prev => {
+            const next = new Map(prev);
+            next.set(cardId, {
+              ...status,
+              stage: 'error',
+              error: 'Execution failed before refresh'
+            });
+            return next;
+          });
+        }
+        // If success, leave the card where it is - don't move it automatically
+        // The user can manually continue or the workflow was already completed
+      }
     });
   }, [initialStatuses, cards, executions, registerCompletionCallback, continueWorkflowFromStage]);
 

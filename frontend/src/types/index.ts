@@ -14,6 +14,8 @@ export interface ActiveExecution {
   command?: string;
   startedAt?: string;
   completedAt?: string;
+  workflowStage?: string; // Stage do workflow (plan, implement, test, review)
+  workflowError?: string; // Erro do workflow se houver
 }
 
 export interface Card {
@@ -56,6 +58,8 @@ export interface ExecutionStatus {
   // Fix card fields
   fixCardCreated?: boolean; // Indica se um card de correção foi criado
   fixCardId?: string; // ID do card de correção criado
+  // Workflow recovery fields
+  workflowStage?: string; // Stage do workflow (plan, implement, test, review)
 }
 
 export const COLUMNS: Column[] = [

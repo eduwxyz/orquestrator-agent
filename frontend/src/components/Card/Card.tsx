@@ -22,11 +22,17 @@ export function Card({ card, onRemove, onUpdateCard, isDragging = false, executi
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [removingImageId, setRemovingImageId] = useState<string | null>(null);
 
-  const isRunning = workflowStatus && workflowStatus.stage !== 'idle' && workflowStatus.stage !== 'completed';
+  // Card só é desabilitado se estiver ATIVAMENTE em execução
+  // Permitir arrastar se: idle, completed, error, ou se a execução já terminou
+  const isActivelyRunning = workflowStatus
+    && workflowStatus.stage !== 'idle'
+    && workflowStatus.stage !== 'completed'
+    && workflowStatus.stage !== 'error'
+    && executionStatus?.status === 'running'; // Só bloquear se a execução ainda está rodando
 
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: card.id,
-    disabled: isRunning // Apenas desabilitar drag durante execução do workflow
+    disabled: isActivelyRunning // Apenas desabilitar drag durante execução ativa
   });
 
   const style = transform
@@ -235,7 +241,7 @@ export function Card({ card, onRemove, onUpdateCard, isDragging = false, executi
             </div>
           )}
         </div>
-        {card.columnId === 'backlog' && !isRunning && (
+        {card.columnId === 'backlog' && !isActivelyRunning && (
           <button
             className={styles.runButton}
             onClick={(e) => {

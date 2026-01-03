@@ -28,13 +28,22 @@ class ExecutionStatus(str, Enum):
 
 class ExecutionLog(BaseModel):
     timestamp: str
-    type: LogType
+    type: str  # Pode ser string ou LogType, aceitar ambos
     content: str
 
 
 class ExecutionRecord(CamelCaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+        serialize_by_alias=True,
+        extra="ignore",  # Ignorar campos extras do dict
+    )
+
     card_id: str = Field(alias="cardId")
     title: Optional[str] = None
+    execution_id: Optional[str] = Field(default=None, alias="executionId")
+    command: Optional[str] = None
+    workflow_stage: Optional[str] = Field(default=None, alias="workflowStage")
     started_at: Optional[str] = Field(default=None, alias="startedAt")
     completed_at: Optional[str] = Field(default=None, alias="completedAt")
     status: ExecutionStatus
