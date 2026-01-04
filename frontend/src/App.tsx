@@ -48,6 +48,7 @@ function App() {
   const {
     runWorkflow,
     getWorkflowStatus,
+    handleCompletedReview,
     // clearWorkflowStatus, // Não está sendo usado no momento
   } = useWorkflowAutomation({
     executePlan,
@@ -177,6 +178,68 @@ function App() {
     };
     loadInitialData();
   }, []);
+
+  // Polling para monitorar merge automático em background
+  useEffect(() => {
+    const cardsBeingMerged = cards.filter(c => c.mergeStatus === 'resolving');
+
+    if (cardsBeingMerged.length === 0) {
+      return; // Nada para monitorar
+    }
+
+    console.log(`[App] Monitoring ${cardsBeingMerged.length} card(s) with merges in progress`);
+
+    const interval = setInterval(async () => {
+      try {
+        // Recarregar apenas os cards que estão sendo merged
+        const updatedCards = await cardsApi.fetchCards();
+
+        for (const oldCard of cardsBeingMerged) {
+          const updatedCard = updatedCards.find(c => c.id === oldCard.id);
+
+          if (!updatedCard) continue;
+
+          // Se o merge foi completado com sucesso
+          if (updatedCard.mergeStatus === 'merged' && updatedCard.columnId === 'review') {
+            console.log(`[App] Merge completed for card ${updatedCard.id}, moving to Done`);
+
+            // Mover para done
+            await cardsApi.moveCard(updatedCard.id, 'done');
+
+            // Atualizar estado local
+            setCards(prev => prev.map(c =>
+              c.id === updatedCard.id
+                ? { ...updatedCard, columnId: 'done', mergeStatus: 'merged' }
+                : c
+            ));
+          }
+          // Se o merge falhou
+          else if (updatedCard.mergeStatus === 'failed') {
+            console.error(`[App] Merge failed for card ${updatedCard.id}`);
+
+            // Atualizar estado local com o status de falha
+            setCards(prev => prev.map(c =>
+              c.id === updatedCard.id
+                ? { ...updatedCard }
+                : c
+            ));
+          }
+          // Se ainda está resolvendo, atualizar o card
+          else if (updatedCard.mergeStatus === 'resolving') {
+            setCards(prev => prev.map(c =>
+              c.id === updatedCard.id
+                ? { ...updatedCard }
+                : c
+            ));
+          }
+        }
+      } catch (error) {
+        console.error('[App] Error polling merge status:', error);
+      }
+    }, 5000); // Poll a cada 5 segundos
+
+    return () => clearInterval(interval);
+  }, [cards]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -352,6 +415,28 @@ function App() {
       } else {
         alert('Este card não possui um plano associado. Execute primeiro a etapa de planejamento.');
         moveCard(activeId, startColumn);
+      }
+    } else if (startColumn === 'review' && finalColumnId === 'done') {
+      // Trigger: review → done - Fazer merge automático
+      const updatedCard = cards.find(c => c.id === activeId);
+      if (updatedCard?.branchName) {
+        console.log(`[App] Card moved from review to done: ${updatedCard.title}`);
+        console.log(`[App] Starting automatic merge for branch: ${updatedCard.branchName}`);
+
+        // Tentar fazer merge
+        const mergeResult = await handleCompletedReview(updatedCard.id);
+
+        if (mergeResult.success) {
+          console.log(`[App] Merge successful for card: ${updatedCard.title}`);
+        } else if (mergeResult.status === 'resolving') {
+          console.log(`[App] Merge has conflicts, AI is resolving automatically`);
+          // Card já está em done, merge será completado em background
+        } else {
+          console.error(`[App] Merge failed: ${mergeResult.error}`);
+          alert(`Falha ao fazer merge: ${mergeResult.error}\nO card foi movido para Done, mas o merge precisa ser feito manualmente.`);
+        }
+      } else {
+        console.log(`[App] Card has no branch, skipping merge`);
       }
     }
   };

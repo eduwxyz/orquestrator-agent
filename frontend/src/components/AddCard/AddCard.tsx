@@ -72,7 +72,7 @@ export function AddCard({ }: AddCardProps) {
         >
           <path d="M7 1v12M1 7h12" />
         </svg>
-        Add card
+        New Task
       </button>
 
       <AddCardModal

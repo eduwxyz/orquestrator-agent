@@ -64,6 +64,7 @@ export function Column({ column, cards, onAddCard, onRemoveCard, onUpdateCard, g
           ))}
         </div>
       )}
+
     </div>
   );
 }
