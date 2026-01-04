@@ -14,6 +14,16 @@ from ..schemas.chat import (
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
+# Allowed AI models
+ALLOWED_MODELS = [
+    "claude-3.5-opus",
+    "claude-3.5-sonnet",
+    "claude-3.5-haiku",
+    # Keep compatibility with old model names
+    "claude-3-sonnet",
+    "claude-3-opus",
+]
+
 
 @router.post("/sessions", response_model=CreateSessionResponse)
 async def create_chat_session():
@@ -133,13 +143,23 @@ async def chat_websocket(websocket: WebSocket, session_id: str):
                 message_data = json.loads(data)
                 message_type = message_data.get("type")
                 message_content = message_data.get("content")
-                message_model = message_data.get("model", "claude-3-sonnet")
+                message_model = message_data.get("model", "claude-3.5-sonnet")
 
                 if message_type != "message" or not message_content:
                     await websocket.send_text(
                         json.dumps({
                             "type": "error",
                             "message": "Invalid message format",
+                        })
+                    )
+                    continue
+
+                # Validate model
+                if message_model not in ALLOWED_MODELS:
+                    await websocket.send_text(
+                        json.dumps({
+                            "type": "error",
+                            "message": f"Invalid model: {message_model}. Allowed models: {', '.join(ALLOWED_MODELS)}",
                         })
                     )
                     continue

@@ -10,25 +10,25 @@ export interface AIModel {
 
 export const AVAILABLE_MODELS: AIModel[] = [
   {
-    id: 'claude-3-sonnet',
-    name: 'Claude 3 Sonnet',
+    id: 'claude-3.5-opus',
+    name: 'Claude 3.5 Opus',
+    provider: 'anthropic',
+    maxTokens: 200000,
+    description: 'Most powerful model for complex reasoning'
+  },
+  {
+    id: 'claude-3.5-sonnet',
+    name: 'Claude 3.5 Sonnet',
     provider: 'anthropic',
     maxTokens: 200000,
     description: 'Balanced performance and speed'
   },
   {
-    id: 'claude-3-opus',
-    name: 'Claude 3 Opus',
+    id: 'claude-3.5-haiku',
+    name: 'Claude 3.5 Haiku',
     provider: 'anthropic',
     maxTokens: 200000,
-    description: 'Most capable, best for complex tasks'
-  },
-  {
-    id: 'gpt-4-turbo',
-    name: 'GPT-4 Turbo',
-    provider: 'openai',
-    maxTokens: 128000,
-    description: 'OpenAI\'s most advanced model'
+    description: 'Fast responses for simple tasks'
   }
 ];
 

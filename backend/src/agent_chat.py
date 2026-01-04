@@ -25,7 +25,7 @@ class ClaudeAgentChat:
     async def stream_response(
         self,
         messages: list[dict],
-        model: str = "claude-3-sonnet",
+        model: str = "claude-3.5-sonnet",
         system_prompt: str | None = None
     ) -> AsyncGenerator[str, None]:
         """
@@ -81,9 +81,12 @@ class ClaudeAgentChat:
 
             # Map model IDs to agent SDK model names
             model_mapping = {
+                "claude-3.5-opus": "opus",
+                "claude-3.5-sonnet": "sonnet",
+                "claude-3.5-haiku": "haiku",
+                # Keep compatibility with old model names
                 "claude-3-sonnet": "sonnet",
                 "claude-3-opus": "opus",
-                "gpt-4-turbo": "sonnet",  # Fallback to sonnet for unsupported models
             }
             agent_model = model_mapping.get(model, "sonnet")
 
@@ -118,7 +121,7 @@ class ClaudeAgentChat:
     async def get_single_response(
         self,
         messages: list[dict],
-        model: str = "claude-3-sonnet",
+        model: str = "claude-3.5-sonnet",
         system_prompt: str | None = None
     ) -> str:
         """

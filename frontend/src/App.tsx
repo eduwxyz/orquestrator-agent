@@ -26,7 +26,7 @@ function App() {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const dragStartColumnRef = useRef<ColumnId | null>(null);
   const { executePlan, executeImplement, executeTest, executeReview, getExecutionStatus, registerCompletionCallback, executions, fetchLogsHistory } = useAgentExecution(initialExecutions);
-  const { state: chatState, sendMessage, handleModelChange } = useChat();
+  const { state: chatState, sendMessage, handleModelChange, createNewSession } = useChat();
 
   // Define moveCard and updateCardSpecPath BEFORE useWorkflowAutomation
   const moveCard = (cardId: string, newColumnId: ColumnId) => {
@@ -482,6 +482,7 @@ function App() {
             onSendMessage={sendMessage}
             selectedModel={chatState.selectedModel}
             onModelChange={handleModelChange}
+            onNewChat={createNewSession}
           />
         );
 

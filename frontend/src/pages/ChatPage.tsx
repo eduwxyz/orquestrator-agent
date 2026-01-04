@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { Message } from '../types/chat';
 import ChatMessage from '../components/Chat/ChatMessage';
 import ChatInput from '../components/Chat/ChatInput';
+import { ModelSelector } from '../components/Chat/ModelSelector';
+import { MessageSquarePlus } from 'lucide-react';
 import styles from './ChatPage.module.css';
 
 interface ChatPageProps {
@@ -9,6 +11,9 @@ interface ChatPageProps {
   isLoading: boolean;
   error: string | null;
   onSendMessage: (content: string) => void;
+  selectedModel: string;
+  onModelChange: (model: string) => void;
+  onNewChat?: () => void;
 }
 
 const ChatPage = ({
@@ -16,6 +21,9 @@ const ChatPage = ({
   isLoading,
   error,
   onSendMessage,
+  selectedModel,
+  onModelChange,
+  onNewChat,
 }: ChatPageProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -33,9 +41,27 @@ const ChatPage = ({
             Converse com o assistente inteligente do projeto
           </p>
         </div>
-        <div className={styles.chatStatus}>
-          <div className={styles.statusIndicator}></div>
-          <span className={styles.statusText}>Online</span>
+        <div className={styles.chatActions}>
+          {onNewChat && (
+            <button
+              className={styles.newChatButton}
+              onClick={onNewChat}
+              title="Start new chat session"
+              disabled={isLoading}
+            >
+              <MessageSquarePlus size={18} />
+              <span>New Chat</span>
+            </button>
+          )}
+          <ModelSelector
+            selectedModel={selectedModel}
+            onModelChange={onModelChange}
+            disabled={isLoading}
+          />
+          <div className={styles.chatStatus}>
+            <div className={styles.statusIndicator}></div>
+            <span className={styles.statusText}>Online</span>
+          </div>
         </div>
       </div>
 

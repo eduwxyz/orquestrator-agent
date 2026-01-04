@@ -3,6 +3,7 @@ import { Message } from '../../types/chat';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import { ModelSelector } from './ModelSelector';
+import { MessageSquarePlus } from 'lucide-react';
 import styles from './Chat.module.css';
 
 interface ChatProps {
@@ -12,6 +13,7 @@ interface ChatProps {
   onSendMessage: (content: string) => void;
   selectedModel: string;
   onModelChange: (model: string) => void;
+  onNewChat?: () => void;
 }
 
 export default function Chat({
@@ -21,6 +23,7 @@ export default function Chat({
   onSendMessage,
   selectedModel,
   onModelChange,
+  onNewChat,
 }: ChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -33,11 +36,24 @@ export default function Chat({
     <div className={styles.chatContainer}>
       <div className={styles.chatHeader}>
         <h2 className={styles.chatTitle}>AI Assistant</h2>
-        <ModelSelector
-          selectedModel={selectedModel}
-          onModelChange={onModelChange}
-          disabled={isLoading}
-        />
+        <div className={styles.headerActions}>
+          {onNewChat && (
+            <button
+              className={styles.newChatButton}
+              onClick={onNewChat}
+              title="Start new chat session"
+              disabled={isLoading}
+            >
+              <MessageSquarePlus size={18} />
+              <span>New Chat</span>
+            </button>
+          )}
+          <ModelSelector
+            selectedModel={selectedModel}
+            onModelChange={onModelChange}
+            disabled={isLoading}
+          />
+        </div>
       </div>
 
       <div className={styles.messagesContainer}>

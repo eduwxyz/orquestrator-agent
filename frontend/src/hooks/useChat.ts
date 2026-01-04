@@ -10,7 +10,7 @@ export function useChat() {
     session: null,
     isLoading: false,
     error: null,
-    selectedModel: 'claude-3-sonnet',
+    selectedModel: 'claude-3.5-sonnet',
     unreadCount: 0,
   });
 
@@ -239,6 +239,34 @@ export function useChat() {
     sessionId.current = uuidv4();
   }, []);
 
+  const createNewSession = useCallback(() => {
+    // Close existing WebSocket connection
+    if (ws.current) {
+      ws.current.close();
+      ws.current = null;
+    }
+
+    // Create new session ID
+    const newSessionId = uuidv4();
+    sessionId.current = newSessionId;
+
+    // Reset session state
+    setState((prev) => ({
+      ...prev,
+      session: {
+        id: newSessionId,
+        messages: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        model: prev.selectedModel,
+      },
+      isLoading: false,
+      error: null,
+    }));
+
+    currentMessageId.current = null;
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -254,5 +282,6 @@ export function useChat() {
     toggleChat,
     closeChat,
     handleModelChange,
+    createNewSession,
   };
 }

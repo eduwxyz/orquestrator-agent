@@ -37,6 +37,44 @@
   color: var(--text-secondary);
 }
 
+.chatActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.newChatButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+.newChatButton:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+}
+
+.newChatButton:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.newChatButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .chatStatus {
   display: flex;
   align-items: center;
