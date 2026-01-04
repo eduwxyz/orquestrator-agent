@@ -962,3 +962,141 @@
     flex-wrap: wrap;
   }
 }
+
+/* ============================================ */
+/* Light Mode Overrides                         */
+/* ============================================ */
+
+:global([data-theme="light"]) .sectionTitle {
+  color: #1f2937;
+}
+
+:global([data-theme="light"]) .sectionDescription {
+  color: #6b7280;
+}
+
+:global([data-theme="light"]) .workflowStage {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+:global([data-theme="light"]) .workflowStage:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+:global([data-theme="light"]) .stageIcon {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+:global([data-theme="light"]) .stageName {
+  color: #374151;
+}
+
+:global([data-theme="light"]) .stageDescription {
+  color: #6b7280;
+}
+
+:global([data-theme="light"]) .modelCard {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+:global([data-theme="light"]) .modelCard:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+:global([data-theme="light"]) .modelCard.selected {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+:global([data-theme="light"]) .modelCard.opus.selected {
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.12) 0%,
+    rgba(99, 102, 241, 0.12) 100%
+  );
+  border-color: rgba(168, 85, 247, 0.4);
+}
+
+:global([data-theme="light"]) .modelCard.sonnet.selected {
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.12) 0%,
+    rgba(16, 185, 129, 0.12) 100%
+  );
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+:global([data-theme="light"]) .modelCard.haiku.selected {
+  background: linear-gradient(135deg,
+    rgba(251, 146, 60, 0.12) 0%,
+    rgba(250, 204, 21, 0.12) 100%
+  );
+  border-color: rgba(251, 146, 60, 0.4);
+}
+
+:global([data-theme="light"]) .modelIcon {
+  color: #4b5563;
+}
+
+:global([data-theme="light"]) .modelName {
+  color: #1f2937;
+}
+
+:global([data-theme="light"]) .modelTagline {
+  color: #6b7280;
+}
+
+:global([data-theme="light"]) .modelPerformance {
+  color: #9ca3af;
+}
+
+:global([data-theme="light"]) .uploadArea {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+:global([data-theme="light"]) .uploadArea:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+:global([data-theme="light"]) .uploadIcon {
+  color: #6b7280;
+}
+
+:global([data-theme="light"]) .uploadText {
+  color: #374151;
+}
+
+:global([data-theme="light"]) .uploadHint {
+  color: #9ca3af;
+}
+
+:global([data-theme="light"]) .cancelButton {
+  background: rgba(0, 0, 0, 0.05);
+  color: #4b5563;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+:global([data-theme="light"]) .cancelButton:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+  color: #1f2937;
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+:global([data-theme="light"]) .actions {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+:global([data-theme="light"]) .previewItem {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+:global([data-theme="light"]) .errorMessage {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+}

@@ -118,36 +118,35 @@
   color: #7c3aed;
 }
 
-/* PLAN - Indigo */
+/* PLAN - Indigo/Roxo */
 .column_plan {
-  border-top: 3px solid var(--zen-primary-light);
+  border-top: 3px solid #818cf8;
 }
 
 .column_plan .title {
-  color: var(--zen-primary);
+  color: #818cf8;
 }
 
 .column_plan .count {
-  background: var(--zen-primary-subtle);
-  border-color: var(--zen-primary-light);
-  color: var(--zen-primary);
+  background: rgba(129, 140, 248, 0.15);
+  border-color: #818cf8;
+  color: #818cf8;
 }
 
-/* IMPLEMENT - Primary destaque */
+/* IMPLEMENT - Cyan destaque (sem fundo especial) */
 .column_implement {
-  border-top: 3px solid var(--zen-primary);
-  background: var(--zen-primary-subtle);
+  border-top: 3px solid #00d4ff;
 }
 
 .column_implement .title {
-  color: var(--zen-primary-dark);
+  color: #00d4ff;
   font-weight: 700;
 }
 
 .column_implement .count {
-  background: var(--zen-primary);
-  border-color: var(--zen-primary-dark);
-  color: white;
+  background: #00d4ff;
+  border-color: #33ddff;
+  color: #0a0a0f;
 }
 
 /* TEST - Azul info */

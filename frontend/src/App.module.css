@@ -155,6 +155,95 @@
   --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
   --shadow-glow: 0 0 15px var(--accent-cyan-glow);
   --shadow-glow-sm: 0 0 8px var(--accent-cyan-glow);
+
+  /* Zen colors for light mode */
+  --zen-gray-200: #d6d3d1;
+  --zen-gray-300: #a8a29e;
+  --zen-gray-400: #78716c;
+  --zen-primary: #6366f1;
+  --zen-primary-subtle: rgba(99, 102, 241, 0.08);
+}
+
+[data-theme="dark"] {
+  /* === COSMIC DARK THEME (from main) === */
+
+  /* Background Layers */
+  --bg-deep: #0a0a0f;
+  --bg-base: #12121a;
+  --bg-elevated: #1a1a24;
+  --bg-surface: #222230;
+  --bg-hover: #2a2a3a;
+
+  /* Glass Effect */
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-glow: rgba(0, 212, 255, 0.1);
+
+  /* Text Hierarchy */
+  --text-primary: #f0f0f5;
+  --text-secondary: #a0a0b0;
+  --text-muted: #606075;
+  --text-dim: #404055;
+
+  /* Accent Colors */
+  --accent-cyan: #00d4ff;
+  --accent-cyan-glow: rgba(0, 212, 255, 0.3);
+  --accent-cyan-subtle: rgba(0, 212, 255, 0.15);
+  --accent-purple: #a855f7;
+  --accent-green: #34d399;
+  --accent-amber: #fbbf24;
+  --accent-rose: #fb7185;
+
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.1);
+  --border-hover: rgba(255, 255, 255, 0.15);
+  --border-glow: rgba(0, 212, 255, 0.4);
+
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 20px var(--accent-cyan-glow);
+  --shadow-glow-sm: 0 0 10px var(--accent-cyan-glow);
+
+  /* Zen colors mapped for dark mode compatibility */
+  --zen-white: #1a1a24;
+  --zen-cream: #12121a;
+  --zen-light: #1a1a24;
+  --zen-gray-50: #1a1a24;
+  --zen-gray-100: #222230;
+  --zen-gray-200: #2a2a3a;
+  --zen-gray-300: #404055;
+  --zen-gray-400: #606075;
+  --zen-gray-500: #a0a0b0;
+  --zen-gray-600: #c0c0d0;
+  --zen-gray-700: #f0f0f5;
+  --zen-black: #ffffff;
+  --zen-primary: #00d4ff;
+  --zen-primary-light: #33ddff;
+  --zen-primary-dark: #00a3cc;
+  --zen-primary-subtle: rgba(0, 212, 255, 0.15);
+  --zen-primary-glow: rgba(0, 212, 255, 0.3);
+  --zen-success: #34d399;
+  --zen-success-light: #6ee7b7;
+  --zen-success-subtle: rgba(52, 211, 153, 0.15);
+  --zen-warning: #fbbf24;
+  --zen-warning-light: #fcd34d;
+  --zen-warning-subtle: rgba(251, 191, 36, 0.15);
+  --zen-error: #fb7185;
+  --zen-error-light: #fda4af;
+  --zen-error-subtle: rgba(251, 113, 133, 0.15);
+  --zen-info: #60a5fa;
+  --zen-info-light: #93c5fd;
+  --zen-info-subtle: rgba(96, 165, 250, 0.15);
+
+  /* Override border-accent for dark mode */
+  --border-accent: var(--accent-cyan);
+
+  /* Override text-inverse for dark mode */
+  --text-inverse: #0c0a09;
 }
 
 * {
@@ -180,6 +269,18 @@ body {
   -moz-osx-font-smoothing: grayscale;
   font-size: var(--text-base);
   letter-spacing: -0.01em;
+}
+
+/* Dark mode body with cosmic gradients */
+[data-theme="dark"] body {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 212, 255, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(168, 85, 247, 0.05), transparent),
+    var(--bg-deep);
+}
+
+[data-theme="dark"] html {
+  background: var(--bg-deep);
 }
 
 .app {

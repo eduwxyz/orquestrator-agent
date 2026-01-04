@@ -7,18 +7,18 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: var(--bg-secondary, #2a2a2a);
-  border: 1px solid var(--border-color, #444);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
-  color: var(--text-primary, #fff);
+  color: var(--text-primary);
   font-size: 14px;
 }
 
 .projectSwitcherTrigger:hover {
-  background: var(--bg-hover, #333);
-  border-color: var(--border-hover, #555);
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
 }
 
 .rotate180 {
@@ -32,17 +32,17 @@
   right: 0;
   width: 400px;
   max-height: 500px;
-  background: var(--bg-primary, #1e1e1e);
-  border: 1px solid var(--border-color, #444);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
   z-index: 1000;
 }
 
 .projectSwitcherTabs {
   display: flex;
-  border-bottom: 1px solid var(--border-color, #444);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .projectSwitcherTabs button {
@@ -55,13 +55,13 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--text-secondary, #999);
+  color: var(--text-secondary);
   transition: all 0.2s;
 }
 
 .projectSwitcherTabs button.active {
-  color: var(--primary, #007bff);
-  background: var(--bg-secondary, #2a2a2a);
+  color: var(--accent-cyan);
+  background: var(--bg-surface);
   position: relative;
 }
 
@@ -72,7 +72,7 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: var(--primary, #007bff);
+  background: var(--accent-cyan);
 }
 
 .projectSwitcherSearch {
@@ -80,22 +80,22 @@
   align-items: center;
   gap: 8px;
   padding: 12px;
-  border-bottom: 1px solid var(--border-color, #444);
-  color: var(--text-secondary, #999);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
 }
 
 .projectSwitcherSearch input {
   flex: 1;
   padding: 6px 8px;
-  background: var(--bg-secondary, #2a2a2a);
-  border: 1px solid var(--border-color, #444);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   outline: none;
-  color: var(--text-primary, #fff);
+  color: var(--text-primary);
 }
 
 .projectSwitcherSearch input:focus {
-  border-color: var(--primary, #007bff);
+  border-color: var(--accent-cyan);
 }
 
 .projectSwitcherList {
@@ -110,15 +110,15 @@
   padding: 12px;
   cursor: pointer;
   transition: background 0.2s;
-  border-bottom: 1px solid var(--border-color, #333);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .projectItem:hover {
-  background: var(--bg-hover, #2a2a2a);
+  background: var(--bg-hover);
 }
 
 .projectItem.current {
-  background: var(--bg-selected, #2c3e50);
+  background: var(--zen-primary-subtle);
 }
 
 .projectInfo {
@@ -129,12 +129,12 @@
 .projectName {
   font-weight: 500;
   margin-bottom: 4px;
-  color: var(--text-primary, #fff);
+  color: var(--text-primary);
 }
 
 .projectPath {
   font-size: 12px;
-  color: var(--text-secondary, #999);
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -146,13 +146,13 @@
   gap: 8px;
   margin-top: 4px;
   font-size: 11px;
-  color: var(--text-tertiary, #666);
+  color: var(--text-muted);
 }
 
 .hasClaude {
   padding: 2px 6px;
-  background: var(--success-bg, #28a74520);
-  color: var(--success, #28a745);
+  background: var(--zen-success-subtle);
+  color: var(--zen-success);
   border-radius: 3px;
   font-weight: 500;
 }
@@ -162,7 +162,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--text-secondary, #999);
+  color: var(--text-secondary);
   transition: color 0.2s;
   display: flex;
   align-items: center;
@@ -171,14 +171,14 @@
 
 .favoriteBtn:hover,
 .favoriteBtn.activeFavorite {
-  color: var(--warning, #ffc107);
+  color: var(--zen-warning);
 }
 
 .loading,
 .noProjects {
   padding: 24px;
   text-align: center;
-  color: var(--text-secondary, #999);
+  color: var(--text-secondary);
 }
 
 /* Scrollbar styling */
@@ -187,14 +187,14 @@
 }
 
 .projectSwitcherList::-webkit-scrollbar-track {
-  background: var(--bg-primary, #1e1e1e);
+  background: var(--bg-elevated);
 }
 
 .projectSwitcherList::-webkit-scrollbar-thumb {
-  background: var(--border-color, #444);
+  background: var(--zen-gray-300);
   border-radius: 4px;
 }
 
 .projectSwitcherList::-webkit-scrollbar-thumb:hover {
-  background: var(--border-hover, #555);
+  background: var(--zen-gray-400);
 }

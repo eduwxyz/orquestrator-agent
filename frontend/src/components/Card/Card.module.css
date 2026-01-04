@@ -396,15 +396,15 @@
 .workflowProgress {
   margin-top: 8px;
   padding: 6px 10px;
-  background: rgba(102, 126, 234, 0.1);
+  background: var(--zen-primary-subtle);
   border-radius: 4px;
-  border-left: 3px solid #667eea;
+  border-left: 3px solid var(--zen-primary);
 }
 
 .progressBadge {
   font-size: 12px;
   font-weight: 500;
-  color: #667eea;
+  color: var(--zen-primary);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -413,16 +413,16 @@
 /* Archived Card Styles */
 .archived {
   opacity: 0.6;
-  border-left: 4px solid #9ca3af;
-  background: linear-gradient(135deg, #f9fafb 0%, #e5e7eb 100%);
+  border-left: 4px solid var(--zen-gray-400);
+  background: var(--bg-surface);
 }
 
 .archivedBadge {
   position: absolute;
   top: 8px;
   right: 40px;
-  background: #6b7280;
-  color: white;
+  background: var(--zen-gray-500);
+  color: var(--text-inverse);
   font-size: 10px;
   padding: 2px 6px;
   border-radius: 4px;
@@ -570,11 +570,11 @@
   gap: 6px;
   padding: 8px 12px;
   margin-top: var(--space-2);
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--zen-error-subtle);
+  border: 1px solid var(--zen-error-light);
   border-radius: var(--radius-sm);
   font-size: 11px;
   font-weight: 500;
-  color: #ef4444;
+  color: var(--zen-error);
 }
 
