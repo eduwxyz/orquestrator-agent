@@ -41,6 +41,75 @@ export const AVAILABLE_MODELS: AIModel[] = [
     performance: 'fastest',
     icon: '🚀',
     accent: 'anthropic'
+  },
+  {
+    id: 'claude-3-sonnet',
+    name: 'Claude 3 Sonnet',
+    displayName: 'Sonnet (3.0)',
+    provider: 'anthropic',
+    maxTokens: 200000,
+    description: 'Previous generation balanced model',
+    performance: 'balanced',
+    icon: '💫',
+    accent: 'anthropic'
+  },
+  {
+    id: 'claude-3-opus',
+    name: 'Claude 3 Opus',
+    displayName: 'Opus (3.0)',
+    provider: 'anthropic',
+    maxTokens: 200000,
+    description: 'Previous generation powerful model',
+    performance: 'powerful',
+    icon: '🔮',
+    accent: 'anthropic'
+  },
+  {
+    id: 'gpt-4-turbo',
+    name: 'GPT-4 Turbo',
+    displayName: 'GPT-4 Turbo',
+    provider: 'openai',
+    maxTokens: 128000,
+    description: 'OpenAI\'s most advanced and capable model',
+    performance: 'powerful',
+    icon: '🤖',
+    accent: 'openai',
+    badge: 'OpenAI'
+  },
+  // Modelos Gemini
+  {
+    id: 'gemini-1.5-pro',
+    name: 'Gemini 1.5 Pro',
+    displayName: 'Gemini Pro',
+    provider: 'google',
+    maxTokens: 1000000,
+    description: 'Google\'s most capable multimodal model with long context',
+    performance: 'powerful',
+    icon: '🌟',
+    accent: 'google',
+    badge: 'Long Context'
+  },
+  {
+    id: 'gemini-1.5-flash',
+    name: 'Gemini 1.5 Flash',
+    displayName: 'Gemini Flash',
+    provider: 'google',
+    maxTokens: 1000000,
+    description: 'Fast and efficient model for quick tasks',
+    performance: 'fastest',
+    icon: '⚡',
+    accent: 'google'
+  },
+  {
+    id: 'gemini-1.0-pro',
+    name: 'Gemini 1.0 Pro',
+    displayName: 'Gemini 1.0',
+    provider: 'google',
+    maxTokens: 32000,
+    description: 'Balanced model for general tasks',
+    performance: 'balanced',
+    icon: '💎',
+    accent: 'google'
   }
 ];
 

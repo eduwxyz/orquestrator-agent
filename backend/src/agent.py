@@ -153,6 +153,171 @@ def extract_spec_path(text: str) -> Optional[str]:
     return None
 
 
+async def execute_plan_gemini(
+    card_id: str,
+    title: str,
+    description: str,
+    cwd: str,
+    model: str,
+    images: Optional[list] = None,
+    db_session: Optional[AsyncSession] = None,
+) -> PlanResult:
+    """Execute plan using Gemini CLI."""
+    from .gemini_agent import GeminiAgent
+    from .database import async_session_maker
+    from .models.project import ActiveProject
+    from sqlalchemy import select
+
+    print(f"[Agent] Initial cwd parameter: {cwd}")
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(ActiveProject).order_by(ActiveProject.loaded_at.desc()).limit(1)
+        )
+        active_project = result.scalar_one_or_none()
+        if active_project:
+            project_path = active_project.path
+            print(f"[Agent] Found active project: {project_path}")
+        else:
+            project_path = str(Path(__file__).parent.parent.parent)
+            print(f"[Agent] No active project, using root project: {project_path}")
+
+        # Obter worktree para isolamento
+        cwd, branch_name, worktree_path = await get_worktree_cwd(
+            card_id, project_path, session
+        )
+        if worktree_path:
+            print(f"[Agent] Using worktree isolation: {cwd}")
+        else:
+            print(f"[Agent] Using project directory (no worktree): {cwd}")
+
+    gemini = GeminiAgent(model=model)
+
+    # Prepara argumentos
+    arguments = f"{title}: {description}"
+    if images:
+        arguments += "\n\nImagens anexadas:\n"
+        for img in images:
+            arguments += f"- {img.get('filename', 'image')}: {img.get('path', '')}\n"
+
+    # Usar repository se disponível
+    repo = None
+    execution_db = None
+
+    if db_session:
+        repo = ExecutionRepository(db_session)
+        execution_db = await repo.create_execution(
+            card_id=card_id,
+            command="/plan",
+            title=title
+        )
+        await repo.add_log(
+            execution_id=execution_db.id,
+            log_type="info",
+            content=f"Starting plan execution with Gemini for: {title}"
+        )
+        await repo.add_log(
+            execution_id=execution_db.id,
+            log_type="info",
+            content=f"Working directory: {cwd}"
+        )
+
+    # Initialize execution record (memória)
+    record = ExecutionRecord(
+        cardId=card_id,
+        title=title,
+        startedAt=datetime.now().isoformat(),
+        status=ExecutionStatus.RUNNING,
+        logs=[],
+    )
+    executions[card_id] = record
+
+    add_log(record, LogType.INFO, f"Starting plan execution with Gemini for: {title}")
+    add_log(record, LogType.INFO, f"Working directory: {cwd}")
+
+    # Executa comando via Gemini CLI
+    full_response = ""
+    try:
+        async for chunk in gemini.execute_command(
+            command="plan",
+            arguments=arguments,
+            cwd=Path(cwd),
+            stream=True
+        ):
+            full_response += chunk
+            add_log(record, LogType.TEXT, chunk)
+            if repo and execution_db:
+                await repo.add_log(
+                    execution_id=execution_db.id,
+                    log_type="text",
+                    content=chunk
+                )
+
+        # Extrai spec_path e retorna resultado
+        spec_path = extract_spec_path(full_response)
+
+        record.completed_at = datetime.now().isoformat()
+        record.status = ExecutionStatus.SUCCESS
+        record.result = full_response
+        add_log(record, LogType.INFO, "Plan execution completed successfully")
+        if spec_path:
+            add_log(record, LogType.INFO, f"Spec path: {spec_path}")
+
+        if repo and execution_db:
+            await repo.update_execution_status(
+                execution_id=execution_db.id,
+                status=DBExecutionStatus.SUCCESS,
+                result=full_response
+            )
+            execution_data = await repo.get_execution_with_logs(card_id)
+            if execution_data:
+                return PlanResult(
+                    success=True,
+                    spec_path=spec_path,
+                    result=full_response,
+                    logs=execution_data["logs"],
+                )
+
+        return PlanResult(
+            success=True,
+            spec_path=spec_path,
+            result=full_response,
+            logs=record.logs,
+        )
+
+    except Exception as e:
+        error_message = str(e)
+        record.completed_at = datetime.now().isoformat()
+        record.status = ExecutionStatus.ERROR
+        record.result = error_message
+        add_log(record, LogType.ERROR, f"Execution error: {error_message}")
+
+        if repo and execution_db:
+            await repo.add_log(
+                execution_id=execution_db.id,
+                log_type="error",
+                content=error_message
+            )
+            await repo.update_execution_status(
+                execution_id=execution_db.id,
+                status=DBExecutionStatus.ERROR,
+                result=error_message
+            )
+            execution_data = await repo.get_execution_with_logs(card_id)
+            if execution_data:
+                return PlanResult(
+                    success=False,
+                    error=error_message,
+                    logs=execution_data["logs"],
+                )
+
+        return PlanResult(
+            success=False,
+            error=error_message,
+            logs=record.logs,
+        )
+
+
 async def execute_plan(
     card_id: str,
     title: str,
@@ -162,7 +327,13 @@ async def execute_plan(
     images: Optional[list] = None,
     db_session: Optional[AsyncSession] = None,
 ) -> PlanResult:
-    """Execute a plan using Claude Agent SDK."""
+    """Execute a plan using Claude Agent SDK or Gemini CLI."""
+    # Detecta se é modelo Gemini
+    if model.startswith("gemini"):
+        return await execute_plan_gemini(
+            card_id, title, description, cwd, model, images, db_session
+        )
+
     # Obter diretório do projeto atual do banco de dados
     from .database import async_session_maker
     from .models.project import ActiveProject

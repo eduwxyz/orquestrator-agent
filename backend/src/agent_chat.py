@@ -22,6 +22,52 @@ class ClaudeAgentChat:
         # No need for API key - Agent SDK uses Claude Code authentication
         pass
 
+    async def _stream_response_gemini(
+        self,
+        messages: list[dict],
+        model: str,
+        system_prompt: str | None = None
+    ) -> AsyncGenerator[str, None]:
+        """
+        Stream a response from Gemini using the GeminiAgent.
+
+        Args:
+            messages: List of conversation messages
+            model: Gemini model to use (e.g., "gemini-1.5-pro")
+            system_prompt: Optional system prompt
+
+        Yields:
+            str: Chunks of the response text as they arrive
+        """
+        try:
+            from .gemini_agent import GeminiAgent
+
+            # Get current working directory from active project
+            from .database import async_session_maker
+            from .models.project import ActiveProject
+            from sqlalchemy import select
+
+            cwd = Path.cwd()
+            async with async_session_maker() as session:
+                result = await session.execute(
+                    select(ActiveProject).order_by(ActiveProject.loaded_at.desc()).limit(1)
+                )
+                active_project = result.scalar_one_or_none()
+                if active_project:
+                    cwd = Path(active_project.path)
+
+            # Initialize Gemini agent
+            gemini = GeminiAgent(model=model)
+
+            # Stream response
+            async for chunk in gemini.chat_completion(messages, system_prompt):
+                yield chunk
+
+        except Exception as e:
+            error_msg = f"Error in Gemini Agent: {str(e)}"
+            print(f"[ClaudeAgentChat] {error_msg}")
+            raise RuntimeError(error_msg)
+
     async def stream_response(
         self,
         messages: list[dict],
@@ -29,17 +75,23 @@ class ClaudeAgentChat:
         system_prompt: str | None = None
     ) -> AsyncGenerator[str, None]:
         """
-        Stream response from Claude using Claude Agent SDK directly
+        Stream response from Claude or Gemini using Agent SDK directly
         without predefined commands like /question
 
         Args:
             messages: List of conversation messages in format [{"role": "user/assistant", "content": "..."}]
-            model: AI model to use (e.g., "opus-4.5", "sonnet-4.5", "haiku-4.5" or "claude-3.5-opus", etc.)
+            model: AI model to use (e.g., "opus-4.5", "sonnet-4.5", "haiku-4.5", "gemini-1.5-pro")
             system_prompt: Optional system prompt to set context
 
         Yields:
             str: Chunks of the response text as they arrive
         """
+        # Check if it's a Gemini model
+        if model.startswith("gemini"):
+            async for chunk in self._stream_response_gemini(messages, model, system_prompt):
+                yield chunk
+            return
+
         try:
             # Get current working directory from active project in database
             from .database import async_session_maker
