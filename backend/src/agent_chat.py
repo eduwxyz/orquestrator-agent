@@ -34,7 +34,7 @@ class ClaudeAgentChat:
 
         Args:
             messages: List of conversation messages in format [{"role": "user/assistant", "content": "..."}]
-            model: AI model to use (e.g., "opus-4.5", "sonnet-4.5", "haiku-4.5")
+            model: AI model to use (e.g., "opus-4.5", "sonnet-4.5", "haiku-4.5" or "claude-3.5-opus", etc.)
             system_prompt: Optional system prompt to set context
 
         Yields:
@@ -55,18 +55,21 @@ class ClaudeAgentChat:
                 if active_project:
                     cwd = Path(active_project.path)
 
-            # Map model names to SDK format
+            # Map model names to valid Anthropic API model names
             model_mapping = {
-                "opus-4.5": "opus",
-                "sonnet-4.5": "sonnet",
-                "haiku-4.5": "haiku",
-                "claude-3.5-opus": "opus",
-                "claude-3.5-sonnet": "sonnet",
-                "claude-3.5-haiku": "haiku",
-                "claude-3-sonnet": "sonnet",
-                "claude-3-opus": "opus",
+                # Claude 4.5 models (using aliases that auto-update to latest snapshot)
+                "opus-4.5": "claude-opus-4-5",
+                "sonnet-4.5": "claude-sonnet-4-5",
+                "haiku-4.5": "claude-haiku-4-5",
+                # Claude 3.5 models (for backward compatibility)
+                "claude-3.5-opus": "claude-3-5-opus-20240229",
+                "claude-3.5-sonnet": "claude-3-5-sonnet-20241022",
+                "claude-3.5-haiku": "claude-3-5-haiku-20241022",
+                # Claude 3 models
+                "claude-3-sonnet": "claude-3-sonnet-20240229",
+                "claude-3-opus": "claude-3-opus-20240229",
             }
-            agent_model = model_mapping.get(model, "sonnet")
+            agent_model = model_mapping.get(model, "claude-sonnet-4-5")
 
             # Build conversation context
             # Instead of using /question command, send direct prompt with full context

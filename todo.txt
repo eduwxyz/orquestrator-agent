@@ -23,7 +23,8 @@ esse novo card deve voltar para in-progress - Precisa melhorar
 * Ensinar o claude code a abrir páginas web e testar a aplicação
 * Não permitir arrastar para outras raias enquanto n tiver finalizado
 * Adicionar estatísticas para cada card
-
+* git diff no modal do card
+* Melhorias visualização de processos, fluxos, diagramas, tree, etc
 
 
 
