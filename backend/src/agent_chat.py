@@ -29,42 +29,18 @@ class ClaudeAgentChat:
         system_prompt: str | None = None
     ) -> AsyncGenerator[str, None]:
         """
-        Stream a response from Claude Agent SDK using the /question command.
+        Stream response from Claude using Claude Agent SDK directly
+        without predefined commands like /question
 
         Args:
             messages: List of conversation messages in format [{"role": "user/assistant", "content": "..."}]
-            model: AI model to use (e.g., "claude-3-sonnet", "claude-3-opus", "gpt-4-turbo")
-            system_prompt: Optional system prompt (not used with /question, but kept for compatibility)
+            model: AI model to use (e.g., "claude-3.5-sonnet", "claude-3.5-opus", "opus-4.5")
+            system_prompt: Optional system prompt to set context
 
         Yields:
             str: Chunks of the response text as they arrive
         """
         try:
-            # Get the last user message (the current question)
-            user_message = None
-            for msg in reversed(messages):
-                if msg["role"] == "user":
-                    user_message = msg["content"]
-                    break
-
-            if not user_message:
-                raise ValueError("No user message found in conversation")
-
-            # Build context from previous messages (optional, for multi-turn conversations)
-            context = ""
-            if len(messages) > 1:
-                context = "\n\nPrevious conversation:\n"
-                for msg in messages[:-1]:  # All messages except the last one
-                    role = "User" if msg["role"] == "user" else "Assistant"
-                    context += f"{role}: {msg['content']}\n"
-
-            # Execute /question command with the user's question
-            prompt = f"/question {user_message}"
-
-            # Add context if available
-            if context:
-                prompt += context
-
             # Get current working directory from active project in database
             from .database import async_session_maker
             from .models.project import ActiveProject
@@ -79,37 +55,63 @@ class ClaudeAgentChat:
                 if active_project:
                     cwd = Path(active_project.path)
 
-            # Map model IDs to agent SDK model names
+            # Map model names to SDK format
             model_mapping = {
                 "claude-3.5-opus": "opus",
                 "claude-3.5-sonnet": "sonnet",
                 "claude-3.5-haiku": "haiku",
-                # Keep compatibility with old model names
                 "claude-3-sonnet": "sonnet",
                 "claude-3-opus": "opus",
+                "opus-4.5": "opus",
             }
             agent_model = model_mapping.get(model, "sonnet")
 
-            # Configure agent options for chat
+            # Build conversation context
+            # Instead of using /question command, send direct prompt with full context
+            full_prompt = ""
+
+            # Add system prompt if provided
+            if system_prompt:
+                full_prompt = f"{system_prompt}\n\n"
+
+            # Add conversation history
+            if len(messages) > 1:
+                full_prompt += "Previous conversation:\n"
+                for msg in messages[:-1]:
+                    role = "User" if msg["role"] == "user" else "Assistant"
+                    full_prompt += f"{role}: {msg['content']}\n"
+                full_prompt += "\n"
+
+            # Add current user message
+            user_message = messages[-1]["content"]
+            full_prompt += f"User: {user_message}\n\nAssistant:"
+
+            # Configure Claude Agent SDK Options - same as /plan but with appropriate tools
             options = ClaudeAgentOptions(
-                cwd=cwd,
-                setting_sources=["user", "project"],  # Load commands from .claude/commands/
-                allowed_tools=["Read", "Bash", "Glob", "Grep", "Skill"],
-                permission_mode="bypassPermissions",  # Auto-approve read operations
-                model=agent_model,  # Use selected model
+                cwd=cwd,  # Use project root
+                setting_sources=["user", "project"],
+                allowed_tools=[
+                    "Read",      # Read files
+                    "Bash",      # Execute commands
+                    "Glob",      # Search files
+                    "Grep",      # Search content
+                    "WebSearch", # Web search capability
+                    "WebFetch",  # Fetch web content
+                    "Task",      # Launch agents for complex tasks
+                    "Skill",     # Use skills
+                ],
+                permission_mode="bypassPermissions",  # Auto-approve for chat
+                model=agent_model,
             )
 
-            # Stream response from Claude Agent SDK
-            async for message in query(prompt=prompt, options=options):
+            # Execute query directly without command prefix
+            async for message in query(prompt=full_prompt, options=options):
                 if isinstance(message, AssistantMessage):
-                    # Handle assistant messages with content blocks
                     for block in message.content:
                         if isinstance(block, TextBlock):
-                            # Yield text chunks
+                            # Stream text content
                             yield block.text
-
                 elif isinstance(message, ResultMessage):
-                    # Final result message
                     if hasattr(message, "result") and message.result:
                         yield message.result
 

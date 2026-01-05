@@ -22,6 +22,8 @@ ALLOWED_MODELS = [
     # Keep compatibility with old model names
     "claude-3-sonnet",
     "claude-3-opus",
+    # New models
+    "opus-4.5",
 ]
 
 

@@ -65,6 +65,11 @@ class ChatService:
             return True
         return False
 
+    def get_system_prompt(self) -> str | None:
+        """Get system prompt for chat context"""
+        # Use the default system prompt defined in agent_chat
+        return DEFAULT_SYSTEM_PROMPT
+
     async def send_message(
         self,
         session_id: str,
@@ -106,11 +111,14 @@ class ChatService:
                 for msg in self.sessions[session_id]
             ]
 
+            # Get system prompt
+            system_prompt = self.get_system_prompt()
+
             # Stream response from Claude with selected model
             async for chunk in self.claude_agent.stream_response(
                 messages=claude_messages,
                 model=model,
-                system_prompt=DEFAULT_SYSTEM_PROMPT
+                system_prompt=system_prompt
             ):
                 assistant_content += chunk
 
@@ -127,6 +135,7 @@ class ChatService:
                 "content": assistant_content,
                 "timestamp": datetime.now().isoformat(),
                 "model": model,
+                "messageId": assistant_message_id,
             }
             self.sessions[session_id].append(assistant_message)
 
@@ -143,7 +152,8 @@ class ChatService:
             # Yield error to client
             yield {
                 "type": "error",
-                "message": error_message,
+                "error": str(e),
+                "messageId": assistant_message_id,
             }
 
     def list_sessions(self) -> List[str]:
