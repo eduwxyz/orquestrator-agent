@@ -25,16 +25,16 @@ class ClaudeAgentChat:
     async def stream_response(
         self,
         messages: list[dict],
-        model: str = "claude-3.5-sonnet",
+        model: str = "sonnet-4.5",
         system_prompt: str | None = None
     ) -> AsyncGenerator[str, None]:
         """
-        Stream a response from Claude Agent SDK using the /question command.
+        Stream a response from Claude Agent SDK by sending messages directly.
 
         Args:
             messages: List of conversation messages in format [{"role": "user/assistant", "content": "..."}]
-            model: AI model to use (e.g., "claude-3-sonnet", "claude-3-opus", "gpt-4-turbo")
-            system_prompt: Optional system prompt (not used with /question, but kept for compatibility)
+            model: AI model to use (e.g., "opus-4.5", "sonnet-4.5", "haiku-4.5")
+            system_prompt: Optional system prompt (not used currently, but kept for compatibility)
 
         Yields:
             str: Chunks of the response text as they arrive
@@ -50,20 +50,14 @@ class ClaudeAgentChat:
             if not user_message:
                 raise ValueError("No user message found in conversation")
 
-            # Build context from previous messages (optional, for multi-turn conversations)
-            context = ""
+            # Build context from previous messages for multi-turn conversations
+            prompt = user_message
             if len(messages) > 1:
                 context = "\n\nPrevious conversation:\n"
                 for msg in messages[:-1]:  # All messages except the last one
                     role = "User" if msg["role"] == "user" else "Assistant"
                     context += f"{role}: {msg['content']}\n"
-
-            # Execute /question command with the user's question
-            prompt = f"/question {user_message}"
-
-            # Add context if available
-            if context:
-                prompt += context
+                prompt = context + "\n\nCurrent question:\n" + user_message
 
             # Get current working directory from active project in database
             from .database import async_session_maker
@@ -81,25 +75,22 @@ class ClaudeAgentChat:
 
             # Map model IDs to agent SDK model names
             model_mapping = {
-                "claude-3.5-opus": "opus",
-                "claude-3.5-sonnet": "sonnet",
-                "claude-3.5-haiku": "haiku",
-                # Keep compatibility with old model names
-                "claude-3-sonnet": "sonnet",
-                "claude-3-opus": "opus",
+                "opus-4.5": "opus",
+                "sonnet-4.5": "sonnet",
+                "haiku-4.5": "haiku",
             }
             agent_model = model_mapping.get(model, "sonnet")
 
-            # Configure agent options for chat
+            # Configure agent options for chat without command restrictions
             options = ClaudeAgentOptions(
                 cwd=cwd,
-                setting_sources=["user", "project"],  # Load commands from .claude/commands/
+                setting_sources=["user", "project"],
                 allowed_tools=["Read", "Bash", "Glob", "Grep", "Skill"],
-                permission_mode="bypassPermissions",  # Auto-approve read operations
-                model=agent_model,  # Use selected model
+                permission_mode="bypassPermissions",
+                model=agent_model,
             )
 
-            # Stream response from Claude Agent SDK
+            # Send directly to agent without command prefix
             async for message in query(prompt=prompt, options=options):
                 if isinstance(message, AssistantMessage):
                     # Handle assistant messages with content blocks
@@ -121,7 +112,7 @@ class ClaudeAgentChat:
     async def get_single_response(
         self,
         messages: list[dict],
-        model: str = "claude-3.5-sonnet",
+        model: str = "sonnet-4.5",
         system_prompt: str | None = None
     ) -> str:
         """
