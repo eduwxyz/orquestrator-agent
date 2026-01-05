@@ -28,6 +28,7 @@ interface AddCardModalProps {
 interface ModelCardData {
   value: ModelType;
   label: string;
+  provider: 'anthropic' | 'google';
   tagline: string;
   performance: string;
   icon: string;
@@ -38,6 +39,7 @@ const MODEL_CARDS: ModelCardData[] = [
   {
     value: 'opus-4.5',
     label: 'Opus 4.5',
+    provider: 'anthropic',
     tagline: 'Maximum intelligence',
     performance: 'Highest Quality',
     icon: '◈',
@@ -46,6 +48,7 @@ const MODEL_CARDS: ModelCardData[] = [
   {
     value: 'sonnet-4.5',
     label: 'Sonnet 4.5',
+    provider: 'anthropic',
     tagline: 'Balanced performance',
     performance: 'Fast & Smart',
     icon: '◉',
@@ -54,10 +57,29 @@ const MODEL_CARDS: ModelCardData[] = [
   {
     value: 'haiku-4.5',
     label: 'Haiku 4.5',
+    provider: 'anthropic',
     tagline: 'Lightning fast',
     performance: 'Rapid Response',
     icon: '◎',
     accent: 'haiku'
+  },
+  {
+    value: 'gemini-3-pro',
+    label: 'Gemini Pro',
+    provider: 'google',
+    tagline: 'Advanced reasoning',
+    performance: 'High Performance',
+    icon: '🔷',
+    accent: 'gemini-pro'
+  },
+  {
+    value: 'gemini-3-flash',
+    label: 'Gemini Flash',
+    provider: 'google',
+    tagline: 'Fast responses',
+    performance: 'Quick & Efficient',
+    icon: '⚡',
+    accent: 'gemini-flash'
   }
 ];
 

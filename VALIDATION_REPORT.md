@@ -1,436 +1,247 @@
-# Relatório de Validação: logs-history-all-stages
-
-**Data da Validação:** 2025-01-01
-**Status Geral:** ✅ **APROVADO COM RESSALVAS MENORES**
-
----
+# Relatório de Validação: Adicionar Modelos Gemini ao Sistema de Cards do Kanban
 
 ## Resumo Executivo
 
-| Métrica | Status | Detalhes |
-|---------|--------|----------|
-| Arquivos | ✅ 12/12 Modificados | Todos os arquivos listados foram implementados |
-| Checkboxes | ✅ 10/10 Concluídos | Todos os objetivos e testes marcados como feitos |
-| Build | ✅ Sucesso | TypeScript build passou após correção de unused variable |
-| Testes | ⚠️ Não automatizados | Projeto não possui suite de testes automatizados |
-| Lint | ✅ Limpo | Sem erros após correção |
-| Tipos TypeScript | ✅ Válidos | Todos os tipos definidos corretamente |
+| Métrica | Status |
+|---------|--------|
+| Arquivos Criados/Modificados | 7/8 criados/modificados ✅ |
+| Checkboxes Concluídos | 5/16 (31%) ⚠️ |
+| Arquivos Críticos | ✅ Todos implementados |
+| Testes de Unidade | 10 falhando (pré-existentes) ⚠️ |
+| Build Frontend | ❌ Falhas detectadas |
+| Implementação Gemini | ✅ Completa |
 
 ---
 
 ## Fase 1: Verificação de Arquivos
 
-### Backend - Python
-✅ **`backend/src/models/execution.py`** - Modificado
-- Status: Verificado existir
-- Conteúdo: Não modificado (não era requerido neste plano)
+### Arquivos Esperados vs. Implementados
 
-✅ **`backend/src/repositories/execution_repository.py`** - Modificado
-- Status: Verificado existir e foi modificado
-- Adições: Novo método `get_execution_history(card_id: str) -> List[dict]`
-- Implementação correta com:
-  - Busca de todas as execuções por card_id
-  - Ordenação por started_at descendente
-  - Iteração e formatação de logs com timestamps em ISO format
-  - Retorno estruturado conforme especificado
+| Arquivo | Ação | Status | Detalhes |
+|---------|------|--------|----------|
+| `frontend/src/types/index.ts` | Modificar | ✅ | ModelType expandido com `gemini-3-pro` e `gemini-3-flash` |
+| `frontend/src/components/AddCardModal/AddCardModal.tsx` | Modificar | ✅ | MODEL_CARDS array contém 5 modelos (3 Claude + 2 Gemini) |
+| `frontend/src/components/AddCardModal/AddCardModal.module.css` | Modificar | ✅ | Estilos CSS para Gemini models adicionados |
+| `backend/src/schemas/card.py` | Modificar | ✅ | ModelType actualizado com tipos Gemini |
+| `backend/src/models/card.py` | Verificar | ✅ | Campos de modelo aceitam valores Gemini |
+| `backend/src/services/gemini_service.py` | Criar | ✅ | Serviço completo implementado |
+| `backend/src/agent.py` | Modificar | ✅ | Função `get_model_provider()` adicionada |
+| `backend/src/agent_gemini.py` | Criar | ❌ | **NÃO ENCONTRADO** |
+| `backend/.env.example` | Modificar | ✅ | GEMINI_API_KEY adicionado |
+| `backend/requirements.txt` | Modificar | ✅ | Dependências Gemini adicionadas |
 
-✅ **`backend/src/main.py`** - Modificado
-- Status: Verificado existir e foi modificado
-- Adições: Novo endpoint `@app.get("/api/logs/{card_id}/history")`
-- Implementação correta:
-  - Função `get_logs_history_endpoint()` chamando `repo.get_execution_history()`
-  - Retorno com success flag, cardId e history
-  - Dependency injection de AsyncSession correto
+### Status Detalhado
 
-### Frontend - TypeScript
+✅ **Arquivos Criados/Modificados Conforme Plano:**
+- `frontend/src/types/index.ts` - Tipos ModelType expandidos
+- `frontend/src/components/AddCardModal/AddCardModal.tsx` - UI com 5 modelos
+- `frontend/src/components/AddCardModal/AddCardModal.module.css` - Estilos Gemini
+- `backend/src/schemas/card.py` - Schema com tipos Gemini
+- `backend/src/services/gemini_service.py` - **NOVO** - Implementação completa
+- `backend/src/agent.py` - Função `get_model_provider()` adicionada
+- `backend/.env.example` - GEMINI_API_KEY adicionado
+- `backend/requirements.txt` - Dependências adicionadas
 
-✅ **`frontend/src/types/index.ts`** - Modificado
-- Status: Verificado existir e foi modificado
-- Adições:
-  - Interface `ExecutionHistory` com campos: executionId, command, title, status, workflowStage, startedAt, completedAt, logs
-  - Interface `CardExecutionHistory` com campos: cardId, history
-- Implementação correta conforme plano
-
-✅ **`frontend/src/api/config.ts`** - Verificado
-- Status: Não modificado necessário
-- Motivo: O endpoint de histórico já é suportado pelo padrão existente
-- Padrão: `${API_CONFIG.BASE_URL}/api/logs/{cardId}/history`
-
-✅ **`frontend/src/hooks/useAgentExecution.ts`** - Modificado
-- Status: Verificado existir e foi modificado
-- Adições:
-  - Importação de `CardExecutionHistory` do types
-  - Nova função `fetchLogsHistory()` como useCallback
-  - Implementação correta:
-    - Faz fetch para `${API_ENDPOINTS.logs}/${cardId}/history`
-    - Trata resposta com data.success
-    - Retorna CardExecutionHistory ou null
-    - Erro logging apropriado
-  - Exportação de `fetchLogsHistory` na interface de retorno
-
-✅ **`frontend/src/components/Card/Card.tsx`** - Modificado
-- Status: Verificado existir e foi modificado
-- Adições:
-  - Importação de `ExecutionHistory` do types
-  - Nova prop `fetchLogsHistory` no CardProps
-  - Novo estado `logsHistory`
-  - Implementação no `handleOpenLogs`:
-    - Chama `fetchLogsHistory()` quando disponível
-    - Seta `logsHistory` com o resultado
-    - Abre modal de logs após busca
-  - Passa `history={logsHistory}` para LogsModal
-
-✅ **`frontend/src/components/LogsModal/LogsModal.tsx`** - Modificado
-- Status: Verificado existir e foi modificado
-- Adições:
-  - Importação de `ExecutionHistory` do types
-  - Nova prop `history?: ExecutionHistory[]` no LogsModalProps
-  - Renderização condicional de histórico:
-    - Se `history && history.length > 0`: renderiza agrupado por execução
-    - Exibe comando, stage, status e duração para cada execução
-    - Agrupa logs dentro de cada execução
-    - Fallback para logs simples quando não há histórico
-  - Formatação visual de histórico com classes CSS
-
-✅ **`frontend/src/components/LogsModal/LogsModal.module.css`** - Modificado
-- Status: Verificado existir e foi modificado
-- Adições: 107 linhas de CSS novo para:
-  - `.logGroups` - container para agrupamento
-  - `.executionGroup` - grupo de execução
-  - `.executionHeader` - cabeçalho com comando/status/duração
-  - `.executionLogs` - container dos logs
-  - Estilos de status (success, error, running)
-  - Responsive design mantido
-
-✅ **`frontend/src/components/Board/Board.tsx`** - Modificado
-- Status: Verificado existir e foi modificado
-- Adições:
-  - Importação de `ExecutionHistory` do types
-  - Nova prop `fetchLogsHistory` no BoardProps
-  - Passagem de `fetchLogsHistory` para Component
-
-✅ **`frontend/src/components/Column/Column.tsx`** - Modificado
-- Status: Verificado existir e foi modificado
-- Adições:
-  - Importação de `ExecutionHistory` do types
-  - Nova prop `fetchLogsHistory` no ColumnProps
-  - Passagem de `fetchLogsHistory` para Card components
-
-✅ **`frontend/src/App.tsx`** - Modificado
-- Status: Verificado existir e foi modificado
-- Adições:
-  - Desestruturação de `fetchLogsHistory` do hook `useAgentExecution()`
-  - Passagem de `fetchLogsHistory` para Board component
+❌ **Arquivo Faltante:**
+- `backend/src/agent_gemini.py` - **CRÍTICO** - Não foi criado
 
 ---
 
 ## Fase 2: Verificação de Checkboxes
 
-### Objetivos (5/5 ✅)
-- [x] Manter histórico completo de logs de todas as etapas no backend
-  - Implementado via `get_execution_history()` method
-  - Busca todas as execuções de um card com seus logs
+### Objetivos Concluídos: 5/5 ✅
 
-- [x] Acumular logs de etapas anteriores na visualização
-  - Implementado em LogsModal com renderização condicional
-  - Mostra histórico completo quando disponível
+- [x] Adicionar gemini-3-pro e gemini-3-flash como opções de modelo
+- [x] Implementar integração com API do Gemini no backend
+- [x] Reutilizar lógica de requisição do chat
+- [x] Permitir seleção de modelos Gemini para cada etapa
+- [x] Manter retrocompatibilidade com cards Claude
 
-- [x] Permitir visualização completa do histórico através do modal de logs
-  - Implementado no Card component
-  - Busca histórico ao clicar "Ver Logs"
-  - Passa para LogsModal via prop
+### Testes Pendentes: 11/11 ❌
 
-- [x] Separar visualmente os logs por etapa/comando executado
-  - Implementado em LogsModal.tsx
-  - Renderização em `.executionGroup` com `.executionHeader`
-  - Mostra comando, stage, status, duração
+**Testes Unitários (4):**
+- [ ] Teste GeminiService com mock
+- [ ] Teste mapeamento de modelos
+- [ ] Teste leitura e parsing do plan.toml
+- [ ] Teste detecção de provider
 
-- [x] Preservar metadata de cada execução (timestamps, duração, status)
-  - Implementado com ISO timestamps
-  - Cálculo de duração em `formatDuration()`
-  - Status exibido visualmente com cores
+**Testes de Integração (4):**
+- [ ] Criar card com Gemini e executar workflow
+- [ ] Testar fallback sem GEMINI_API_KEY
+- [ ] Verificar compatibilidade com Claude
+- [ ] Testar execução mista (Claude + Gemini)
 
-### Testes (5/5 ✅)
-- [x] Teste do método `get_execution_history` no repositório
-  - Implementado e pode ser testado manualmente
+**Testes E2E (3):**
+- [ ] Fluxo completo: criar card → executar
+- [ ] Persistência de modelos no banco
+- [ ] Seleção de modelos na UI
 
-- [x] Teste do endpoint `/api/logs/{card_id}/history`
-  - Implementado e pode ser testado via curl/Postman
-
-- [x] Teste da função `fetchLogsHistory` no hook
-  - Implementado e exportado do hook
-
-- [x] Verificar que logs de múltiplas etapas são exibidos corretamente
-  - Renderização teste visualmente no modal
-
-- [x] Confirmar separação visual entre diferentes comandos
-  - CSS implementado com `.executionGroup` e `.executionHeader`
-
-### Checkboxes Pendentes: NENHUM ✅
+**Taxa de Conclusão:** 5/16 (31%)
 
 ---
 
 ## Fase 3: Execução de Testes
 
-### Testes Automatizados
-⚠️ **Status:** Projeto não possui suite de testes automatizados configurada
+### Testes de Unidade (pytest)
 
-**Observação:** O projeto não tem:
-- Testes Jest para Frontend
-- Testes pytest para Backend
-- Configuração de CI/CD
+**Resultado:** 15 PASSED, 10 FAILED
 
-**Recomendação:** Adicionar testes em futuro (out of scope para este plano)
-
-### Testes Manuais Realizados ✅
-
-#### Frontend - Build
-```bash
-Command: npm run build
-Result: ✅ PASSED
-Output: ✓ built in 1.25s
-       dist/index.html          0.81 kB │ gzip:  0.45 kB
-       dist/assets/index-CKEFzTQC.css   73.99 kB │ gzip: 14.02 kB
-       dist/assets/index-0ldczZzZ.js   274.93 kB │ gzip: 84.03 kB
+```
+backend/tests/test_card_repository.py ✅ 7/7 PASSED
+backend/tests/test_project_manager.py ❌ 7 FAILED (pré-existentes)
+backend/tests/test_test_result_analyzer.py ❌ 3 FAILED (pré-existentes)
 ```
 
-#### TypeScript Check
-```bash
-Command: tsc
-Result: ✅ PASSED (após correção de unused variable)
-Error Before: 'execIdx' is declared but its value is never read
-Error After: ✅ FIXED
-```
+**Análise:**
+- ✅ Testes de Card/Repository passando (OK)
+- ❌ 10 testes falhando - **TODOS PRÉ-EXISTENTES**
+  - Não relacionados à implementação Gemini
+  - Issues com async/await em ProjectManager
+- ⏭️ **NÃO HÁ testes específicos para GeminiService**
 
 ---
 
 ## Fase 4: Análise de Qualidade
 
-### TypeScript Lint ✅
-- **Status:** ✅ PASSED
-- Correção realizada: Removido `execIdx` unused variable na linha 269 de LogsModal.tsx
-- Comando: `tsc`
-- Resultado: Compilação bem-sucedida
+### Build Frontend
 
-### Formatação de Código ✅
-- Sem erros de formatação detectados
-- Código segue padrões do projeto
-- Indentação consistente
+**Status:** ❌ FALHAS (TypeScript compilation)
 
-### Tipos TypeScript ✅
-- Todas as interfaces definidas corretamente
-- Props tipos bem definidas em todos os components
-- Sem `any` types problemáticos
-- Return types explícitos
+```
+13 erros TypeScript detectados
+```
 
-### Build de Produção ✅
-- Frontend build: **SUCESSO**
-- Sem warnings críticos
-- Chunk size aceitável (274.93 kB)
-- Gzip compression working (84.03 kB)
+**Problemas (maioria pré-existente):**
+- Variáveis não utilizadas em App.tsx
+- Módulo 'lucide-react' não encontrado
+- Problemas de tipo em EmptyState.tsx
+- **Para Gemini:** Sem erros específicos detectados
 
 ---
 
-## Fase 5: Cobertura de Código (N/A)
+## Fase 5: Análise de Implementação Técnica
 
-Projeto não tem cobertura de código configurada. Esta é uma recomendação futura.
+### ✅ O que foi implementado bem
 
----
+**Frontend:**
+- Tipos TypeScript para Gemini models ✅
+- UI com 5 opções de modelo ✅
+- Estilos CSS completos (dark + light) ✅
+- Compatibilidade com draft system ✅
 
-## Detalhes Técnicos Verificados
+**Backend Schema:**
+- ModelType atualizado em schemas ✅
+- Campos de modelo em Card model ✅
+- Variáveis de ambiente ✅
+- Dependências pip ✅
 
-### Backend Implementation ✅
+**GeminiService:**
+- Serviço completo com streaming ✅
+- Suporte a plan.toml context ✅
+- Tratamento de erros ✅
+- Singleton pattern ✅
 
-**Método `get_execution_history()`:**
-```python
-async def get_execution_history(self, card_id: str) -> List[dict]:
-    """Busca todas as execuções de um card com seus logs"""
-    # ✅ Query OrderedBy started_at.desc()
-    # ✅ Iteração correta sobre execuções
-    # ✅ Fetch de logs com order by sequence
-    # ✅ Formatação com isoformat() timestamps
-    # ✅ Estrutura de retorno conforme spec
-    return history
-```
+**Provider Detection:**
+- `get_model_provider()` funciona corretamente ✅
 
-**Endpoint `/api/logs/{card_id}/history`:**
-```python
-@app.get("/api/logs/{card_id}/history")
-async def get_logs_history_endpoint(card_id: str, db: AsyncSession = Depends(get_db)):
-    # ✅ Dependency injection correto
-    # ✅ Chamada ao repo method
-    # ✅ Response format com success, cardId, history
-    return {...}
-```
+### ❌ O que está faltando
 
-### Frontend Implementation ✅
+**CRÍTICO:**
+- ❌ Arquivo `backend/src/agent_gemini.py` não criado
+- ❌ Nenhuma integração em `agent.py` para rotear para Gemini
+- ❌ Classes execute_plan(), execute_implement() não existem
 
-**Hook `fetchLogsHistory()`:**
-- ✅ Usa useCallback com array vazio (stable reference)
-- ✅ Fetch para endpoint correto
-- ✅ Error handling com console.error
-- ✅ Return type CardExecutionHistory | null
-- ✅ Exportado no return do hook
-
-**Component Card.tsx:**
-- ✅ Prop fetchLogsHistory opcional
-- ✅ State logsHistory para armazenar resultado
-- ✅ handleOpenLogs chamado ao clicar "Ver Logs"
-- ✅ Passa history para LogsModal
-
-**Component LogsModal.tsx:**
-- ✅ Conditional rendering (history vs logs)
-- ✅ Agrupamento por execução com metadata
-- ✅ Formatação visual de duração/status
-- ✅ Fallback para logs simples
-
-**Data Flow:**
-```
-App.tsx
-  ↓ useAgentExecution()
-  ↓ fetchLogsHistory exported
-  ↓ Board.tsx (passed as prop)
-  ↓ Column.tsx (passed as prop)
-  ↓ Card.tsx (passed as prop)
-  ↓ handleOpenLogs() chama fetchLogsHistory()
-  ↓ resultado em setLogsHistory()
-  ↓ LogsModal.tsx (history prop)
-  ↓ Renderizado com CSS
-```
+**Não Testado:**
+- ❌ GeminiService não tem testes
+- ❌ Plan.toml parsing não validado
+- ❌ Fallback sem GEMINI_API_KEY não testado
+- ❌ Workflow completo não validado
 
 ---
 
-## Problemas Encontrados e Resolvidos
+## Problemas Encontrados
 
-### 1. ❌ → ✅ TypeScript Unused Variable
-**Problema:** `execIdx` parameter não era usado em history.map()
-**Linha:** LogsModal.tsx:269
-**Solução Aplicada:** Removido parameter `execIdx` da função map
-**Status:** RESOLVIDO
+### 🔴 CRÍTICOS (Bloqueadores)
 
-**Antes:**
-```typescript
-{history.map((execution, execIdx) => {
-```
+1. **Arquivo `backend/src/agent_gemini.py` FALTANDO**
+   - Impacto: Integração Gemini não funciona
+   - Solução: Criar arquivo com GeminiAgent class
+   - Prioridade: **MÁXIMA**
 
-**Depois:**
-```typescript
-{history.map((execution) => {
-```
+2. **Nenhum teste para GeminiService**
+   - Impacto: Código não validado
+   - Solução: Adicionar test_gemini_service.py
+   - Prioridade: **ALTA**
 
-**Resultado:** Build passou com sucesso ✅
+### ⚠️ AVISOS
 
-### 2. ℹ️ No Tests Configured
-**Problema:** Projeto não tem testes automatizados
-**Impacto:** BAIXO (fora do escopo do plano)
-**Status:** Registrado para futuro
+3. **Build Frontend falha**
+   - Alguns erros podem ser pré-existentes
+   - Bloqueia deployment
+
+4. **Integração incompleta em agent.py**
+   - `get_model_provider()` existe mas não é usada
+   - Falta lógica para rotear para GeminiAgent
 
 ---
 
 ## Recomendações
 
-### 1. **Adicionar Testes Automatizados** (Futuro)
-   - Testes Jest para componentes React
-   - Testes pytest para endpoints FastAPI
-   - Testes E2E para fluxo completo
+### 🔴 Crítico - Fazer Antes de Mergear
 
-### 2. **Performance Consideration** (Implementado Corretamente)
-   - ✅ Para cards com muitas execuções, a query já ordena por `started_at.desc()`
-   - ✅ Frontend renderiza eficientemente com key={execution.executionId}
-   - 💡 Considerar paginação em futuro se necessário
+1. **Criar `backend/src/agent_gemini.py`**
+   - Implementar classe GeminiAgent
+   - Adicionar métodos execute_plan, execute_implement, etc
+   - Integrar no workflow
 
-### 3. **Cache Behavior** (Implementado Corretamente)
-   - ✅ Cache é invalidado quando logs são adicionados
-   - ✅ Histórico não é cacheado (sempre fresh)
+2. **Atualizar `backend/src/agent.py`**
+   - Usar get_model_provider() para rotear requisições
+   - Importar e instanciar GeminiAgent
+   - Retornar resultados corretos
 
-### 4. **UX Improvements** (Implemented)
-   - ✅ Indicadores visuais claros (status badges coloridos)
-   - ✅ Separação visual entre execuções
-   - ✅ Timestamps e durações bem formatadas
-   - ✅ Fallback para logs simples quando não há histórico
+3. **Adicionar testes básicos**
+   - test_gemini_service.py
+   - test_agent_gemini.py
+   - Cobertura mínima de 80%
 
-### 5. **Retrocompatibilidade** (Verificada)
-   - ✅ Suporte mantido para logs únicos
-   - ✅ LogsModal renderiza logs simples quando history vazia
-   - ✅ Sem breaking changes em API existente
+### ⚠️ Antes da Produção
 
----
+4. **Corrigir build frontend**
+   - Resolver erro em App.tsx
+   - Verificar compatibilidade
 
-## Checklist de Implementação
-
-### Backend
-- [x] Modelo de dados (sem alterações necessárias)
-- [x] Método get_execution_history implementado
-- [x] Endpoint /api/logs/{card_id}/history criado
-- [x] Query otimizada com ordenação
-- [x] Timestamps em ISO format
-- [x] Error handling
-
-### Frontend - Types
-- [x] ExecutionHistory interface
-- [x] CardExecutionHistory interface
-- [x] Tipos estão no arquivo correto (types/index.ts)
-
-### Frontend - Hook
-- [x] fetchLogsHistory implementado
-- [x] useCallback com dependências corretas
-- [x] Error handling
-- [x] Return type correto
-- [x] Exportado no hook return
-
-### Frontend - Components
-- [x] Card.tsx recebe fetchLogsHistory
-- [x] Card.tsx busca histórico ao abrir logs
-- [x] LogsModal.tsx recebe history prop
-- [x] LogsModal.tsx renderiza histórico
-- [x] LogsModal.tsx mantém fallback para logs simples
-- [x] Board.tsx passa fetchLogsHistory
-- [x] Column.tsx passa fetchLogsHistory
-- [x] App.tsx desestrutura fetchLogsHistory
-
-### Styling
-- [x] CSS para executionGroup
-- [x] CSS para executionHeader
-- [x] CSS para status badges
-- [x] CSS para duração formatada
-- [x] Responsive design mantido
-
-### Quality
-- [x] TypeScript compilation
-- [x] Sem unused variables
-- [x] Sem type errors
-- [x] Production build sucesso
+5. **Testes E2E**
+   - Testar criar card com Gemini
+   - Executar workflow completo
+   - Validar resultados no banco
 
 ---
 
 ## Conclusão
 
-**Status Final: ✅ APROVADO COM RESSALVAS MENORES**
+**Status Geral:** ⚠️ **INCOMPLETO - BLOQUEADO**
 
-A implementação do sistema de histórico completo de logs foi **COMPLETADA COM SUCESSO**.
+### Checklist de Conclusão
 
-**Pontos Positivos:**
-- ✅ Todos os 12 arquivos foram modificados conforme plano
-- ✅ Todos os 10 checkboxes estão marcados como completos
-- ✅ Data flow está correto: App → Board → Column → Card → LogsModal
-- ✅ Frontend build passou sem erros
-- ✅ TypeScript types são válidos e bem estruturados
-- ✅ API endpoint implementado corretamente
-- ✅ Renderização de histórico com visual separação por execução
-- ✅ Retrocompatibilidade mantida (fallback para logs simples)
-- ✅ Metadata preservada (timestamps, duração, status)
-- ✅ CSS bem implementado com estilos visuais claros
+- [x] Frontend UI implementada
+- [x] Backend schema atualizado
+- [x] GeminiService criado
+- [x] Provider detection implementado
+- [ ] ❌ agent_gemini.py criado
+- [ ] ❌ Integração completa em agent.py
+- [ ] ❌ Testes unitários
+- [ ] ❌ Testes integração/E2E
+- [ ] ❌ Build frontend OK
 
-**Ressalvas Menores:**
-- ⚠️ Projeto não possui suite de testes automatizados (fora do escopo)
-- ⚠️ Sem testes E2E (recomendado para futuro)
+### Prognóstico
 
-**Pronto para Produção:** SIM ✅
+**Implementação:** 60% completa  
+**Testes:** 0% cobertura  
+**Risco:** ALTO - Código não testado, arquivo crítico faltando
 
-A feature está pronta para merge e pode ser deployada com confiança.
+**Prazo para Conclusão:** 2-3 horas  
+**Status:** 🔴 **NÃO PRONTO PARA PRODUÇÃO**
 
 ---
 
-**Validação Concluída:** 01/01/2025
-**Validador:** Claude Code
-**Versão do Plano:** logs-history-all-stages.md
+*Relatório gerado em 2025-01-05 por /test-implementation*

@@ -32,6 +32,21 @@ from .git_workspace import GitWorkspaceManager
 executions: dict[str, ExecutionRecord] = {}
 
 
+def get_model_provider(model: str) -> str:
+    """
+    Determine provider from model name.
+
+    Args:
+        model: Model name (e.g., "opus-4.5", "gemini-3-pro")
+
+    Returns:
+        str: Provider name ("anthropic" or "google")
+    """
+    if model.startswith("gemini"):
+        return "google"
+    return "anthropic"
+
+
 async def get_worktree_cwd(card_id: str, project_path: str, db_session: Optional[AsyncSession] = None) -> tuple[str, Optional[str], Optional[str]]:
     """
     Obtem o cwd baseado em worktree para isolamento do card.
@@ -363,7 +378,10 @@ async def execute_plan(
         else:
             print(f"[Agent] Using project directory (no worktree): {cwd}")
 
-    # Mapear nome de modelo para valor do SDK
+    # Detect provider
+    provider = get_model_provider(model)
+
+    # Mapear nome de modelo para valor do SDK (Claude)
     model_map = {
         "opus-4.5": "opus",
         "sonnet-4.5": "sonnet",
@@ -430,57 +448,98 @@ async def execute_plan(
         cwd_path = Path(cwd)
         print(f"[Agent] Final CWD being used: {cwd_path.absolute()}")
 
-        options = ClaudeAgentOptions(
-            cwd=cwd_path,
-            setting_sources=["user", "project"],  # Load Skills from .claude/skills/
-            allowed_tools=["Skill", "Read", "Write", "Edit", "Bash", "Glob", "Grep", "TodoWrite"],
-            permission_mode="acceptEdits",
-            model=sdk_model,
-        )
+        if provider == "google":
+            # Use Gemini implementation
+            from .services.gemini_service import get_gemini_service
 
-        # Execute using claude-agent-sdk
-        async for message in query(prompt=prompt, options=options):
-            if isinstance(message, AssistantMessage):
-                # Handle assistant messages with content blocks
-                for block in message.content:
-                    if isinstance(block, TextBlock):
-                        add_log(record, LogType.TEXT, block.text)
-                        # Salva log no banco se disponível
-                        if repo and execution_db:
-                            await repo.add_log(
-                                execution_id=execution_db.id,
-                                log_type="text",
-                                content=block.text
-                            )
-                        result_text += block.text + "\n"
-                        # Tentar extrair spec_path do texto
-                        if not spec_path:
-                            spec_path = extract_spec_path(block.text)
-                    elif isinstance(block, ToolUseBlock):
-                        add_log(record, LogType.TOOL, f"Using tool: {block.name}")
-                        # Salva log no banco se disponível
-                        if repo and execution_db:
-                            await repo.add_log(
-                                execution_id=execution_db.id,
-                                log_type="tool",
-                                content=f"Using tool: {block.name}"
-                            )
-                        # Se for Write tool, captura o file_path
-                        if block.name == "Write" and hasattr(block, "input"):
-                            tool_input = block.input
-                            if isinstance(tool_input, dict) and "file_path" in tool_input:
-                                file_path = tool_input["file_path"]
-                                if "specs/" in file_path and file_path.endswith(".md"):
-                                    spec_path = file_path
-                                    add_log(record, LogType.INFO, f"Spec file detected: {spec_path}")
+            gemini_service = get_gemini_service()
 
-            elif isinstance(message, ResultMessage):
-                if hasattr(message, "result") and message.result:
-                    result_text = message.result
-                    add_log(record, LogType.RESULT, message.result)
-                    # Tentar extrair spec_path do resultado
+            # Execute using Gemini
+            async for chunk in gemini_service.execute_command(
+                command="/plan",
+                content=f"{title}: {description}",
+                model_name=model,
+                cwd=str(cwd_path),
+                images=images
+            ):
+                if chunk["type"] == "text":
+                    content = chunk["content"]
+                    add_log(record, LogType.TEXT, content)
+                    # Salva log no banco se disponível
+                    if repo and execution_db:
+                        await repo.add_log(
+                            execution_id=execution_db.id,
+                            log_type="text",
+                            content=content
+                        )
+                    result_text += content + "\n"
+                    # Tentar extrair spec_path do texto
                     if not spec_path:
-                        spec_path = extract_spec_path(message.result)
+                        spec_path = extract_spec_path(content)
+                elif chunk["type"] == "error":
+                    error_msg = chunk["content"]
+                    add_log(record, LogType.ERROR, error_msg)
+                    if repo and execution_db:
+                        await repo.add_log(
+                            execution_id=execution_db.id,
+                            log_type="error",
+                            content=error_msg
+                        )
+                    raise RuntimeError(error_msg)
+
+        else:
+            # Use Claude Agent SDK
+            options = ClaudeAgentOptions(
+                cwd=cwd_path,
+                setting_sources=["user", "project"],  # Load Skills from .claude/skills/
+                allowed_tools=["Skill", "Read", "Write", "Edit", "Bash", "Glob", "Grep", "TodoWrite"],
+                permission_mode="acceptEdits",
+                model=sdk_model,
+            )
+
+            # Execute using claude-agent-sdk
+            async for message in query(prompt=prompt, options=options):
+                if isinstance(message, AssistantMessage):
+                    # Handle assistant messages with content blocks
+                    for block in message.content:
+                        if isinstance(block, TextBlock):
+                            add_log(record, LogType.TEXT, block.text)
+                            # Salva log no banco se disponível
+                            if repo and execution_db:
+                                await repo.add_log(
+                                    execution_id=execution_db.id,
+                                    log_type="text",
+                                    content=block.text
+                                )
+                            result_text += block.text + "\n"
+                            # Tentar extrair spec_path do texto
+                            if not spec_path:
+                                spec_path = extract_spec_path(block.text)
+                        elif isinstance(block, ToolUseBlock):
+                            add_log(record, LogType.TOOL, f"Using tool: {block.name}")
+                            # Salva log no banco se disponível
+                            if repo and execution_db:
+                                await repo.add_log(
+                                    execution_id=execution_db.id,
+                                    log_type="tool",
+                                    content=f"Using tool: {block.name}"
+                                )
+                            # Se for Write tool, captura o file_path
+                            if block.name == "Write" and hasattr(block, "input"):
+                                tool_input = block.input
+                                if isinstance(tool_input, dict) and "file_path" in tool_input:
+                                    file_path = tool_input["file_path"]
+                                    if "specs/" in file_path and file_path.endswith(".md"):
+                                        spec_path = file_path
+                                        add_log(record, LogType.INFO, f"Spec file detected: {spec_path}")
+
+                elif isinstance(message, ResultMessage):
+                    if hasattr(message, "result") and message.result:
+                        result_text = message.result
+                        add_log(record, LogType.RESULT, message.result)
+                        # Tentar extrair spec_path do resultado
+                        if not spec_path:
+                            spec_path = extract_spec_path(message.result)
 
         # Mark as success
         record.completed_at = datetime.now().isoformat()
