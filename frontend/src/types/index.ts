@@ -26,6 +26,17 @@ export interface CardImage {
   uploadedAt: string;
 }
 
+export interface DiffStats {
+  filesAdded: string[];
+  filesModified: string[];
+  filesRemoved: string[];
+  linesAdded: number;
+  linesRemoved: number;
+  totalChanges: number;
+  capturedAt?: string;
+  branchName?: string;
+}
+
 export interface ActiveExecution {
   id: string;
   status: 'idle' | 'running' | 'success' | 'error';
@@ -54,6 +65,8 @@ export interface Card {
   // Campos para worktree isolation
   branchName?: string;
   worktreePath?: string;
+  // Campos para diff visualization
+  diffStats?: DiffStats;
 }
 
 export interface Column {

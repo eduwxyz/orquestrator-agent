@@ -57,6 +57,12 @@ class Card(Base):
         nullable=True
     )
 
+    # Campos para diff visualization
+    diff_stats: Mapped[Dict[str, Any] | None] = mapped_column(
+        JSON,
+        nullable=True
+    )
+
     # Relacionamento com execuções
     executions = relationship("Execution", back_populates="card", cascade="all, delete-orphan")
 

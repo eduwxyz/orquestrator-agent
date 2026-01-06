@@ -15,7 +15,9 @@ from ..schemas.card import (
     CardSingleResponse,
     CardDeleteResponse,
     ActiveExecution,
+    DiffStats,
 )
+from ..services.diff_analyzer import DiffAnalyzer
 
 router = APIRouter(prefix="/api/cards", tags=["cards"])
 
@@ -142,6 +144,49 @@ async def update_spec_path(
 
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
+
+    return CardSingleResponse(card=CardResponse.model_validate(card))
+
+
+@router.post("/{card_id}/capture-diff", response_model=CardSingleResponse)
+async def capture_diff(card_id: str, db: AsyncSession = Depends(get_db)):
+    """Capture diff statistics for a card when it moves to review/done."""
+    repo = CardRepository(db)
+    card = await repo.get_by_id(card_id)
+
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    # Only capture diff for cards in review or done
+    if card.column_id not in ["review", "done"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Can only capture diff for cards in review or done columns"
+        )
+
+    # Check if card has worktree info
+    if not card.worktree_path or not card.branch_name:
+        raise HTTPException(
+            status_code=400,
+            detail="Card must have worktree information to capture diff"
+        )
+
+    # Capture diff
+    diff_analyzer = DiffAnalyzer()
+    diff_stats = await diff_analyzer.capture_diff(
+        card.worktree_path,
+        card.branch_name
+    )
+
+    if not diff_stats:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to capture diff statistics"
+        )
+
+    # Update card with diff stats
+    card_update = CardUpdate(diff_stats=diff_stats)
+    card = await repo.update(card_id, card_update)
 
     return CardSingleResponse(card=CardResponse.model_validate(card))
 
