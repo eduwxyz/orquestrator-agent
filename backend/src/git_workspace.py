@@ -271,6 +271,43 @@ class GitWorkspaceManager:
 
         return removed
 
+    async def list_all_branches(self) -> List[Dict[str, str]]:
+        """Lista todas as branches locais e remotas do repositório."""
+
+        # Listar branches locais
+        returncode, stdout, _ = await self._run_git_command(
+            ["git", "branch", "--format=%(refname:short)"]
+        )
+
+        local_branches = []
+        if returncode == 0:
+            for branch in stdout.strip().split('\n'):
+                if branch and not branch.startswith('agent/'):
+                    local_branches.append({
+                        "name": branch,
+                        "type": "local"
+                    })
+
+        # Listar branches remotas principais (ignorar agent/*)
+        returncode, stdout, _ = await self._run_git_command(
+            ["git", "branch", "-r", "--format=%(refname:short)"]
+        )
+
+        remote_branches = []
+        if returncode == 0:
+            for branch in stdout.strip().split('\n'):
+                if branch and not branch.startswith('origin/agent/'):
+                    # Remover prefixo origin/
+                    clean_name = branch.replace('origin/', '')
+                    if clean_name not in ['HEAD', 'main', 'master'] and \
+                       not any(b['name'] == clean_name for b in local_branches):
+                        remote_branches.append({
+                            "name": clean_name,
+                            "type": "remote"
+                        })
+
+        return local_branches + remote_branches
+
     def is_git_repo(self) -> bool:
         """Verifica se o projeto eh um repositorio git."""
         git_dir = self.project_path / ".git"

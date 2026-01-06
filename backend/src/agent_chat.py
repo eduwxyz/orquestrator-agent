@@ -187,8 +187,10 @@ class ClaudeAgentChat:
                             # Stream text content
                             yield block.text
                 elif isinstance(message, ResultMessage):
+                    # Log para debug, mas NÃO faz yield do resultado
+                    # pois o conteúdo já foi enviado através dos TextBlocks
                     if hasattr(message, "result") and message.result:
-                        yield message.result
+                        print(f"[ClaudeAgentChat] ResultMessage received (not yielding): {len(message.result)} chars")
 
         except Exception as e:
             error_msg = f"Error in Claude Agent SDK: {str(e)}"

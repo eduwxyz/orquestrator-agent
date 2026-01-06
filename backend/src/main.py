@@ -449,7 +449,11 @@ async def get_active_project(db: AsyncSession):
 
 
 @app.post("/api/cards/{card_id}/workspace")
-async def create_card_workspace(card_id: str, db: AsyncSession = Depends(get_db)):
+async def create_card_workspace(
+    card_id: str,
+    request_body: Optional[dict] = None,
+    db: AsyncSession = Depends(get_db)
+):
     """Cria worktree isolado para o card."""
 
     # Obter projeto ativo
@@ -465,10 +469,21 @@ async def create_card_workspace(card_id: str, db: AsyncSession = Depends(get_db)
             detail="Project is not a git repository. Worktrees disabled."
         )
 
+    # Pegar base_branch do request body ou do card
+    base_branch = None
+    if request_body and "baseBranch" in request_body:
+        base_branch = request_body["baseBranch"]
+    else:
+        # Tentar pegar do card
+        card_repo = CardRepository(db)
+        card = await card_repo.get_by_id(card_id)
+        if card and card.base_branch:
+            base_branch = card.base_branch
+
     # Criar worktree
     git_manager = GitWorkspaceManager(project.path)
     await git_manager.recover_state()  # Garantir estado limpo
-    result = await git_manager.create_worktree(card_id)
+    result = await git_manager.create_worktree(card_id, base_branch)
 
     if not result.success:
         raise HTTPException(status_code=500, detail=result.error)
@@ -540,6 +555,39 @@ async def cleanup_orphan_worktrees(db: AsyncSession = Depends(get_db)):
     removed = await git_manager.cleanup_orphan_worktrees(active_card_ids)
 
     return {"success": True, "removedCount": removed}
+
+
+@app.get("/api/git/branches")
+async def list_git_branches():
+    """Lista todas as branches do repositório git."""
+
+    # Buscar projeto ativo do banco auth.db (onde é salvo)
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(ActiveProject).order_by(ActiveProject.loaded_at.desc()).limit(1)
+        )
+        project = result.scalar_one_or_none()
+
+    # Se não houver projeto ativo, usar diretório raiz
+    if project:
+        project_path = project.path
+    else:
+        # Fallback: diretório raiz (2 níveis acima do backend/src)
+        project_path = str(Path(__file__).parent.parent.parent)
+
+    # Verificar se é repositório git
+    git_dir = Path(project_path) / ".git"
+    if not git_dir.exists():
+        return {"success": True, "branches": [], "defaultBranch": "main"}
+
+    git_manager = GitWorkspaceManager(project_path)
+    branches = await git_manager.list_all_branches()
+
+    return {
+        "success": True,
+        "branches": branches,
+        "defaultBranch": await git_manager._get_default_branch()
+    }
 
 
 def main():

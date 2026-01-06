@@ -56,6 +56,10 @@ class Card(Base):
         String(500),
         nullable=True
     )
+    base_branch: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True
+    )
 
     # Relacionamento com execuções
     executions = relationship("Execution", back_populates="card", cascade="all, delete-orphan")

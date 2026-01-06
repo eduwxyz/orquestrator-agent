@@ -57,6 +57,7 @@ class CardCreate(CardBase):
     parent_card_id: Optional[str] = Field(None, alias="parentCardId")
     is_fix_card: bool = Field(False, alias="isFixCard")
     test_error_context: Optional[str] = Field(None, alias="testErrorContext")
+    base_branch: Optional[str] = Field(None, alias="baseBranch")  # Branch base para o worktree
 
     class Config:
         populate_by_name = True
@@ -111,6 +112,7 @@ class CardResponse(BaseModel):
     # Campos para worktree isolation
     branch_name: Optional[str] = Field(None, alias="branchName")
     worktree_path: Optional[str] = Field(None, alias="worktreePath")
+    base_branch: Optional[str] = Field(None, alias="baseBranch")
 
     @property
     def is_finalized(self) -> bool:

@@ -56,6 +56,7 @@ class CardRepository:
             parent_card_id=getattr(card_data, 'parent_card_id', None),
             is_fix_card=getattr(card_data, 'is_fix_card', False),
             test_error_context=getattr(card_data, 'test_error_context', None),
+            base_branch=getattr(card_data, 'base_branch', None),
         )
         self.session.add(card)
         await self.session.flush()
