@@ -6,6 +6,18 @@ from typing import Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
+class DiffStats(BaseModel):
+    """Schema for diff statistics."""
+    files_added: List[str] = []
+    files_modified: List[str] = []
+    files_removed: List[str] = []
+    lines_added: int = 0
+    lines_removed: int = 0
+    total_changes: int = 0
+    captured_at: Optional[str] = None
+    branch_name: Optional[str] = None
+
+
 ColumnId = Literal["backlog", "plan", "implement", "test", "review", "done", "archived", "cancelado"]
 ModelType = Literal[
     "opus-4.5", "sonnet-4.5", "haiku-4.5",  # Claude models
@@ -75,6 +87,8 @@ class CardUpdate(BaseModel):
     # Campos para worktree isolation
     branch_name: Optional[str] = Field(None, alias="branchName")
     worktree_path: Optional[str] = Field(None, alias="worktreePath")
+    # Campos para diff visualization
+    diff_stats: Optional[DiffStats] = Field(None, alias="diffStats")
 
     class Config:
         populate_by_name = True
@@ -113,6 +127,8 @@ class CardResponse(BaseModel):
     branch_name: Optional[str] = Field(None, alias="branchName")
     worktree_path: Optional[str] = Field(None, alias="worktreePath")
     base_branch: Optional[str] = Field(None, alias="baseBranch")
+    # Campos para diff visualization
+    diff_stats: Optional[DiffStats] = Field(None, alias="diffStats")
 
     @property
     def is_finalized(self) -> bool:

@@ -328,3 +328,83 @@
   border-color: var(--border-default);
   color: var(--text-primary);
 }
+
+/* Tabs Navigation */
+.tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 var(--space-5);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  overflow-x: auto;
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.tab:hover {
+  color: var(--text-secondary);
+  background: rgba(34, 211, 238, 0.05);
+}
+
+.tabActive {
+  color: var(--accent-cyan);
+  border-bottom-color: var(--accent-cyan);
+}
+
+.tabActive:hover {
+  background: rgba(34, 211, 238, 0.08);
+}
+
+.tabBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: var(--accent-cyan);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 10px;
+}
+
+.tabBadgeDiff {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: rgba(34, 211, 238, 0.15);
+  color: var(--accent-cyan);
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  border-radius: 6px;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+}
+
+.tabActive .tabBadgeDiff {
+  background: rgba(34, 211, 238, 0.25);
+  border-color: var(--accent-cyan);
+}
+
+/* Changes Tab */
+.changesTab {
+  min-height: 500px;
+  padding: 0;
+}

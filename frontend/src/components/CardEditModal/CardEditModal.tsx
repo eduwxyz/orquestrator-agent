@@ -7,7 +7,10 @@ import {
   createImagePreview
 } from '../../utils/imageHandler';
 import { API_ENDPOINTS } from '../../api/config';
+import { DiffVisualization } from '../DiffVisualization/DiffVisualization';
 import styles from './CardEditModal.module.css';
+
+type TabId = 'details' | 'images' | 'changes';
 
 interface CardEditModalProps {
   isOpen: boolean;
@@ -21,8 +24,18 @@ export function CardEditModal({ isOpen, onClose, card, onUpdateCard }: CardEditM
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [previewImages, setPreviewImages] = useState<{ file: File; preview: string }[]>([]);
+  const [activeTab, setActiveTab] = useState<TabId>('details');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+
+  // Show Changes tab by default if card is in review/done and has diff stats
+  useEffect(() => {
+    if ((card.columnId === 'review' || card.columnId === 'done') && card.diffStats) {
+      setActiveTab('changes');
+    } else {
+      setActiveTab('details');
+    }
+  }, [card.columnId, card.diffStats]);
 
   // Reset state when card changes
   useEffect(() => {
@@ -138,30 +151,69 @@ export function CardEditModal({ isOpen, onClose, card, onUpdateCard }: CardEditM
           </button>
         </div>
 
+        {/* Tabs Navigation */}
+        <div className={styles.tabs}>
+          <button
+            className={`${styles.tab} ${activeTab === 'details' ? styles.tabActive : ''}`}
+            onClick={() => setActiveTab('details')}
+          >
+            Details
+          </button>
+          <button
+            className={`${styles.tab} ${activeTab === 'images' ? styles.tabActive : ''}`}
+            onClick={() => setActiveTab('images')}
+          >
+            Images
+            {(localCard.images?.length || 0) > 0 && (
+              <span className={styles.tabBadge}>{localCard.images?.length}</span>
+            )}
+          </button>
+          {(card.columnId === 'review' || card.columnId === 'done') && (
+            <button
+              className={`${styles.tab} ${activeTab === 'changes' ? styles.tabActive : ''}`}
+              onClick={() => setActiveTab('changes')}
+            >
+              Changes
+              {card.diffStats && (
+                <span className={styles.tabBadgeDiff}>
+                  +{card.diffStats.linesAdded} -{card.diffStats.linesRemoved}
+                </span>
+              )}
+            </button>
+          )}
+        </div>
+
         <div className={styles.content}>
-          <div className={styles.field}>
-            <label>Title</label>
-            <input
-              type="text"
-              value={localCard.title}
-              onChange={(e) => setLocalCard({ ...localCard, title: e.target.value })}
-              className={styles.input}
-            />
-          </div>
+          {/* Details Tab */}
+          {activeTab === 'details' && (
+            <>
+              <div className={styles.field}>
+                <label>Title</label>
+                <input
+                  type="text"
+                  value={localCard.title}
+                  onChange={(e) => setLocalCard({ ...localCard, title: e.target.value })}
+                  className={styles.input}
+                />
+              </div>
 
-          <div className={styles.field}>
-            <label>Description</label>
-            <textarea
-              value={localCard.description}
-              onChange={(e) => setLocalCard({ ...localCard, description: e.target.value })}
-              className={styles.textarea}
-              rows={3}
-            />
-          </div>
+              <div className={styles.field}>
+                <label>Description</label>
+                <textarea
+                  value={localCard.description}
+                  onChange={(e) => setLocalCard({ ...localCard, description: e.target.value })}
+                  className={styles.textarea}
+                  rows={3}
+                />
+              </div>
+            </>
+          )}
 
-          <div className={styles.field}>
-            <label>Images</label>
-            <div className={styles.imageSection}>
+          {/* Images Tab */}
+          {activeTab === 'images' && (
+            <div className={styles.field}>
+              <label>Images</label>
+              <div className={styles.imageSection}>
               {/* Existing images */}
               {localCard.images && localCard.images.length > 0 && (
                 <div className={styles.existingImages}>
@@ -224,8 +276,16 @@ export function CardEditModal({ isOpen, onClose, card, onUpdateCard }: CardEditM
               {uploadError && (
                 <div className={styles.error}>{uploadError}</div>
               )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Changes Tab */}
+          {activeTab === 'changes' && (
+            <div className={styles.changesTab}>
+              <DiffVisualization diffStats={card.diffStats} isAnimating={true} />
+            </div>
+          )}
         </div>
 
         <div className={styles.footer}>
