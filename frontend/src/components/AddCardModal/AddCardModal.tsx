@@ -7,6 +7,7 @@ import {
   createImagePreview
 } from '../../utils/imageHandler';
 import { useDraft } from '../../hooks/useDraft';
+import { fetchGitBranches, type GitBranch } from '../../api/git';
 import styles from './AddCardModal.module.css';
 
 interface AddCardModalProps {
@@ -20,6 +21,7 @@ interface AddCardModalProps {
     modelTest: ModelType;
     modelReview: ModelType;
     images: File[];
+    baseBranch?: string;
   }) => Promise<void>;
   title?: string;
   submitButtonText?: string;
@@ -106,6 +108,10 @@ export function AddCardModal({ isOpen, onClose, onSubmit, title: modalTitle, sub
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [activeStage, setActiveStage] = useState<string | null>(null);
+  const [baseBranch, setBaseBranch] = useState<string>('');
+  const [availableBranches, setAvailableBranches] = useState<GitBranch[]>([]);
+  const [defaultBranch, setDefaultBranch] = useState<string>('main');
+  const [loadingBranches, setLoadingBranches] = useState(false);
 
   const modalRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -142,6 +148,28 @@ export function AddCardModal({ isOpen, onClose, onSubmit, title: modalTitle, sub
       hasRestoredDraft.current = true;
     }
   });
+
+  // Load branches when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadBranches();
+    }
+  }, [isOpen]);
+
+  const loadBranches = async () => {
+    setLoadingBranches(true);
+    try {
+      const response = await fetchGitBranches();
+      setAvailableBranches(response.branches);
+      setDefaultBranch(response.defaultBranch);
+      setBaseBranch(response.defaultBranch);
+    } catch (error) {
+      console.error('Failed to load branches:', error);
+      // Silently fail - campo será ocultado se não houver branches
+    } finally {
+      setLoadingBranches(false);
+    }
+  };
 
   // Reset state when modal opens (only if not restoring draft)
   useEffect(() => {
@@ -301,7 +329,8 @@ export function AddCardModal({ isOpen, onClose, onSubmit, title: modalTitle, sub
         modelImplement,
         modelTest,
         modelReview,
-        images: previewImages.filter(p => p.file !== null).map(p => p.file as File)
+        images: previewImages.filter(p => p.file !== null).map(p => p.file as File),
+        baseBranch: baseBranch || undefined
       });
       clearDraft(); // Limpar draft após sucesso
       onClose();
@@ -461,6 +490,42 @@ export function AddCardModal({ isOpen, onClose, onSubmit, title: modalTitle, sub
               <div className={styles.inputGlow} />
             </div>
           </div>
+
+          {/* Base Branch Selection */}
+          {availableBranches.length > 0 && (
+            <div className={styles.formSection}>
+              <div className={styles.inputGroup}>
+                <label className={styles.inputLabel}>
+                  <span className={styles.labelText}>Base Branch</span>
+                  <span className={styles.labelOptional}>Optional</span>
+                </label>
+                <div className={styles.selectWrapper}>
+                  <select
+                    className={styles.branchSelect}
+                    value={baseBranch}
+                    onChange={(e) => setBaseBranch(e.target.value)}
+                    disabled={isSubmitting || loadingBranches}
+                  >
+                    <option value="">Default ({defaultBranch})</option>
+                    {availableBranches.map((branch) => (
+                      <option key={branch.name} value={branch.name}>
+                        {branch.name} {branch.type === 'remote' ? '(remote)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <div className={styles.selectIcon}>
+                    <svg width="12" height="7" viewBox="0 0 12 7" fill="none">
+                      <path d="M1 1L6 6L11 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </div>
+                </div>
+                <p className={styles.inputHint}>
+                  Select the branch from which the worktree will be created
+                </p>
+                <div className={styles.inputGlow} />
+              </div>
+            </div>
+          )}
 
           {/* Model Selection */}
           <div className={styles.formSection}>

@@ -87,7 +87,8 @@ export async function createCard(
   modelPlan: ModelType,
   modelImplement: ModelType,
   modelTest: ModelType,
-  modelReview: ModelType
+  modelReview: ModelType,
+  baseBranch?: string
 ): Promise<Card> {
   const response = await fetch(API_ENDPOINTS.cards, {
     method: 'POST',
@@ -101,6 +102,7 @@ export async function createCard(
       modelImplement,
       modelTest,
       modelReview,
+      baseBranch,
     }),
   });
 

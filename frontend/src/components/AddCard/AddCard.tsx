@@ -21,6 +21,7 @@ export function AddCard({ }: AddCardProps) {
     modelTest: ModelType;
     modelReview: ModelType;
     images: File[];
+    baseBranch?: string;
   }) => {
     try {
       // Criar o card primeiro
@@ -30,7 +31,8 @@ export function AddCard({ }: AddCardProps) {
         cardData.modelPlan,
         cardData.modelImplement,
         cardData.modelTest,
-        cardData.modelReview
+        cardData.modelReview,
+        cardData.baseBranch
       );
 
       // Se houver imagens, fazer upload

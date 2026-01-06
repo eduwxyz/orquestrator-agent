@@ -16,6 +16,7 @@ export function NewTaskButton() {
     modelTest: ModelType;
     modelReview: ModelType;
     images: File[];
+    baseBranch?: string;
   }) => {
     try {
       // Criar a task (sempre no backlog)
@@ -25,7 +26,8 @@ export function NewTaskButton() {
         taskData.modelPlan,
         taskData.modelImplement,
         taskData.modelTest,
-        taskData.modelReview
+        taskData.modelReview,
+        taskData.baseBranch
       );
 
       // Upload de imagens se houver
