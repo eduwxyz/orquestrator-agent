@@ -70,6 +70,9 @@ class Card(Base):
     # Relacionamento com execuções
     executions = relationship("Execution", back_populates="card", cascade="all, delete-orphan")
 
+    # Relacionamento com activity logs
+    activity_logs = relationship("ActivityLog", back_populates="card", cascade="all, delete-orphan")
+
     # Relacionamento auto-referencial
     parent_card = relationship("Card", back_populates="fix_cards", remote_side=[id])
     fix_cards = relationship("Card", back_populates="parent_card")

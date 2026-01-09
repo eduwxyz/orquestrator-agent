@@ -1,22 +1,14 @@
-import { useMemo } from 'react';
-import { Card } from '../../types';
+import { useEffect, useState } from 'react';
+import { fetchRecentActivities, Activity } from '../../api/activities';
 import styles from './ActivityFeed.module.css';
 
 interface ActivityFeedProps {
-  cards: Card[];
   maxItems?: number;
+  autoRefresh?: boolean;
+  refreshInterval?: number;
 }
 
-type ActivityType = 'created' | 'moved' | 'completed' | 'archived';
-
-interface Activity {
-  id: string;
-  type: ActivityType;
-  cardTitle: string;
-  timestamp: Date;
-  fromColumn?: string;
-  toColumn?: string;
-}
+type ActivityType = 'created' | 'moved' | 'completed' | 'archived' | 'updated' | 'executed' | 'commented';
 
 // Ícones SVG inline para cada tipo de atividade
 const ActivityIcon = ({ type }: { type: ActivityType }) => {
@@ -49,56 +41,40 @@ const ActivityIcon = ({ type }: { type: ActivityType }) => {
   }
 };
 
-const ActivityFeed = ({ cards, maxItems = 10 }: ActivityFeedProps) => {
-  const activities = useMemo(() => {
-    // Simular atividades baseado no estado atual dos cards
-    // Em produção, isso viria de um log de eventos real
-    const items: Activity[] = [];
+const ActivityFeed = ({
+  maxItems = 10,
+  autoRefresh = true,
+  refreshInterval = 30000, // 30 seconds
+}: ActivityFeedProps) => {
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    // Adicionar atividades recentes (simulado)
-    cards.forEach((card) => {
-      // Card completado
-      if (card.columnId === 'done') {
-        items.push({
-          id: `${card.id}-completed`,
-          type: 'completed',
-          cardTitle: card.title,
-          timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000), // Últimos 7 dias
-          toColumn: 'done',
-        });
-      }
+  const loadActivities = async () => {
+    try {
+      const data = await fetchRecentActivities(maxItems);
+      setActivities(data);
+      setError(null);
+    } catch (err) {
+      setError('Falha ao carregar atividades');
+      console.error('Error loading activities:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-      // Card arquivado
-      if (card.columnId === 'archived') {
-        items.push({
-          id: `${card.id}-archived`,
-          type: 'archived',
-          cardTitle: card.title,
-          timestamp: new Date(Date.now() - Math.random() * 14 * 24 * 60 * 60 * 1000), // Últimas 2 semanas
-          toColumn: 'archived',
-        });
-      }
+  useEffect(() => {
+    loadActivities();
 
-      // Cards em progresso (movidos)
-      if (['implement', 'test', 'review'].includes(card.columnId)) {
-        items.push({
-          id: `${card.id}-moved`,
-          type: 'moved',
-          cardTitle: card.title,
-          timestamp: new Date(Date.now() - Math.random() * 3 * 24 * 60 * 60 * 1000), // Últimos 3 dias
-          fromColumn: 'plan',
-          toColumn: card.columnId,
-        });
-      }
-    });
+    // Auto-refresh if enabled
+    if (autoRefresh) {
+      const interval = setInterval(loadActivities, refreshInterval);
+      return () => clearInterval(interval);
+    }
+  }, [maxItems, autoRefresh, refreshInterval]);
 
-    // Ordenar por timestamp (mais recente primeiro) e limitar
-    return items
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-      .slice(0, maxItems);
-  }, [cards, maxItems]);
-
-  const formatTimestamp = (date: Date) => {
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -133,10 +109,42 @@ const ActivityFeed = ({ cards, maxItems = 10 }: ActivityFeedProps) => {
         return 'foi concluído';
       case 'archived':
         return 'foi arquivado';
-      default:
+      case 'updated':
         return 'foi atualizado';
+      case 'executed':
+        return 'foi executado';
+      case 'commented':
+        return 'recebeu comentário';
+      default:
+        return 'foi modificado';
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className={styles.activityFeed}>
+        <div className={styles.header}>
+          <h3 className={styles.title}>Atividade Recente</h3>
+        </div>
+        <div className={styles.emptyState}>
+          <p className={styles.emptyText}>Carregando atividades...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={styles.activityFeed}>
+        <div className={styles.header}>
+          <h3 className={styles.title}>Atividade Recente</h3>
+        </div>
+        <div className={styles.emptyState}>
+          <p className={styles.emptyText}>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (activities.length === 0) {
     return (

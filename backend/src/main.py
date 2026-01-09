@@ -31,6 +31,7 @@ from .routes.images import router as images_router
 from .routes.projects import router as projects_router
 from .routes.chat import router as chat_router
 from .routes.execution_ws import router as execution_ws_router
+from .routes.activities import router as activities_router
 from .database import get_db, async_session_maker
 from .repositories.card_repository import CardRepository
 from .schemas.card import CardUpdate
@@ -80,6 +81,7 @@ app.include_router(images_router)
 app.include_router(projects_router)
 app.include_router(chat_router)
 app.include_router(execution_ws_router)
+app.include_router(activities_router)
 
 
 @app.get("/health", response_model=HealthResponse)

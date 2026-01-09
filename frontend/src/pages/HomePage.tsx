@@ -162,7 +162,7 @@ const HomePage = ({ cards, onNavigate }: HomePageProps) => {
               <h2 className={styles.sectionTitle}>Recent Activity</h2>
             </div>
             <div className={styles.activityCard}>
-              <ActivityFeed cards={cards} maxItems={8} />
+              <ActivityFeed maxItems={8} autoRefresh={true} refreshInterval={30000} />
             </div>
           </div>
         </div>
