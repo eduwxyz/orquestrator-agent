@@ -29,6 +29,12 @@ const navigationItems: NavigationItem[] = [
     description: 'Chat com assistente AI',
   },
   {
+    id: 'metrics',
+    label: 'Métricas',
+    icon: 'fa-solid fa-chart-bar',
+    description: 'Analytics e performance',
+  },
+  {
     id: 'settings',
     label: 'Configurações',
     icon: 'fa-solid fa-gear',

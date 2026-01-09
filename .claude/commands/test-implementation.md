@@ -14,8 +14,9 @@ Valide a implementação do plano especificado em: $ARGUMENTS
 
 1. Se `$ARGUMENTS` estiver vazio, liste os arquivos disponíveis em `specs/` e pergunte qual validar
 2. Leia o arquivo de plano especificado
-3. Execute todas as fases de validação abaixo
-4. Gere um relatório final de qualidade
+3. Execute todas as fases de validação abaixo (Fases 1-6)
+4. A Fase 6 (Browser Validation) é condicional - apenas execute se a implementação envolver frontend
+5. Gere um relatório final de qualidade consolidando todas as fases
 
 ## Fases de Validação
 
@@ -90,6 +91,50 @@ Analise:
 - Cobertura dos arquivos novos/modificados
 - Áreas sem cobertura de teste
 
+### Fase 6: Browser Validation (Web Testing)
+
+**Objetivo**: Validar a implementação visualmente no browser usando automação Playwright.
+
+**Quando executar**: Esta fase deve ser executada para implementações que envolvem UI web (frontend).
+
+**Como executar**:
+
+1. **Verificar se é necessário**:
+   - Se o plano envolve mudanças no frontend (arquivos em `frontend/`, componentes React, etc.), execute esta fase
+   - Se é apenas backend ou configuração, pule esta fase
+
+2. **Verificar servidores**:
+   ```bash
+   # Verificar se frontend está rodando
+   curl -s http://localhost:5173 > /dev/null && echo "Frontend OK" || echo "Frontend DOWN"
+
+   # Verificar se backend está rodando
+   curl -s http://localhost:3001 > /dev/null && echo "Backend OK" || echo "Backend DOWN"
+   ```
+
+   - Se servidores NÃO estão rodando: Informe o usuário e instrua a subir com `npm run dev`
+   - Se servidores estão rodando: Prossiga para o próximo passo
+
+3. **Invocar playwright-agent**:
+   Use o Task tool para invocar o playwright-agent:
+   ```
+   Task tool with subagent_type='playwright-agent':
+   "Validate the implementation from [caminho-do-spec]. Test acceptance criteria and generate browser validation report."
+   ```
+
+4. **Aguardar resultado**:
+   - O playwright-agent irá retornar exit code 0 (sucesso) ou 1 (falha)
+   - Capturar localização do relatório gerado em `./test-reports/playwright/`
+   - Incluir resultado no relatório final
+
+5. **Registre resultados**:
+   - ✅ Browser tests passando - todos os acceptance criteria validados
+   - ⚠️ Browser tests com ressalvas - alguns critérios passaram, outros falharam
+   - ❌ Browser tests falhando - erro crítico ou maioria dos critérios falharam
+   - ⏭️ Browser tests pulados - servidores não estavam rodando ou não aplicável
+
+**Nota**: Esta fase é automatizada mas requer que os servidores estejam rodando. Se você é invocado via kanban, os servidores provavelmente já estão up.
+
 ## Formato do Relatório Final
 
 Gere um relatório estruturado:
@@ -105,6 +150,7 @@ Gere um relatório estruturado:
 | Testes | X passando, Y falhando |
 | Build | ✅/❌ |
 | Lint | ✅/❌ |
+| Browser Tests | ✅/⚠️/❌/⏭️ |
 
 ## Detalhes
 
@@ -121,6 +167,27 @@ Gere um relatório estruturado:
 ```
 [output dos testes]
 ```
+
+### Browser Validation (Fase 6)
+**Status**: ✅/⚠️/❌/⏭️
+
+**Relatório Playwright**: `test-reports/playwright/YYYY-MM-DD_HH-MM-SS/playwright-report.md`
+
+**Acceptance Criteria Validados**:
+- ✅ Critério 1: [descrição]
+- ✅ Critério 2: [descrição]
+- ❌ Critério 3: [descrição] - [razão da falha]
+
+**Screenshots Capturados**: [número] screenshots salvos no diretório do relatório
+
+**Observações**:
+- [Quaisquer observações relevantes do teste browser]
+- [Problemas de UI encontrados]
+- [Comportamentos inesperados]
+
+**Nota**: Se esta seção estiver marcada como ⏭️ (pulada), significa que:
+- Servidores não estavam rodando, OU
+- A implementação não envolve mudanças de frontend
 
 ### Problemas Encontrados
 1. Descrição do problema 1
@@ -163,6 +230,14 @@ Detecte automaticamente as ferramentas do projeto:
 O comando irá:
 1. Verificar se todos os arquivos do plano existem
 2. Conferir se checkboxes foram marcados
-3. Executar a suíte de testes
+3. Executar a suíte de testes (unitários e integração)
 4. Rodar lint e type check
-5. Gerar relatório completo de validação
+5. Analisar cobertura de código (se disponível)
+6. **Validar no browser usando Playwright** (se envolver frontend)
+7. Gerar relatório completo de validação
+
+**Nota sobre Fase 6 (Browser Testing)**:
+- Requer servidores rodando (frontend:5173 e backend:3001)
+- Apenas executada se a implementação envolve mudanças no frontend
+- Gera screenshots e relatório detalhado com validação visual
+- Integra resultados no relatório final
