@@ -89,7 +89,7 @@ class MetricsAggregator:
         # Identificar pico de uso
         peak_row = max(rows, key=lambda r: r.total_tokens or 0)
         peak_usage = {
-            "date": peak_row.date.isoformat() if peak_row.date else None,
+            "date": peak_row.date if peak_row.date else None,
             "tokens": peak_row.total_tokens or 0
         }
 
@@ -113,7 +113,7 @@ class MetricsAggregator:
             "projection": projection,
             "dailyData": [
                 {
-                    "date": row.date.isoformat() if row.date else None,
+                    "date": row.date if row.date else None,
                     "tokens": row.total_tokens or 0
                 }
                 for row in rows

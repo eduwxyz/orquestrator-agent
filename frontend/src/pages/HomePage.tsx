@@ -7,7 +7,6 @@ import ProgressChart from '../components/Dashboard/ProgressChart';
 import TokenUsagePanel from '../components/Dashboard/TokenUsagePanel';
 import CostBreakdown from '../components/Dashboard/CostBreakdown';
 import ExecutionMetrics from '../components/Dashboard/ExecutionMetrics';
-import InsightsPanel from '../components/Dashboard/InsightsPanel';
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
 import styles from './HomePage.module.css';
 import '../styles/dashboard-theme.css';
@@ -23,7 +22,6 @@ const HomePage = ({ cards, onNavigate }: HomePageProps) => {
     tokenData,
     costData,
     executionData,
-    insights,
     isLoading: metricsLoading
   } = useDashboardMetrics();
 
@@ -202,7 +200,7 @@ const HomePage = ({ cards, onNavigate }: HomePageProps) => {
           </div>
         </div>
 
-        {/* Execution Metrics & Insights Row */}
+        {/* Execution Metrics Row */}
         <div className={styles.metricsRow}>
           <div className={styles.executionColumn}>
             <div className={styles.sectionHeader}>
@@ -210,16 +208,6 @@ const HomePage = ({ cards, onNavigate }: HomePageProps) => {
             </div>
             <ExecutionMetrics data={executionData} loading={metricsLoading} />
           </div>
-
-          {insights && insights.length > 0 && (
-            <div className={styles.insightsColumn}>
-              <div className={styles.sectionHeader}>
-                <h2 className={styles.sectionTitle}>AI Insights</h2>
-                <span className={styles.insightCount}>{insights.length} new</span>
-              </div>
-              <InsightsPanel insights={insights} />
-            </div>
-          )}
         </div>
       </section>
 

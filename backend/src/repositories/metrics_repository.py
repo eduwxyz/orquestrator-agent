@@ -155,7 +155,7 @@ class MetricsRepository:
                 })
             else:
                 data.append({
-                    "timestamp": row.timestamp.isoformat() if row.timestamp else None,
+                    "timestamp": row.timestamp if row.timestamp else None,
                     "inputTokens": row.input_tokens or 0,
                     "outputTokens": row.output_tokens or 0,
                     "totalTokens": row.total_tokens or 0
@@ -197,7 +197,7 @@ class MetricsRepository:
                 "cardTitle": row.title or "Untitled",
                 "command": row.command,
                 "durationMs": row.duration_ms,
-                "timestamp": row.started_at.isoformat() if row.started_at else None,
+                "timestamp": row.started_at if isinstance(row.started_at, str) else (row.started_at.isoformat() if row.started_at else None),
                 "status": row.status
             }
             for row in rows
@@ -268,7 +268,7 @@ class MetricsRepository:
                 })
             else:
                 data.append({
-                    "date": row.date.isoformat() if row.date else None,
+                    "date": row.date if row.date else None,
                     "totalCost": cost,
                     "percentage": round(percentage, 2),
                     "tokenCount": row.total_tokens or 0,

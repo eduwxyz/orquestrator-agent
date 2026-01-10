@@ -6,6 +6,13 @@ from typing import Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
+class FileDiff(BaseModel):
+    """Schema for a single file diff."""
+    path: str
+    status: str  # 'added', 'modified', 'removed'
+    content: str  # The actual diff content
+
+
 class DiffStats(BaseModel):
     """Schema for diff statistics."""
     files_added: List[str] = []
@@ -16,6 +23,7 @@ class DiffStats(BaseModel):
     total_changes: int = 0
     captured_at: Optional[str] = None
     branch_name: Optional[str] = None
+    file_diffs: List[FileDiff] = []  # Detailed diff content per file
 
 
 ColumnId = Literal["backlog", "plan", "implement", "test", "review", "done", "archived", "cancelado"]

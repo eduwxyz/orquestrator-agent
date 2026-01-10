@@ -7,7 +7,7 @@ import {
   createImagePreview
 } from '../../utils/imageHandler';
 import { API_ENDPOINTS } from '../../api/config';
-import { DiffVisualization } from '../DiffVisualization/DiffVisualization';
+import { GitDiffViewer } from '../GitDiffViewer';
 import styles from './CardEditModal.module.css';
 
 type TabId = 'details' | 'images' | 'changes';
@@ -283,7 +283,7 @@ export function CardEditModal({ isOpen, onClose, card, onUpdateCard }: CardEditM
           {/* Changes Tab */}
           {activeTab === 'changes' && (
             <div className={styles.changesTab}>
-              <DiffVisualization diffStats={card.diffStats} isAnimating={true} />
+              <GitDiffViewer diffStats={card.diffStats} />
             </div>
           )}
         </div>

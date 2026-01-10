@@ -26,6 +26,12 @@ export interface CardImage {
   uploadedAt: string;
 }
 
+export interface FileDiff {
+  path: string;
+  status: 'added' | 'modified' | 'removed';
+  content: string;
+}
+
 export interface DiffStats {
   filesAdded: string[];
   filesModified: string[];
@@ -35,6 +41,7 @@ export interface DiffStats {
   totalChanges: number;
   capturedAt?: string;
   branchName?: string;
+  fileDiffs?: FileDiff[];
 }
 
 export interface TokenStats {

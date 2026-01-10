@@ -1,0 +1,345 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 400px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/* Empty State */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  color: var(--text-dim);
+}
+
+.emptyIcon {
+  color: var(--text-dim);
+  opacity: 0.4;
+  margin-bottom: var(--space-4);
+}
+
+.emptyText {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-2);
+}
+
+.emptySubtext {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+/* Summary Header */
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.summaryStats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.statFiles {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+}
+
+.statAdded {
+  color: var(--accent-emerald);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.statRemoved {
+  color: var(--accent-rose);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.summaryActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.actionBtn {
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.actionBtn:hover {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+
+/* File List */
+.fileList {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.fileItem {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.fileItem:last-child {
+  border-bottom: none;
+}
+
+/* File Header */
+.fileHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-elevated);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.fileHeader:hover {
+  background: rgba(34, 211, 238, 0.05);
+}
+
+.fileIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+}
+
+.fileAdded .fileIcon {
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--accent-emerald);
+}
+
+.fileModified .fileIcon {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--accent-amber);
+}
+
+.fileRemoved .fileIcon {
+  background: rgba(251, 113, 133, 0.15);
+  color: var(--accent-rose);
+}
+
+.filePath {
+  flex: 1;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileDir {
+  color: var(--text-dim);
+}
+
+.fileName {
+  font-weight: 600;
+}
+
+.fileStatus {
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-sm);
+}
+
+.fileAdded .fileStatus {
+  background: rgba(52, 211, 153, 0.12);
+  color: var(--accent-emerald);
+}
+
+.fileModified .fileStatus {
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--accent-amber);
+}
+
+.fileRemoved .fileStatus {
+  background: rgba(251, 113, 133, 0.12);
+  color: var(--accent-rose);
+}
+
+.expandIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+}
+
+/* Diff Content */
+.diffContent {
+  background: var(--bg-base);
+  overflow-x: auto;
+}
+
+.diffTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.diffLine {
+  background: transparent;
+}
+
+/* Line types */
+.lineAdded {
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.lineRemoved {
+  background: rgba(251, 113, 133, 0.1);
+}
+
+.lineContext {
+  background: transparent;
+}
+
+.lineHeader,
+.lineMeta,
+.lineHunk {
+  background: var(--bg-surface);
+}
+
+/* Line numbers */
+.lineNum {
+  width: 48px;
+  min-width: 48px;
+  padding: 0 var(--space-2);
+  text-align: right;
+  color: var(--text-dim);
+  user-select: none;
+  vertical-align: top;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.lineAdded .lineNum:last-of-type {
+  color: var(--accent-emerald);
+}
+
+.lineRemoved .lineNum:first-of-type {
+  color: var(--accent-rose);
+}
+
+/* Special lines (header, meta, hunk) */
+.lineSpecial {
+  padding: var(--space-2) var(--space-4);
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.lineHunk .lineSpecial {
+  color: var(--accent-purple);
+  background: rgba(168, 85, 247, 0.08);
+}
+
+/* Code content */
+.lineCode {
+  padding: 0 var(--space-3);
+  white-space: pre;
+}
+
+.linePrefix {
+  display: inline-block;
+  width: 16px;
+  color: var(--text-dim);
+  user-select: none;
+}
+
+.lineAdded .linePrefix {
+  color: var(--accent-emerald);
+  font-weight: 700;
+}
+
+.lineRemoved .linePrefix {
+  color: var(--accent-rose);
+  font-weight: 700;
+}
+
+.lineCode code {
+  color: var(--text-primary);
+}
+
+.lineAdded .lineCode code {
+  color: var(--accent-emerald-light, #6ee7b7);
+}
+
+.lineRemoved .lineCode code {
+  color: var(--accent-rose-light, #fda4af);
+}
+
+/* Scrollbar */
+.diffContent::-webkit-scrollbar {
+  height: 8px;
+}
+
+.diffContent::-webkit-scrollbar-track {
+  background: var(--bg-surface);
+}
+
+.diffContent::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 4px;
+}
+
+.diffContent::-webkit-scrollbar-thumb:hover {
+  background: var(--border-default);
+}
+
+.fileList::-webkit-scrollbar {
+  width: 8px;
+}
+
+.fileList::-webkit-scrollbar-track {
+  background: var(--bg-surface);
+}
+
+.fileList::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 4px;
+}
+
+.fileList::-webkit-scrollbar-thumb:hover {
+  background: var(--border-default);
+}

@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from ..schemas.card import DiffStats
+from ..schemas.card import DiffStats, FileDiff
 
 
 class DiffAnalyzer:
@@ -35,6 +35,9 @@ class DiffAnalyzer:
             # Get line changes statistics
             lines_data = await self._get_line_changes(worktree_path, base_branch)
 
+            # Get detailed diff content for each file
+            file_diffs = await self._get_all_file_diffs(worktree_path, base_branch, files_data)
+
             # Combine all data
             diff_stats = DiffStats(
                 files_added=files_data["added"],
@@ -44,7 +47,8 @@ class DiffAnalyzer:
                 lines_removed=lines_data["removed"],
                 total_changes=lines_data["added"] + lines_data["removed"],
                 captured_at=datetime.utcnow().isoformat(),
-                branch_name=branch_name
+                branch_name=branch_name,
+                file_diffs=file_diffs
             )
 
             return diff_stats
@@ -183,6 +187,83 @@ class DiffAnalyzer:
         except Exception as e:
             print(f"Error getting line changes: {e}")
             return {"added": 0, "removed": 0}
+
+    async def _get_all_file_diffs(
+        self, worktree_path: str, base_branch: str, files_data: Dict[str, List[str]]
+    ) -> List[FileDiff]:
+        """
+        Get diff content for all changed files.
+
+        Args:
+            worktree_path: Path to the worktree
+            base_branch: Base branch to compare against
+            files_data: Dict with added, modified, removed file lists
+
+        Returns:
+            List of FileDiff objects with diff content
+        """
+        file_diffs = []
+
+        # Get full diff output
+        try:
+            process = await asyncio.create_subprocess_exec(
+                "git", "-C", worktree_path, "diff", f"{base_branch}...HEAD",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, _ = await process.communicate()
+
+            if process.returncode != 0:
+                return []
+
+            full_diff = stdout.decode("utf-8", errors="replace")
+
+            # Parse the diff into individual file diffs
+            current_file = None
+            current_content = []
+            current_status = "modified"
+
+            for line in full_diff.split("\n"):
+                if line.startswith("diff --git"):
+                    # Save previous file if exists
+                    if current_file and current_content:
+                        file_diffs.append(FileDiff(
+                            path=current_file,
+                            status=current_status,
+                            content="\n".join(current_content)
+                        ))
+
+                    # Extract file path from diff line
+                    parts = line.split(" b/")
+                    if len(parts) >= 2:
+                        current_file = parts[-1].strip()
+                    else:
+                        current_file = None
+
+                    # Determine status
+                    if current_file in files_data["added"]:
+                        current_status = "added"
+                    elif current_file in files_data["removed"]:
+                        current_status = "removed"
+                    else:
+                        current_status = "modified"
+
+                    current_content = [line]
+                elif current_file:
+                    current_content.append(line)
+
+            # Save last file
+            if current_file and current_content:
+                file_diffs.append(FileDiff(
+                    path=current_file,
+                    status=current_status,
+                    content="\n".join(current_content)
+                ))
+
+        except Exception as e:
+            print(f"Error getting all file diffs: {e}")
+
+        return file_diffs
 
     async def get_detailed_diff(self, worktree_path: str, file_path: str) -> Optional[str]:
         """
