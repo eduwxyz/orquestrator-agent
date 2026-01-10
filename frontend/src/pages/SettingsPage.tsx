@@ -1,6 +1,44 @@
+import { useEffect, useState } from 'react';
 import styles from './SettingsPage.module.css';
+import { getAutoCleanupSettings, updateAutoCleanupSettings, AutoCleanupSettings } from '../api/settings';
 
 const SettingsPage = () => {
+  const [autoCleanupSettings, setAutoCleanupSettings] = useState<AutoCleanupSettings>({
+    enabled: true,
+    cleanup_after_days: 7,
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      setLoading(true);
+      const settings = await getAutoCleanupSettings();
+      setAutoCleanupSettings(settings);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to load auto-cleanup settings:', err);
+      setError('Falha ao carregar configurações de auto-limpeza');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateAutoCleanup = async (updates: Partial<AutoCleanupSettings>) => {
+    try {
+      const updatedSettings = await updateAutoCleanupSettings(updates);
+      setAutoCleanupSettings(updatedSettings);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to update auto-cleanup settings:', err);
+      setError('Falha ao atualizar configurações');
+    }
+  };
+
   return (
     <div className={styles.settingsPage}>
       <div className={styles.settingsHeader}>
@@ -61,6 +99,77 @@ const SettingsPage = () => {
                 <span>Online</span>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className={styles.settingsSection}>
+          <h2 className={styles.sectionTitle}>Auto-limpeza de Cards Concluídos</h2>
+
+          {error && (
+            <div className={styles.errorMessage}>{error}</div>
+          )}
+
+          <div className={styles.settingItem}>
+            <div className={styles.settingInfo}>
+              <h3 className={styles.settingLabel}>Ativar Auto-limpeza</h3>
+              <p className={styles.settingDescription}>
+                Mover automaticamente cards de Done para Completed
+              </p>
+            </div>
+            <div className={styles.settingControl}>
+              <label className={styles.switchLabel}>
+                <input
+                  type="checkbox"
+                  checked={autoCleanupSettings.enabled}
+                  onChange={(e) => handleUpdateAutoCleanup({ enabled: e.target.checked })}
+                  disabled={loading}
+                  className={styles.checkbox}
+                />
+                <span className={styles.switchText}>
+                  {autoCleanupSettings.enabled ? 'Ativado' : 'Desativado'}
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div className={styles.settingItem}>
+            <div className={styles.settingInfo}>
+              <h3 className={styles.settingLabel}>Período de Permanência</h3>
+              <p className={styles.settingDescription}>
+                Cards em Done há mais tempo serão movidos para Completed automaticamente
+              </p>
+            </div>
+            <div className={styles.settingControl}>
+              <label className={styles.inputLabel}>
+                Mover após
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={autoCleanupSettings.cleanup_after_days}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value);
+                    if (value >= 1 && value <= 30) {
+                      handleUpdateAutoCleanup({ cleanup_after_days: value });
+                    }
+                  }}
+                  disabled={loading}
+                  className={styles.input}
+                  style={{ width: '80px', marginLeft: '8px', marginRight: '8px' }}
+                />
+                dias
+              </label>
+            </div>
+          </div>
+
+          <div className={styles.infoBox}>
+            <h4>ℹ️ Sobre a Coluna Completed</h4>
+            <ul>
+              <li>Mantém histórico completo de todos os cards concluídos</li>
+              <li>Cards podem ser visualizados quando necessário</li>
+              <li>Não polui a visualização do board ativo</li>
+              <li>Cards podem ser arquivados manualmente se desejar</li>
+            </ul>
           </div>
         </section>
 

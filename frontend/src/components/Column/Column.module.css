@@ -100,6 +100,11 @@
 .column_done .title { color: var(--col-done); }
 .column_done .header { border-left: 3px solid var(--col-done); }
 
+/* COMPLETED */
+.column_completed { opacity: 0.7; }
+.column_completed .title { color: var(--text-secondary); }
+.column_completed .header { border-left: 3px solid var(--text-secondary); }
+
 /* ARCHIVED */
 .column_archived { opacity: 0.6; }
 .column_archived .header { border-left: 3px solid var(--text-disabled); }

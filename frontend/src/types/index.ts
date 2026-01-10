@@ -1,4 +1,4 @@
-export type ColumnId = 'backlog' | 'plan' | 'implement' | 'test' | 'review' | 'done' | 'archived' | 'cancelado';
+export type ColumnId = 'backlog' | 'plan' | 'implement' | 'test' | 'review' | 'done' | 'completed' | 'archived' | 'cancelado';
 export type ModelType =
   | 'opus-4.5' | 'sonnet-4.5' | 'haiku-4.5'  // Claude models
   | 'gemini-3-pro' | 'gemini-3-flash';  // Gemini models
@@ -96,6 +96,8 @@ export interface Card {
   mergeStatus?: MergeStatus;
   // Campos para cost tracking
   costStats?: CostStats;
+  // Campo para auto-limpeza
+  completedAt?: string; // ISO timestamp quando o card foi movido para Done
 }
 
 export interface Column {
@@ -132,6 +134,7 @@ export const COLUMNS: Column[] = [
   { id: 'test', title: 'Test' },
   { id: 'review', title: 'Review' },
   { id: 'done', title: 'Done' },
+  { id: 'completed', title: 'Completed' },
   { id: 'archived', title: 'Archived' },
   { id: 'cancelado', title: 'Cancelado' },
 ];
@@ -143,7 +146,8 @@ export const ALLOWED_TRANSITIONS: Record<ColumnId, ColumnId[]> = {
   'implement': ['test', 'cancelado'],
   'test': ['review', 'cancelado'],
   'review': ['done', 'cancelado'],
-  'done': ['archived', 'cancelado'],
+  'done': ['completed', 'archived', 'cancelado'],
+  'completed': ['archived'],
   'archived': ['done'],
   'cancelado': [], // Não permite sair de cancelado
 };
@@ -155,7 +159,7 @@ export function isValidTransition(from: ColumnId, to: ColumnId): boolean {
 
 // Adicionar após a função isValidTransition
 export function isCardFinalized(columnId: ColumnId): boolean {
-  return columnId === 'done' || columnId === 'archived' || columnId === 'cancelado';
+  return columnId === 'done' || columnId === 'completed' || columnId === 'archived' || columnId === 'cancelado';
 }
 
 export type WorkflowStage = 'idle' | 'planning' | 'implementing' | 'testing' | 'reviewing' | 'completed' | 'error';

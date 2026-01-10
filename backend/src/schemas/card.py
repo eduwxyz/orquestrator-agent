@@ -26,7 +26,7 @@ class DiffStats(BaseModel):
     file_diffs: List[FileDiff] = []  # Detailed diff content per file
 
 
-ColumnId = Literal["backlog", "plan", "implement", "test", "review", "done", "archived", "cancelado"]
+ColumnId = Literal["backlog", "plan", "implement", "test", "review", "done", "completed", "archived", "cancelado"]
 ModelType = Literal[
     "opus-4.5", "sonnet-4.5", "haiku-4.5",  # Claude models
     "gemini-3-pro", "gemini-3-flash"  # Gemini models
@@ -159,11 +159,13 @@ class CardResponse(BaseModel):
     token_stats: Optional[TokenStats] = Field(None, alias="tokenStats")
     # Cost stats
     cost_stats: Optional[CostStats] = Field(None, alias="costStats")
+    # Completed timestamp
+    completed_at: Optional[datetime] = Field(None, alias="completedAt")
 
     @property
     def is_finalized(self) -> bool:
         """Check if card is in a finalized state."""
-        return self.column_id in ['done', 'archived', 'cancelado']
+        return self.column_id in ['done', 'completed', 'archived', 'cancelado']
 
     class Config:
         populate_by_name = True

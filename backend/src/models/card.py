@@ -67,6 +67,13 @@ class Card(Base):
         nullable=True
     )
 
+    # Campo para auto-limpeza
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+        comment="Timestamp when card was moved to Done"
+    )
+
     # Relacionamento com execuções
     executions = relationship("Execution", back_populates="card", cascade="all, delete-orphan")
 

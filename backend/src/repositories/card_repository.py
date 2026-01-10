@@ -18,7 +18,8 @@ ALLOWED_TRANSITIONS: dict[str, list[str]] = {
     "implement": ["test", "cancelado"],
     "test": ["review", "cancelado"],
     "review": ["done", "cancelado"],
-    "done": ["archived", "cancelado"],
+    "done": ["completed", "archived", "cancelado"],
+    "completed": ["archived"],
     "archived": ["done"],
     "cancelado": [],  # Não permite sair de cancelado
 }
@@ -143,6 +144,12 @@ class CardRepository:
         # Mover card para nova coluna
         # IMPORTANTE: NÃO limpar activeExecution aqui para preservar histórico de logs
         card.column_id = new_column_id
+
+        # Marcar timestamp de conclusão quando movido para Done
+        if new_column_id == "done" and current_column != "done":
+            from datetime import datetime
+            card.completed_at = datetime.utcnow()
+
         await self.session.flush()
         await self.session.refresh(card)
 

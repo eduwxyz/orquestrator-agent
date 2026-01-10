@@ -24,7 +24,8 @@ export function Column({ column, cards, onRemoveCard, onUpdateCard, getExecution
 
   const isArchivedColumn = column.id === 'archived';
   const isCanceladoColumn = column.id === 'cancelado';
-  const isCollapsible = isArchivedColumn || isCanceladoColumn;
+  const isCompletedColumn = column.id === 'completed';
+  const isCollapsible = isArchivedColumn || isCanceladoColumn || isCompletedColumn;
 
   return (
     <div
