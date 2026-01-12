@@ -1,0 +1,125 @@
+.paragraph {
+  margin: var(--space-3) 0;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+.codeBlock {
+  margin: var(--space-4) 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-primary) !important;
+  border: 1px solid var(--border-default);
+  font-size: 0.9rem;
+  overflow-x: auto;
+}
+
+.inlineCode {
+  padding: 2px 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+.list {
+  margin: var(--space-3) 0;
+  padding-left: var(--space-5);
+  color: var(--text-primary);
+}
+
+.orderedList {
+  margin: var(--space-3) 0;
+  padding-left: var(--space-5);
+  color: var(--text-primary);
+}
+
+.listItem {
+  margin: var(--space-1) 0;
+  line-height: 1.7;
+}
+
+.listItem::marker {
+  color: var(--accent-cyan);
+}
+
+.blockquote {
+  margin: var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--accent-primary);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.heading1, .heading2, .heading3 {
+  margin-top: var(--space-5);
+  margin-bottom: var(--space-3);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.heading1 {
+  font-size: 1.5rem;
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: var(--space-2);
+}
+
+.heading2 {
+  font-size: 1.25rem;
+}
+
+.heading3 {
+  font-size: 1.1rem;
+}
+
+.link {
+  color: var(--accent-cyan);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.link:hover {
+  color: var(--accent-primary);
+  border-bottom-color: var(--accent-primary);
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  margin: var(--space-4) 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.table th {
+  background: var(--bg-elevated);
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--border-strong);
+}
+
+.table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table tr:hover {
+  background: var(--bg-elevated);
+}

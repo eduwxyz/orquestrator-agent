@@ -64,18 +64,6 @@ export const AVAILABLE_MODELS: AIModel[] = [
     icon: '🔮',
     accent: 'anthropic'
   },
-  {
-    id: 'gpt-4-turbo',
-    name: 'GPT-4 Turbo',
-    displayName: 'GPT-4 Turbo',
-    provider: 'openai',
-    maxTokens: 128000,
-    description: 'OpenAI\'s most advanced and capable model',
-    performance: 'powerful',
-    icon: '🤖',
-    accent: 'openai',
-    badge: 'OpenAI'
-  },
   // Modelos Gemini
   {
     id: 'gemini-3-pro',

@@ -1,0 +1,74 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e8]: 
+      - heading "Workspace" [level=2] [ref=e9]
+    - navigation [ref=e10]:
+      - list [ref=e11]:
+        - listitem [ref=e12]:
+          - button " DashboardVisão geral do projeto" [ref=e13] [cursor=pointer]:
+            - generic [ref=e15]: 
+            - generic [ref=e16]: DashboardVisão geral do projeto
+        - listitem [ref=e17]:
+          - button " Kanban BoardGerenciar tarefas e workflow" [ref=e18] [cursor=pointer]:
+            - generic [ref=e20]: 
+            - generic [ref=e21]: Kanban BoardGerenciar tarefas e workflow
+        - listitem [ref=e22]:
+          - button " AI AssistantChat com assistente AI" [ref=e23] [cursor=pointer]:
+            - generic [ref=e25]: 
+            - generic [ref=e26]: AI AssistantChat com assistente AI
+        - listitem [ref=e27]:
+          - button " ConfiguraçõesPreferências do projeto" [ref=e28] [cursor=pointer]:
+            - generic [ref=e30]: 
+            - generic [ref=e31]: ConfiguraçõesPreferências do projeto
+    - generic [ref=e32]:
+      - button "Switch to light mode" [ref=e33] [cursor=pointer]:
+        - generic [ref=e35]: 🌙
+        - generic [ref=e36]: Dark
+      - generic [ref=e37]:
+        - generic [ref=e38]: Orquestrator Agent
+        - generic [ref=e39]: v1.0.0
+  - generic [ref=e40]:
+    - banner [ref=e41]:
+      - generic [ref=e42]:
+        - generic [ref=e43]: Workspace
+        - generic [ref=e44]: /
+        - generic [ref=e45]: AI Assistant
+    - main [ref=e46]:
+      - generic [ref=e47]:
+        - generic [ref=e48]:
+          - generic [ref=e49]:
+            - heading "AI Assistant" [level=1] [ref=e50]
+            - paragraph [ref=e51]: Converse com o assistente inteligente do projeto
+          - generic [ref=e52]:
+            - button "New Chat" [disabled] [ref=e53]:
+              - img [ref=e54]
+              - generic [ref=e56]: New Chat
+            - button "Select AI Model" [disabled] [ref=e58]:
+              - generic [ref=e59]:
+                - generic [ref=e60]: "AI MODEL:"
+                - generic [ref=e61]:
+                  - generic [ref=e62]: ⚡
+                  - generic [ref=e63]: Sonnet 4.5
+                  - generic [ref=e64]: anthropic
+                - img [ref=e65]
+            - generic [ref=e69]: Online
+        - generic [ref=e70]:
+          - generic [ref=e74]:
+            - generic [ref=e75]:
+              - generic [ref=e76]: 👤 You
+              - generic [ref=e77]: 05:09 PM
+            - generic [ref=e78]: "# Level 1 Heading ## Level 2 Heading ### Level 3 Heading This is a paragraph with **bold text**, *italic text*, and ***bold italic text***. Here's some inline code: `const x = 42;` Python code block with syntax highlighting: ```python def fibonacci(n): if n <= 1: return n return fibonacci(n-1) + fibonacci(n-2) print(fibonacci(10)) ``` JavaScript code block: ```javascript const greet = (name) => { console.log(`Hello, ${name}!`); return true; }; ``` Unordered list: - First item - Second item with **bold** - Third item with `code` Ordered list: 1. Step one 2. Step two 3. Step three > This is a blockquote. > It can span multiple lines. > And demonstrate proper styling. Here's a link: [Anthropic Website](https://www.anthropic.com) Table example: | Feature | Status | Priority | |---------|--------|----------| | Markdown | Done | High | | Syntax | Done | High | | Tables | Testing | Medium | Mixed formatting: **Bold with `code`** and *italic with [link](https://example.com)*."
+          - generic [ref=e84]:
+            - generic [ref=e86]:
+              - textbox "Type a message... (Shift+Enter for new line)" [disabled] [ref=e87]
+              - button "Send message" [disabled] [ref=e88]:
+                - img [ref=e89]
+            - generic [ref=e92]:
+              - generic [ref=e93]: Press Enter to send
+              - generic [ref=e94]: •
+              - generic [ref=e95]: Shift + Enter for new line
+```
