@@ -18,7 +18,7 @@ const navigationItems: NavigationItem[] = [
   },
   {
     id: 'kanban',
-    label: 'Kanban Board',
+    label: 'Workflow Board',
     icon: 'fa-solid fa-table-columns',
     description: 'Gerenciar tarefas e workflow',
   },
@@ -49,7 +49,7 @@ const Sidebar = ({ currentModule, onNavigate }: SidebarProps) => {
           <span className={styles.logoIcon}>
             <i className="fa-solid fa-rocket"></i>
           </span>
-          <h2 className={styles.logoText}>Workspace</h2>
+          <h2 className={styles.logoText}>Zenflow</h2>
         </div>
       </div>
 
@@ -80,7 +80,7 @@ const Sidebar = ({ currentModule, onNavigate }: SidebarProps) => {
       <div className={styles.footer}>
         <ThemeToggle />
         <div className={styles.footerInfo}>
-          <span className={styles.footerLabel}>Orquestrator Agent</span>
+          <span className={styles.footerLabel}>Zenflow</span>
           <span className={styles.footerVersion}>v1.0.0</span>
         </div>
       </div>

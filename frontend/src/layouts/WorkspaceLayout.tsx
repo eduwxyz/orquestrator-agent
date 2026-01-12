@@ -12,7 +12,7 @@ interface WorkspaceLayoutProps {
 
 const moduleLabels: Record<ModuleType, string> = {
   dashboard: 'Dashboard',
-  kanban: 'Kanban Board',
+  kanban: 'Workflow Board',
   chat: 'AI Assistant',
   settings: 'Configurações',
 };
@@ -24,7 +24,7 @@ const WorkspaceLayout = ({ children, currentModule, onNavigate }: WorkspaceLayou
       <div className={styles.mainContent}>
         <header className={styles.header}>
           <div className={styles.breadcrumb}>
-            <span className={styles.breadcrumbItem}>Workspace</span>
+            <span className={styles.breadcrumbItem}>Zenflow</span>
             <span className={styles.breadcrumbSeparator}>/</span>
             <span className={styles.breadcrumbItemActive}>{moduleLabels[currentModule]}</span>
           </div>

@@ -1,0 +1,67 @@
+[
+  {
+    "step": 1,
+    "action": "Navigate to http://localhost:5173",
+    "status": "success",
+    "screenshot": "01-initial-page.png"
+  },
+  {
+    "step": 2,
+    "action": "Validate browser tab title",
+    "criterion": "Browser tab title should show \"Zenflow - Workflow Inteligente\"",
+    "expected": "Zenflow - Workflow Inteligente",
+    "actual": "Orquestrator Agent - Workspace",
+    "status": "failure",
+    "screenshot": "02-tab-title.png"
+  },
+  {
+    "step": 3,
+    "action": "Validate sidebar logo/name",
+    "criterion": "The sidebar logo/name should display \"Zenflow\"",
+    "expected": "Zenflow",
+    "actual": "Not found",
+    "status": "failure",
+    "screenshot": "03-sidebar-logo.png"
+  },
+  {
+    "step": 4,
+    "action": "Validate breadcrumbs",
+    "criterion": "Breadcrumbs should show \"Zenflow / [Module Name]\"",
+    "expected": "Zenflow / ...",
+    "actual": "Mudar nome do produto para Zenflow",
+    "status": "success",
+    "screenshot": "04-breadcrumbs.png"
+  },
+  {
+    "step": 5,
+    "action": "Navigate to Workflow Board",
+    "criterion": "The Kanban page title should be \"Workflow Board\"",
+    "status": "failure",
+    "error": "locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=Workflow Board').first()\u001b[22m\n",
+    "screenshot": "05-workflow-board-page.png"
+  },
+  {
+    "step": 6,
+    "action": "Validate sidebar footer",
+    "criterion": "The sidebar footer should show \"Zenflow v1.0.0\"",
+    "expected": "Zenflow v1.0.0",
+    "actual": "Mudar nome do produto para Zenflow (Version info: No version found)",
+    "status": "success",
+    "screenshot": "06-sidebar-footer.png"
+  },
+  {
+    "step": 7,
+    "action": "Navigate to Settings",
+    "status": "failure",
+    "error": "locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=Settings').first()\u001b[22m\n"
+  },
+  {
+    "step": 8,
+    "action": "Validate navigation labels",
+    "criterion": "The navigation item labels should be updated (e.g., \"Workflow Board\" instead of \"Kanban\")",
+    "expected": "Navigation showing \"Workflow Board\"",
+    "actual": "Found labels: None",
+    "status": "failure",
+    "screenshot": "8-navigation-labels.png"
+  }
+]

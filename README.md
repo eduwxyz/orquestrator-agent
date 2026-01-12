@@ -1,15 +1,15 @@
-# 🚀 Kanban Agent Orchestrator
+# 🚀 Zenflow
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Python](https://img.shields.io/badge/python-3.9+-blue)
 ![Node](https://img.shields.io/badge/node-18+-green)
 
-Sistema de Kanban integrado com Claude Agent SDK para automação inteligente de desenvolvimento. Gerencie seus projetos com IA executando tarefas automaticamente através de cards no board.
+Sistema inteligente de gestão de workflow com IA integrada. Gerencie seus projetos com automação inteligente executando tarefas através de cards no board.
 
 ## ✨ Features
 
-- 📋 **Kanban Board Visual** - Interface moderna para gerenciamento de tarefas
+- 📋 **Workflow Board Visual** - Interface moderna para gerenciamento de tarefas
 - 🤖 **Claude Agent Integration** - Execute tarefas automaticamente com IA
 - 🌲 **Git Worktree Automation** - Isolamento automático de branches
 - 📊 **Métricas e Dashboard** - Acompanhe custos e progresso
@@ -40,8 +40,8 @@ Sistema de Kanban integrado com Claude Agent SDK para automação inteligente de
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/seu-usuario/kanban-agent-orchestrator.git
-cd kanban-agent-orchestrator
+git clone https://github.com/seu-usuario/zenflow.git
+cd zenflow
 
 # 2. Instale Claude Code CLI
 curl -fsSL https://claude.ai/install.sh | bash
@@ -70,7 +70,7 @@ Acesse http://localhost:5173
 
 ### Estrutura do Projeto
 ```
-kanban-agent-orchestrator/
+zenflow/
 ├── frontend/          # Interface React
 ├── backend/           # API FastAPI
 ├── .claude/          # Comandos e skills do Agent SDK

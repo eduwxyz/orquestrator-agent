@@ -1,6 +1,6 @@
 # Guia de Contribuição
 
-Obrigado por considerar contribuir para o Kanban Agent Orchestrator! Este documento fornece diretrizes para contribuir com o projeto.
+Obrigado por considerar contribuir para o Zenflow! Este documento fornece diretrizes para contribuir com o projeto.
 
 ## 📋 Código de Conduta
 
@@ -14,7 +14,7 @@ Obrigado por considerar contribuir para o Kanban Agent Orchestrator! Este docume
 ### Reportando Bugs
 
 Antes de criar um bug report:
-1. Verifique se o bug já foi reportado nas [Issues](https://github.com/seu-usuario/kanban-agent-orchestrator/issues)
+1. Verifique se o bug já foi reportado nas [Issues](https://github.com/seu-usuario/zenflow/issues)
 2. Verifique se está usando a versão mais recente
 
 Use o template de bug report e inclua:
@@ -36,8 +36,8 @@ Use o template de feature request e inclua:
 
 1. **Fork o repositório**
    ```bash
-   git clone https://github.com/seu-usuario/kanban-agent-orchestrator.git
-   cd kanban-agent-orchestrator
+   git clone https://github.com/seu-usuario/zenflow.git
+   cd zenflow
    ```
 
 2. **Crie uma branch**
@@ -81,7 +81,7 @@ Use o template de feature request e inclua:
 ## 🏗️ Estrutura do Projeto
 
 ```
-kanban-agent-orchestrator/
+zenflow/
 ├── frontend/              # React + TypeScript
 │   ├── src/
 │   │   ├── components/   # Componentes React
@@ -238,7 +238,7 @@ export const Card: React.FC<CardProps> = ({ id, title, onUpdate }) => {
 
 ## 💬 Dúvidas?
 
-- Abra uma [Discussion](https://github.com/seu-usuario/kanban-agent-orchestrator/discussions)
+- Abra uma [Discussion](https://github.com/seu-usuario/zenflow/discussions)
 - Entre no [Discord](https://discord.gg/seu-servidor)
 - Envie um email para: seu-email@exemplo.com
 

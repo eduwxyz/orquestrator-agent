@@ -37,7 +37,7 @@ Se aplicável, adicione screenshots para ajudar a explicar o problema.
 - Versão do Python: [ex: 3.9.0]
 - Versão do Node: [ex: 18.0.0]
 
-**Kanban Agent Orchestrator:**
+**Zenflow:**
 - Versão: [ex: 1.0.0]
 - Branch: [ex: main]
 

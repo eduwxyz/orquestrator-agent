@@ -44,7 +44,7 @@ const SettingsPage = () => {
       <div className={styles.settingsHeader}>
         <h1 className={styles.settingsTitle}>Configurações</h1>
         <p className={styles.settingsSubtitle}>
-          Gerencie as preferências do seu workspace
+          Gerencie as preferências do Zenflow
         </p>
       </div>
 
@@ -77,7 +77,7 @@ const SettingsPage = () => {
               <input
                 type="text"
                 className={styles.input}
-                placeholder="Orquestrator Agent"
+                placeholder="Zenflow"
                 disabled
               />
             </div>

@@ -1,6 +1,6 @@
 # Database Migrations System
 
-Este documento explica como o sistema de migrations funciona no projeto Orquestrator Agent.
+Este documento explica como o sistema de migrations funciona no projeto Zenflow.
 
 ## Como Funciona
 

@@ -63,7 +63,7 @@ const KanbanPage = ({
     <div className={styles.kanbanPage}>
       <div className={styles.kanbanHeader}>
         <div className={styles.kanbanInfo}>
-          <h1 className={styles.kanbanTitle}>Kanban Board</h1>
+          <h1 className={styles.kanbanTitle}>Workflow Board</h1>
           <p className={styles.kanbanSubtitle}>
             Gerencie seu workflow com automação SDLC
           </p>

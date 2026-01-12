@@ -1,7 +1,7 @@
 [project]
-name = "kanban-agent-server"
+name = "zenflow-server"
 version = "1.0.0"
-description = "Backend server for Kanban + Claude Agent SDK integration"
+description = "Backend server for Zenflow - AI-powered workflow management"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.109.0",
