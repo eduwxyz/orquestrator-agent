@@ -3,7 +3,7 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
-  background: var(--zen-white);
+  background: var(--bg-primary);
   position: relative;
   overflow: hidden;
 }
@@ -14,8 +14,8 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-5) var(--space-6);
-  background: var(--zen-white);
-  border-bottom: 1px solid var(--zen-gray-100);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-default);
   z-index: 10;
 }
 
@@ -86,14 +86,14 @@
 }
 
 .messagesContainer::-webkit-scrollbar-thumb {
-  background: var(--zen-gray-300);
+  background: var(--border-default);
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
 .messagesContainer::-webkit-scrollbar-thumb:hover {
-  background: var(--zen-gray-400);
+  background: var(--accent-cyan);
   background-clip: padding-box;
 }
 
@@ -115,11 +115,11 @@
   align-items: center;
   justify-content: center;
   font-size: 2.5rem;
-  background: var(--zen-primary-subtle);
-  border: 2px solid var(--zen-primary-light);
+  background: var(--bg-elevated);
+  border: 2px solid var(--accent-cyan);
   border-radius: 50%;
   margin-bottom: var(--space-6);
-  color: var(--zen-primary);
+  color: var(--accent-cyan);
 }
 
 .emptyText {
@@ -142,8 +142,8 @@
   align-items: center;
   gap: 6px;
   padding: var(--space-3) var(--space-4);
-  background: var(--zen-gray-100);
-  border: 1px solid var(--zen-gray-200);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   width: fit-content;
 }
@@ -152,7 +152,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--zen-gray-400);
+  background: var(--accent-cyan);
   animation: typingPulse 1.4s ease-in-out infinite;
 }
 
@@ -181,10 +181,10 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-4);
-  background: var(--zen-error-subtle);
-  border: 1px solid var(--zen-error-light);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: var(--radius-lg);
-  color: var(--zen-error);
+  color: #ef4444;
   font-size: var(--text-sm);
   animation: messageSlide 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }

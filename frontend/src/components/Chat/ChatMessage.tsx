@@ -1,5 +1,8 @@
 import { Message } from '../../types/chat';
 import styles from './ChatMessage.module.css';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { markdownComponents } from './MarkdownComponents';
 
 interface ChatMessageProps {
   message: Message;
@@ -22,7 +25,12 @@ export default function ChatMessage({ message }: ChatMessageProps) {
           <span className={styles.messageTime}>{formattedTime}</span>
         </div>
         <div className={styles.messageText}>
-          {message.content}
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={markdownComponents}
+          >
+            {message.content}
+          </ReactMarkdown>
           {message.isStreaming && (
             <span className={styles.streamingCursor}>▊</span>
           )}
