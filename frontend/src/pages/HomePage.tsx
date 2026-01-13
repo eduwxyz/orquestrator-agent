@@ -89,8 +89,7 @@ const HomePage = ({ cards, onNavigate }: HomePageProps) => {
     <div className={styles.homepage}>
       {/* Background effects */}
       <div className={styles.backgroundEffects}>
-        <div className="dashboard-mesh-overlay" />
-        <div className="dashboard-noise-texture" />
+        <div className={styles.meshGradient} />
       </div>
 
       {/* Hero Section */}
@@ -120,40 +119,48 @@ const HomePage = ({ cards, onNavigate }: HomePageProps) => {
       <section className={styles.metricsSection}>
         <h2 className={styles.sectionTitle}>Métricas Principais</h2>
         <div className={styles.metricsGrid}>
-          <MetricCard
-            title="Backlog"
-            value={metrics.backlog}
-            icon={<i className="fa-solid fa-clipboard-list"></i>}
-            color="cyan"
-            subtitle="Aguardando planejamento"
-          />
-          <MetricCard
-            title="Em Progresso"
-            value={metrics.inProgress}
-            icon={<i className="fa-solid fa-bolt"></i>}
-            color="amber"
-            subtitle={`${metrics.implementing} impl • ${metrics.testing} test • ${metrics.reviewing} review`}
-            sparkline={metrics.sparkline}
-            trend={12}
-            trendPeriod="vs. semana passada"
-            highlighted={true}
-          />
-          <MetricCard
-            title="Em Teste"
-            value={metrics.testing}
-            icon={<i className="fa-solid fa-flask"></i>}
-            color="purple"
-            subtitle="Validação em andamento"
-          />
-          <MetricCard
-            title="Concluídos"
-            value={metrics.done}
-            icon={<i className="fa-solid fa-circle-check"></i>}
-            color="green"
-            subtitle="Prontos para produção"
-            trend={8}
-            trendPeriod="últimos 7 dias"
-          />
+          <div style={{ '--index': 0 } as React.CSSProperties}>
+            <MetricCard
+              title="Backlog"
+              value={metrics.backlog}
+              icon={<i className="fa-solid fa-clipboard-list"></i>}
+              color="cyan"
+              subtitle="Aguardando planejamento"
+            />
+          </div>
+          <div style={{ '--index': 1 } as React.CSSProperties}>
+            <MetricCard
+              title="Em Progresso"
+              value={metrics.inProgress}
+              icon={<i className="fa-solid fa-bolt"></i>}
+              color="amber"
+              subtitle={`${metrics.implementing} impl • ${metrics.testing} test • ${metrics.reviewing} review`}
+              sparkline={metrics.sparkline}
+              trend={12}
+              trendPeriod="vs. semana passada"
+              highlighted={true}
+            />
+          </div>
+          <div style={{ '--index': 2 } as React.CSSProperties}>
+            <MetricCard
+              title="Em Teste"
+              value={metrics.testing}
+              icon={<i className="fa-solid fa-flask"></i>}
+              color="purple"
+              subtitle="Validação em andamento"
+            />
+          </div>
+          <div style={{ '--index': 3 } as React.CSSProperties}>
+            <MetricCard
+              title="Concluídos"
+              value={metrics.done}
+              icon={<i className="fa-solid fa-circle-check"></i>}
+              color="green"
+              subtitle="Prontos para produção"
+              trend={8}
+              trendPeriod="últimos 7 dias"
+            />
+          </div>
         </div>
       </section>
 

@@ -59,6 +59,21 @@
   padding: var(--space-2);
   background: var(--bg-tertiary);
   border-radius: var(--radius-md);
+  position: relative;
+  overflow: hidden;
+}
+
+.simpleChart::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 100%,
+    var(--accent-primary-glow),
+    transparent 70%
+  );
+  opacity: 0.1;
+  pointer-events: none;
 }
 
 .chartBar {
@@ -68,20 +83,60 @@
   align-items: center;
   gap: var(--space-1);
   min-width: 20px;
+  animation: barSlideUp 0.6s ease-out backwards;
+  animation-delay: calc(var(--bar-index, 0) * 0.05s);
+}
+
+@keyframes barSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .barFill {
   width: 100%;
   min-height: 4px;
-  background: var(--accent-primary);
+  background: linear-gradient(
+    to top,
+    var(--accent-primary),
+    var(--accent-primary-light)
+  );
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   transition: all 0.3s ease;
   position: relative;
+  box-shadow: 0 -2px 8px var(--accent-primary-glow);
+}
+
+.barFill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    transparent,
+    rgba(255, 255, 255, 0.2)
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .barFill:hover {
-  background: var(--accent-primary-light);
+  background: linear-gradient(
+    to top,
+    var(--accent-primary-light),
+    var(--accent-primary-vibrant, var(--accent-primary-light))
+  );
   transform: scaleY(1.05);
+  box-shadow: 0 -4px 16px var(--accent-primary-glow);
+}
+
+.barFill:hover::after {
+  opacity: 1;
 }
 
 .barLabel {

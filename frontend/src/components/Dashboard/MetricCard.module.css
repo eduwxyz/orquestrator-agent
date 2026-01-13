@@ -40,6 +40,40 @@
   animation: rotateGradient 3s linear infinite;
 }
 
+/* Animated border effect for all cards on hover */
+.metricCard::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(
+    135deg,
+    var(--accent-color, var(--accent-primary)) 0%,
+    transparent 40%,
+    transparent 60%,
+    var(--accent-color, var(--accent-primary)) 100%
+  );
+  border-radius: inherit;
+  opacity: 0;
+  z-index: -1;
+  transition: opacity 0.3s ease;
+  animation: rotateBorder 3s linear infinite;
+  animation-play-state: paused;
+}
+
+.metricCard:hover::after {
+  opacity: 0.6;
+  animation-play-state: running;
+}
+
+@keyframes rotateBorder {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes pulseGlow {
   0%, 100% {
     box-shadow: 0 0 20px rgba(0, 212, 255, 0.3),
@@ -81,12 +115,37 @@
   color: var(--accent-color);
   font-size: 28px;
   flex-shrink: 0;
-  box-shadow: 0 4px 16px var(--icon-shadow);
+  box-shadow:
+    0 4px 16px var(--icon-shadow),
+    inset 0 0 20px rgba(255, 255, 255, 0.1);
   transition: all var(--duration-normal) var(--ease-out);
+  position: relative;
+}
+
+.iconWrapper::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    circle at 30% 30%,
+    rgba(255, 255, 255, 0.2),
+    transparent 50%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .metricCard:hover .iconWrapper {
-  transform: scale(1.05);
+  transform: scale(1.05) translateY(-2px);
+  box-shadow:
+    0 8px 24px var(--icon-shadow),
+    0 0 20px var(--icon-shadow),
+    inset 0 0 20px rgba(255, 255, 255, 0.15);
+}
+
+.metricCard:hover .iconWrapper::before {
+  opacity: 1;
 }
 
 .titleSection {

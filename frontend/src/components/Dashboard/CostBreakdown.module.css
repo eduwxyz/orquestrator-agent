@@ -89,12 +89,29 @@
   padding: var(--space-3);
   background: var(--bg-tertiary);
   border-radius: var(--radius-md);
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  opacity: 0;
+  animation: fadeInRow 0.5s ease-out forwards;
+  animation-delay: calc(var(--row-index, 0) * 0.08s);
+  border-left: 2px solid transparent;
+}
+
+@keyframes fadeInRow {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .modelRow:hover {
   background: var(--bg-elevated);
-  transform: translateX(2px);
+  transform: translateX(4px);
+  border-left-color: var(--model-color, var(--accent-primary));
+  box-shadow: 0 2px 12px var(--model-color-glow, var(--accent-primary-glow));
 }
 
 .modelHeader {
@@ -135,12 +152,53 @@
   background: var(--bg-secondary);
   border-radius: var(--radius-full);
   overflow: hidden;
+  position: relative;
+}
+
+.progressBar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+  animation: shimmerBar 2s ease-in-out infinite;
+}
+
+@keyframes shimmerBar {
+  0%, 100% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
 }
 
 .progressFill {
   height: 100%;
   border-radius: var(--radius-full);
-  transition: width 0.5s ease;
+  background: linear-gradient(
+    90deg,
+    var(--model-color, var(--accent-primary)),
+    var(--model-color-light, var(--accent-primary-light))
+  );
+  box-shadow: 0 0 12px var(--model-color-glow, var(--accent-primary-glow));
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: fillBar 1s ease-out;
+  position: relative;
+}
+
+@keyframes fillBar {
+  from {
+    width: 0 !important;
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .modelPercentage {

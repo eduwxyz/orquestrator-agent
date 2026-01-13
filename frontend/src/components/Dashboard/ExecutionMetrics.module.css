@@ -65,18 +65,63 @@
   padding: var(--space-3);
   background: var(--bg-tertiary);
   border-radius: var(--radius-md);
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  opacity: 0;
+  animation: scaleIn 0.5s ease-out forwards;
+  animation-delay: calc(var(--card-index, 0) * 0.1s);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid transparent;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.miniCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 50%,
+    var(--accent-primary-glow),
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .miniCard:hover {
   background: var(--bg-elevated);
-  transform: translateY(-2px);
+  transform: translateY(-4px);
+  border-color: var(--accent-primary);
+  box-shadow: 0 4px 16px var(--accent-primary-glow);
+}
+
+.miniCard:hover::before {
+  opacity: 0.2;
 }
 
 .miniIcon {
   font-size: 16px;
   color: var(--accent-primary);
   opacity: 0.8;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.miniCard:hover .miniIcon {
+  opacity: 1;
+  transform: scale(1.1) rotate(5deg);
+  filter: drop-shadow(0 0 8px var(--accent-primary-glow));
 }
 
 .miniValue {
@@ -127,11 +172,28 @@
   padding: var(--space-2) var(--space-3);
   background: var(--bg-tertiary);
   border-radius: var(--radius-sm);
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  opacity: 0;
+  animation: slideInExec 0.4s ease-out forwards;
+  animation-delay: calc(var(--exec-index, 0) * 0.05s);
+  border-left: 2px solid transparent;
+}
+
+@keyframes slideInExec {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .execRow:hover {
   background: var(--bg-elevated);
+  transform: translateX(4px);
+  border-left-color: var(--accent-success);
 }
 
 .execInfo {
