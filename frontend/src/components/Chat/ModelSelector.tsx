@@ -7,75 +7,50 @@ import styles from './ModelSelector.module.css';
  * Lista de modelos disponíveis com informações detalhadas
  */
 export const AVAILABLE_MODELS: AIModel[] = [
-  // Claude 3.5 Models (4.5 generation)
+  // Claude 4.5 Models
   {
-    id: 'claude-3.5-opus',
-    name: 'Claude 3.5 Opus',
-    displayName: 'Opus 3.5',
+    id: 'opus-4.5',
+    name: 'Opus 4.5',
+    displayName: 'Opus 4.5',
     provider: 'anthropic',
     maxTokens: 200000,
-    description: 'Most powerful model for complex reasoning and advanced tasks',
+    description: 'Most capable for complex tasks',
     performance: 'powerful',
     icon: '🧠',
     accent: 'anthropic',
     badge: 'Most Capable'
   },
   {
-    id: 'claude-3.5-sonnet',
-    name: 'Claude 3.5 Sonnet',
-    displayName: 'Sonnet 3.5',
+    id: 'sonnet-4.5',
+    name: 'Sonnet 4.5',
+    displayName: 'Sonnet 4.5',
     provider: 'anthropic',
     maxTokens: 200000,
-    description: 'Balanced performance and speed for most tasks',
+    description: 'Balanced performance',
     performance: 'balanced',
     icon: '⚡',
     accent: 'anthropic',
     badge: 'Best Value'
   },
   {
-    id: 'claude-3.5-haiku',
-    name: 'Claude 3.5 Haiku',
-    displayName: 'Haiku 3.5',
+    id: 'haiku-4.5',
+    name: 'Haiku 4.5',
+    displayName: 'Haiku 4.5',
     provider: 'anthropic',
     maxTokens: 200000,
-    description: 'Fast responses for simple tasks and quick interactions',
+    description: 'Fast and efficient',
     performance: 'fastest',
     icon: '🚀',
     accent: 'anthropic'
   },
-  // Google Gemini Models
-  {
-    id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash',
-    displayName: 'Gemini 2.0 Flash',
-    provider: 'google',
-    maxTokens: 1000000,
-    description: 'Latest Gemini model with enhanced capabilities',
-    performance: 'balanced',
-    icon: '✨',
-    accent: 'google',
-    badge: 'New'
-  },
-  {
-    id: 'gemini-1.5-pro',
-    name: 'Gemini 1.5 Pro',
-    displayName: 'Gemini Pro',
-    provider: 'google',
-    maxTokens: 2000000,
-    description: 'Google\'s most capable model with massive context window',
-    performance: 'powerful',
-    icon: '🌟',
-    accent: 'google',
-    badge: '2M Context'
-  },
-  // Modelos Gemini
+  // Google Gemini 3 Models
   {
     id: 'gemini-3-pro',
     name: 'Gemini 3 Pro',
-    displayName: 'Gemini Pro',
+    displayName: 'Gemini 3 Pro',
     provider: 'google',
     maxTokens: 1000000,
-    description: 'Google\'s most capable multimodal model with long context',
+    description: 'Advanced reasoning',
     performance: 'powerful',
     icon: '🌟',
     accent: 'google',
@@ -84,10 +59,10 @@ export const AVAILABLE_MODELS: AIModel[] = [
   {
     id: 'gemini-3-flash',
     name: 'Gemini 3 Flash',
-    displayName: 'Gemini Flash',
+    displayName: 'Gemini 3 Flash',
     provider: 'google',
     maxTokens: 1000000,
-    description: 'Fast and efficient model for quick tasks',
+    description: 'Lightning fast',
     performance: 'fastest',
     icon: '⚡',
     accent: 'google'

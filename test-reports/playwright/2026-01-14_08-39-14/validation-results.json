@@ -1,0 +1,119 @@
+{
+  "criterion1": {
+    "name": "Model Selector displays 5 models",
+    "passed": false,
+    "details": [
+      {
+        "model": "Opus 4.5",
+        "visible": false,
+        "provider": "Claude"
+      },
+      {
+        "model": "Sonnet 4.5",
+        "visible": true,
+        "provider": "Claude"
+      },
+      {
+        "model": "Haiku 4.5",
+        "visible": false,
+        "provider": "Claude"
+      },
+      {
+        "model": "Gemini 3 Pro",
+        "visible": true,
+        "provider": "Google"
+      },
+      {
+        "model": "Gemini 3 Flash",
+        "visible": true,
+        "provider": "Google"
+      }
+    ]
+  },
+  "criterion2": {
+    "name": "Model IDs verification",
+    "passed": false,
+    "details": [
+      {
+        "id": "opus-4.5",
+        "label": "Opus 4.5",
+        "idFound": false,
+        "labelFound": false
+      },
+      {
+        "id": "sonnet-4.5",
+        "label": "Sonnet 4.5",
+        "idFound": false,
+        "labelFound": true
+      },
+      {
+        "id": "haiku-4.5",
+        "label": "Haiku 4.5",
+        "idFound": false,
+        "labelFound": false
+      },
+      {
+        "id": "gemini-3-pro",
+        "label": "Gemini 3 Pro",
+        "idFound": false,
+        "labelFound": true
+      },
+      {
+        "id": "gemini-3-flash",
+        "label": "Gemini 3 Flash",
+        "idFound": false,
+        "labelFound": true
+      }
+    ]
+  },
+  "criterion3": {
+    "name": "Default model is Sonnet 4.5",
+    "passed": true,
+    "details": [
+      {
+        "buttonText": "AI MODEL:⚡Sonnet 4.5anthropic",
+        "hasSonnet": true
+      }
+    ]
+  },
+  "criterion4": {
+    "name": "Model selection functionality",
+    "passed": false,
+    "details": [
+      {
+        "model": "Opus 4.5",
+        "selected": false,
+        "reason": "Option not found"
+      },
+      {
+        "model": "Haiku 4.5",
+        "selected": false,
+        "reason": "Option not found"
+      },
+      {
+        "model": "Gemini 3 Pro",
+        "selected": true,
+        "buttonText": "AI MODEL:🧠Gemini 3 Progoogle"
+      },
+      {
+        "model": "Gemini 3 Flash",
+        "selected": true,
+        "buttonText": "AI MODEL:⚡Gemini 3 Flashgoogle"
+      },
+      {
+        "model": "Sonnet 4.5",
+        "selected": false,
+        "reason": "Option not found"
+      }
+    ]
+  },
+  "criterion5": {
+    "name": "Send message test",
+    "passed": false,
+    "details": [
+      {
+        "error": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has-text(\"Sonnet 4.5\"), [role=\"option\"]:has-text(\"Sonnet 4.5\")').first()\u001b[22m\n"
+      }
+    ]
+  }
+}

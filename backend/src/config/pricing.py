@@ -5,17 +5,14 @@ from typing import Dict, Tuple
 
 # Preços em USD por 1M tokens (input, output)
 MODEL_PRICING: Dict[str, Tuple[Decimal, Decimal]] = {
-    # Claude 3.5 Models
-    "claude-3.5-opus": (Decimal("15.00"), Decimal("75.00")),
-    "claude-3.5-sonnet": (Decimal("3.00"), Decimal("15.00")),
-    "claude-3.5-haiku": (Decimal("0.25"), Decimal("1.25")),
+    # Claude 4.5 models
+    "opus-4.5": (Decimal("15.00"), Decimal("75.00")),
+    "sonnet-4.5": (Decimal("3.00"), Decimal("15.00")),
+    "haiku-4.5": (Decimal("0.25"), Decimal("1.25")),
 
-    # Gemini Models
-    "gemini-2.0-flash": (Decimal("0.075"), Decimal("0.30")),
-    "gemini-1.5-pro": (Decimal("1.25"), Decimal("5.00")),
-
-    # OpenAI Models
-    "gpt-4-turbo": (Decimal("10.00"), Decimal("30.00")),
+    # Gemini 3 models
+    "gemini-3-pro": (Decimal("1.25"), Decimal("5.00")),
+    "gemini-3-flash": (Decimal("0.075"), Decimal("0.30")),
 }
 
 
