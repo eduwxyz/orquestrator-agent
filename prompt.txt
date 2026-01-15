@@ -1,0 +1,78 @@
+
+
+Contexto do projeto: 
+
+O ZenFlow hoje é um sistema de Kanban com IA integrada que possui um workflow definido de:
+* Workflow do kanban: -> backlog -> plan -> implement -> teste -> review -> done.
+* Agent de chat ele se comunica com o kanban via websocket
+* Self healing, quando um card falha no teste, automaticamente outro é recriado em backlog 
+* Sistema de experts que são agents especialistas 
+* Nossa utiliza agent sdk da anthropic que envia as requests para claude code 
+* Tracking de custo/tokens 
+
+
+Objetivo: 
+
+Transformar o Zenflow em um **orquestrador autônomo** 
+
+O usuário vai mandar um objetivo/meta e a partir disso vai acontecer: 
+1. Receber objetivo; 
+2. Decompor em múltiplos cards de forma automatica 
+3. Executar cada card (Plan -> Implement -> Test -> Review)
+4. Tomar decisões **autônomas** (próximo passo, criar fix cards, mudar estratégia)
+5. Reportar progresso em algum lugar (chat? Arquivo txt? Onde seria melhor?)
+6. A execução é TODA via agent sdk do claude code. E eu tenho limites de uso, você consegue ver os limites 
+executando claude /usage no terminal. Se o limite da sessão for >80%, dê um time e volte a 
+executar depois do reset da sessão. 
+7. Completar tudo **sem intervenção humana**. 
+
+
+Preciso implementar o seguinte: 
+
+1. ** Sistema de memória duplo (short memory e long memory)**
+
+a. short memory - sqlite 
+   são memórias mais curtas da ultima execução, como se fosse logs mesmo. 
+
+b. long memory - qdrant (https://github.com/qdrant/qdrant)
+   são memórias criadas em formato de aprendizado. Memórias mais longas mesmo. 
+
+
+2. Orchestrator loop (que vai rodar como um backend service)
+
+Enquanto tiver rodando: 
+
+1. READ - Consultar a memória de curto prazo (contexto mais recente pra entender o que ele estava fazendo antes de fazer 
+o que ele vai fazer agora). 
+2. QUERY - Consultar a memória de longo prazo para entender os principais aprendizados
+3. THINK - Decidir próxima ação 
+    - VERIFY LIMIT: Verificar limites do claude code 
+    - DECOMPOSE: Quebrar objetivos em cards
+    - EXECUTE_CARD: Executar o workflow de um card
+    - CREATE_FIX: Se o card der erro, criar card de correção 
+    - WAIT: Nada a fazer 
+    - COMPLETE_GOAL: Marcar objetivos como concluidos
+4. ACT - Executa a decisão 
+5. RECORD - Salva resultado em memória de curto prazo 
+6. LEARN - Verifica se teve aprendizado, se sim, salva no qdrant 
+
+executa de 3 em 3 minutos
+
+
+3. Integração com o Chat 
+
+O chat deve: 
+
+- Detectar quando o usuário manda um "objetivo" e não apenas uma pergunta; 
+- Ele envia para o orquestrador
+- Ele recebe o progresso 
+
+
+Decisões de implementação: 
+
+1. O qdrant deve rodar via docker
+2. Não quero usar modelos de embedding proprietários, quero usar open-source 
+3. Ele deve integrar com chat e sistema de workflows do kanban 
+4. O orquestrador roda como background task do fastapi ou um serviço separado?
+
+

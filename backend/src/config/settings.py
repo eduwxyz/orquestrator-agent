@@ -35,6 +35,15 @@ class Settings(BaseSettings):
     # Server
     port: int = 3001
 
+    # Orchestrator settings
+    orchestrator_enabled: bool = True
+    orchestrator_loop_interval_seconds: int = 180  # 3 minutes
+    orchestrator_log_file: str = "orchestrator.log"
+    orchestrator_usage_limit_percent: int = 80  # Pause if usage > 80%
+
+    # Short-term memory settings
+    short_term_memory_retention_hours: int = 24
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -2,14 +2,16 @@
 Chat service for managing chat sessions and conversations.
 Stores sessions in memory (runtime only, no persistence).
 Integrates with Kanban to provide context about tasks and activities.
+Detects goals and routes them to the orchestrator.
 """
-from typing import Dict, List, AsyncGenerator
+from typing import Dict, List, AsyncGenerator, Optional
 from datetime import datetime, timezone
 import uuid
 from ..agent_chat import get_claude_agent, DEFAULT_SYSTEM_PROMPT
 from ..database import async_session_maker
 from ..repositories.card_repository import CardRepository
 from ..repositories.activity_repository import ActivityRepository
+from .goal_classifier_service import get_goal_classifier_service, MessageIntent
 
 
 class ChatService:
@@ -20,6 +22,8 @@ class ChatService:
         # Store sessions in memory: session_id -> list of messages
         self.sessions: Dict[str, List[dict]] = {}
         self.claude_agent = get_claude_agent()
+        self.goal_classifier = get_goal_classifier_service()
+        self._orchestrator_enabled = True  # Can be toggled
 
     def create_session(self) -> dict:
         """
@@ -187,6 +191,28 @@ class ChatService:
 
         return DEFAULT_SYSTEM_PROMPT
 
+    async def _submit_goal_to_orchestrator(
+        self,
+        goal_description: str,
+        session_id: str
+    ) -> Optional[dict]:
+        """Submit a goal to the orchestrator."""
+        try:
+            from .orchestrator_service import get_orchestrator_service
+
+            async with async_session_maker() as session:
+                orchestrator = get_orchestrator_service(session)
+                result = await orchestrator.submit_goal(
+                    description=goal_description,
+                    source="chat",
+                    source_id=session_id,
+                )
+                await session.commit()
+                return result
+        except Exception as e:
+            print(f"[ChatService] Error submitting goal: {e}")
+            return None
+
     async def send_message(
         self,
         session_id: str,
@@ -195,6 +221,7 @@ class ChatService:
     ) -> AsyncGenerator[dict, None]:
         """
         Send a message and stream the response from Claude.
+        Detects goals and routes them to the orchestrator.
 
         Args:
             session_id: The session ID
@@ -207,6 +234,66 @@ class ChatService:
         # Create session if it doesn't exist
         if session_id not in self.sessions:
             self.sessions[session_id] = []
+
+        # Check if message is a goal
+        if self._orchestrator_enabled:
+            classification = self.goal_classifier.classify(message)
+
+            if classification.intent == MessageIntent.GOAL:
+                # Submit goal to orchestrator
+                goal_result = await self._submit_goal_to_orchestrator(
+                    goal_description=classification.goal_description or message,
+                    session_id=session_id
+                )
+
+                if goal_result:
+                    # Yield goal submission notification
+                    yield {
+                        "type": "goal_submitted",
+                        "goalId": goal_result["id"],
+                        "description": goal_result["description"],
+                        "messageId": str(uuid.uuid4()),
+                    }
+
+                    # Add to history
+                    self.sessions[session_id].append({
+                        "role": "user",
+                        "content": message,
+                        "timestamp": datetime.now().isoformat(),
+                        "model": model,
+                        "isGoal": True,
+                        "goalId": goal_result["id"],
+                    })
+
+                    # Send acknowledgment as assistant message
+                    ack_message = (
+                        f"Entendido! Recebi seu objetivo e vou trabalhar nele de forma autonoma.\n\n"
+                        f"**Objetivo:** {goal_result['description']}\n\n"
+                        f"Voce pode acompanhar o progresso no painel do orquestrador ou aqui no chat. "
+                        f"Vou decompor esse objetivo em tarefas menores e executar cada uma delas."
+                    )
+
+                    assistant_message_id = str(uuid.uuid4())
+                    yield {
+                        "type": "chunk",
+                        "content": ack_message,
+                        "messageId": assistant_message_id,
+                    }
+
+                    self.sessions[session_id].append({
+                        "role": "assistant",
+                        "content": ack_message,
+                        "timestamp": datetime.now().isoformat(),
+                        "model": model,
+                        "messageId": assistant_message_id,
+                        "goalAcknowledgment": True,
+                    })
+
+                    yield {
+                        "type": "end",
+                        "messageId": assistant_message_id,
+                    }
+                    return
 
         # Add user message to history
         user_message = {

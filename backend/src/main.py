@@ -37,6 +37,8 @@ from .routes.activities import router as activities_router
 from .routes.metrics import router as metrics_router
 from .routes.settings import router as settings_router
 from .routes.experts import router as experts_router
+from .routes.orchestrator import router as orchestrator_router
+from .config.settings import get_settings
 from .database import get_db, async_session_maker
 from .repositories.card_repository import CardRepository
 from .schemas.card import CardUpdate
@@ -44,6 +46,7 @@ from .schemas.card import CardUpdate
 # Import models to register them with SQLAlchemy
 from .models.card import Card  # noqa: F401
 from .models.project import ActiveProject  # noqa: F401
+from .models.orchestrator import Goal, OrchestratorAction, OrchestratorLog  # noqa: F401
 
 
 # Schema for workflow state update
@@ -52,16 +55,70 @@ class WorkflowStateUpdate(BaseModel):
     error: Optional[str] = None
 
 
+import asyncio
+
+# Global reference to orchestrator task
+_orchestrator_task: Optional[asyncio.Task] = None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
+    global _orchestrator_task
+
     # Startup: Create database tables
     print("[Server] Creating database tables...")
     await create_tables()
     print("[Server] Database tables created successfully")
+
+    # Start orchestrator if enabled
+    settings = get_settings()
+    if settings.orchestrator_enabled:
+        print("[Server] Starting orchestrator background task...")
+        _orchestrator_task = asyncio.create_task(_run_orchestrator())
+        print("[Server] Orchestrator started")
+
     yield
-    # Shutdown: cleanup if needed
+
+    # Shutdown: stop orchestrator and cleanup
     print("[Server] Shutting down...")
+    if _orchestrator_task:
+        print("[Server] Stopping orchestrator...")
+        _orchestrator_task.cancel()
+        try:
+            await _orchestrator_task
+        except asyncio.CancelledError:
+            pass
+        print("[Server] Orchestrator stopped")
+
+
+async def _run_orchestrator():
+    """Run the orchestrator loop as a background task."""
+    from .services.orchestrator_service import OrchestratorService
+    from .services.orchestrator_logger import get_orchestrator_logger
+
+    settings = get_settings()
+    orch_logger = get_orchestrator_logger(settings.orchestrator_log_file)
+
+    await orch_logger.log_info("Orchestrator background task started")
+
+    while True:
+        try:
+            # Create new session for each cycle
+            async with async_session_maker() as session:
+                orchestrator = OrchestratorService(session)
+                await orchestrator._execute_cycle()
+                await session.commit()
+
+        except asyncio.CancelledError:
+            await orch_logger.log_info("Orchestrator cancelled")
+            raise
+        except Exception as e:
+            print(f"[Orchestrator] Error in cycle: {e}")
+            await orch_logger.log_error(f"Cycle error: {e}")
+
+        # Wait for next cycle
+        await asyncio.sleep(settings.orchestrator_loop_interval_seconds)
 
 
 app = FastAPI(
@@ -91,6 +148,7 @@ app.include_router(activities_router)
 app.include_router(metrics_router)
 app.include_router(settings_router)
 app.include_router(experts_router)
+app.include_router(orchestrator_router)
 
 
 @app.get("/health", response_model=HealthResponse)

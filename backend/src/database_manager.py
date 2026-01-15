@@ -18,9 +18,19 @@ from pathlib import Path
 from typing import Dict, Optional, Any
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import event
 import logging
 
 from .database import Base
+
+
+def _set_sqlite_pragma(dbapi_conn, connection_record):
+    """Set SQLite pragmas for better concurrency."""
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.execute("PRAGMA busy_timeout=30000")
+    cursor.close()
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +135,14 @@ class DatabaseManager:
         if project_id not in self.engines:
             # Create new engine for this project
             database_url = f"sqlite+aiosqlite:///{db_path}"
-            engine = create_async_engine(database_url, echo=False, future=True)
+            engine = create_async_engine(
+                database_url,
+                echo=False,
+                future=True,
+                connect_args={"timeout": 30, "check_same_thread": False},
+            )
+            # Set pragmas for WAL mode
+            event.listen(engine.sync_engine, "connect", _set_sqlite_pragma)
 
             # Create session maker
             async_session = sessionmaker(
@@ -160,8 +177,13 @@ class DatabaseManager:
             db_path = self.get_history_database_path()
             database_url = f"sqlite+aiosqlite:///{db_path}"
             self._history_engine = create_async_engine(
-                database_url, echo=False, future=True
+                database_url,
+                echo=False,
+                future=True,
+                connect_args={"timeout": 30, "check_same_thread": False},
             )
+            # Set pragmas for WAL mode
+            event.listen(self._history_engine.sync_engine, "connect", _set_sqlite_pragma)
 
             self._history_session = sessionmaker(
                 self._history_engine, class_=AsyncSession, expire_on_commit=False
