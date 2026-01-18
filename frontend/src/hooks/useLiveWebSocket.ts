@@ -197,38 +197,53 @@ export function useLiveWebSocket() {
 
     switch (message.type) {
       case 'presence_update':
-        dispatch({ type: 'SET_SPECTATOR_COUNT', count: message.spectatorCount });
+        // Backend sends snake_case, handle both formats
+        const count = (message as any).spectator_count ?? (message as any).spectatorCount ?? 0;
+        dispatch({ type: 'SET_SPECTATOR_COUNT', count });
         break;
 
       case 'status_update':
+        // Backend sends snake_case
+        const msg = message as any;
         dispatch({
           type: 'SET_STATUS',
-          isWorking: message.isWorking,
-          stage: message.currentStage,
-          card: message.currentCard,
-          progress: message.progress,
+          isWorking: msg.is_working ?? msg.isWorking ?? false,
+          stage: msg.current_stage ?? msg.currentStage,
+          card: msg.current_card ?? msg.currentCard,
+          progress: msg.progress,
         });
         break;
 
       case 'card_update':
-        if (message.action === 'moved' && message.fromColumn && message.toColumn) {
+        // Backend sends snake_case
+        const cardMsg = message as any;
+        const fromCol = cardMsg.from_column ?? cardMsg.fromColumn;
+        const toCol = cardMsg.to_column ?? cardMsg.toColumn;
+        if (cardMsg.action === 'moved' && fromCol && toCol) {
           dispatch({
             type: 'CARD_MOVED',
-            card: message.card,
-            fromColumn: message.fromColumn,
-            toColumn: message.toColumn,
+            card: cardMsg.card,
+            fromColumn: fromCol,
+            toColumn: toCol,
           });
-        } else if (message.action === 'created') {
-          dispatch({ type: 'CARD_CREATED', card: message.card });
-        } else if (message.action === 'updated') {
-          dispatch({ type: 'CARD_UPDATED', card: message.card });
+        } else if (cardMsg.action === 'created') {
+          dispatch({ type: 'CARD_CREATED', card: cardMsg.card });
+        } else if (cardMsg.action === 'updated') {
+          dispatch({ type: 'CARD_UPDATED', card: cardMsg.card });
         }
         break;
 
       case 'log_entry':
+        // Backend sends snake_case
+        const logMsg = message as any;
         dispatch({
           type: 'ADD_LOG',
-          log: message as WSLogEntry,
+          log: {
+            type: 'log_entry',
+            content: logMsg.content,
+            logType: logMsg.log_type ?? logMsg.logType,
+            timestamp: logMsg.timestamp,
+          } as WSLogEntry,
         });
         break;
 
