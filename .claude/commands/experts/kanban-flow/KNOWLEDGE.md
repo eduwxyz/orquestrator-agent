@@ -27,6 +27,7 @@ Expert em fluxo do Kanban: workflow de cards, transicoes de status, automacoes S
 
 | Path | Responsabilidade |
 |------|------------------|
+| `frontend/src/types/live.ts` | Novo arquivo (revisar descrição) |
 | `frontend/src/api/cards.ts` | Cliente API: moveCard, updateWorkflowState |
 | `frontend/src/api/config.ts` | Endpoints incluindo /execute-expert-triage (AI) e /expert-sync |
 | `frontend/src/types/index.ts` | **CORE**: Card, Column, ALLOWED_TRANSITIONS, ExpertMatch, CardExperts |

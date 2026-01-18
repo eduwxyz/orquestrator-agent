@@ -1,0 +1,85 @@
+/* ============================================================================
+   Live Page Layout
+   ============================================================================ */
+
+.container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #0f0f1a;
+  color: #e2e8f0;
+}
+
+.main {
+  flex: 1;
+  padding: 1rem;
+  max-width: 1600px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Grid Layout */
+.grid {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 1024px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Left Column */
+.leftColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Center Column */
+.centerColumn {
+  min-width: 0;
+}
+
+/* Voting Section */
+.votingSection {
+  margin-top: 0.5rem;
+}
+
+/* Gallery Section */
+.gallerySection {
+  margin-top: 0.5rem;
+}
+
+/* Footer */
+.footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.separator {
+  color: #475569;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .main {
+    padding: 0.5rem;
+  }
+
+  .grid {
+    gap: 0.5rem;
+  }
+}

@@ -38,6 +38,7 @@ from .routes.metrics import router as metrics_router
 from .routes.settings import router as settings_router
 from .routes.experts import router as experts_router
 from .routes.orchestrator import router as orchestrator_router
+from .routes.live import router as live_router
 from .config.settings import get_settings
 from .database import get_db, async_session_maker
 from .repositories.card_repository import CardRepository
@@ -47,6 +48,7 @@ from .schemas.card import CardUpdate
 from .models.card import Card  # noqa: F401
 from .models.project import ActiveProject  # noqa: F401
 from .models.orchestrator import Goal, OrchestratorAction, OrchestratorLog  # noqa: F401
+from .models.live import Vote, VotingRound, VotingOption, CompletedProject  # noqa: F401
 
 
 # Schema for workflow state update
@@ -148,6 +150,7 @@ app.include_router(metrics_router)
 app.include_router(settings_router)
 app.include_router(experts_router)
 app.include_router(orchestrator_router)
+app.include_router(live_router)
 
 
 @app.get("/health", response_model=HealthResponse)

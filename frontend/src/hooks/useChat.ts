@@ -1,8 +1,15 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { ChatState, Message } from '../types/chat';
 import { v4 as uuidv4 } from 'uuid';
+import { useWebSocketBase } from './useWebSocketBase';
+import { WS_ENDPOINTS } from '../api/config';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3001';
+interface ChatWebSocketMessage {
+  type: 'chunk' | 'end' | 'error';
+  content?: string;
+  messageId?: string;
+  message?: string;
+}
 
 export function useChat() {
   const [state, setState] = useState<ChatState>({
@@ -14,9 +21,9 @@ export function useChat() {
     unreadCount: 0,
   });
 
-  const ws = useRef<WebSocket | null>(null);
   const sessionId = useRef<string>(uuidv4());
   const currentMessageId = useRef<string | null>(null);
+  const pendingMessage = useRef<string | null>(null);
 
   // Initialize session
   useEffect(() => {
@@ -44,107 +51,106 @@ export function useChat() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const connectWebSocket = useCallback(() => {
-    if (ws.current?.readyState === WebSocket.OPEN) {
-      return;
-    }
+  const handleMessage = useCallback((data: unknown) => {
+    const chatData = data as ChatWebSocketMessage;
 
-    const websocket = new WebSocket(`${WS_URL}/api/chat/ws/${sessionId.current}`);
+    if (chatData.type === 'chunk') {
+      // Update streaming message
+      setState((prev) => {
+        if (!prev.session) return prev;
 
-    websocket.onopen = () => {
-      console.log('WebSocket connected');
-      setState((prev) => ({ ...prev, error: null }));
-    };
+        const messages = [...prev.session.messages];
+        const lastMessage = messages[messages.length - 1];
 
-    websocket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-
-        if (data.type === 'chunk') {
-          // Update streaming message
-          setState((prev) => {
-            if (!prev.session) return prev;
-
-            const messages = [...prev.session.messages];
-            const lastMessage = messages[messages.length - 1];
-
-            if (lastMessage && lastMessage.id === currentMessageId.current) {
-              lastMessage.content += data.content;
-              lastMessage.isStreaming = true;
-            } else {
-              // Start new assistant message
-              const newMessage: Message = {
-                id: data.messageId || uuidv4(),
-                role: 'assistant',
-                content: data.content,
-                timestamp: new Date().toISOString(),
-                isStreaming: true,
-              };
-              currentMessageId.current = newMessage.id;
-              messages.push(newMessage);
-            }
-
-            return {
-              ...prev,
-              session: {
-                ...prev.session,
-                messages,
-                updatedAt: new Date().toISOString(),
-              },
-            };
-          });
-        } else if (data.type === 'end') {
-          // Mark streaming as complete
-          setState((prev) => {
-            if (!prev.session) return prev;
-
-            const messages = prev.session.messages.map((msg) =>
-              msg.id === currentMessageId.current
-                ? { ...msg, isStreaming: false }
-                : msg
-            );
-
-            currentMessageId.current = null;
-
-            return {
-              ...prev,
-              session: {
-                ...prev.session,
-                messages,
-                updatedAt: new Date().toISOString(),
-              },
-              isLoading: false,
-            };
-          });
-        } else if (data.type === 'error') {
-          setState((prev) => ({
-            ...prev,
-            error: data.message || 'An error occurred',
-            isLoading: false,
-          }));
-          currentMessageId.current = null;
+        if (lastMessage && lastMessage.id === currentMessageId.current) {
+          lastMessage.content += chatData.content || '';
+          lastMessage.isStreaming = true;
+        } else {
+          // Start new assistant message
+          const newMessage: Message = {
+            id: chatData.messageId || uuidv4(),
+            role: 'assistant',
+            content: chatData.content || '',
+            timestamp: new Date().toISOString(),
+            isStreaming: true,
+          };
+          currentMessageId.current = newMessage.id;
+          messages.push(newMessage);
         }
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
-      }
-    };
 
-    websocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
+        return {
+          ...prev,
+          session: {
+            ...prev.session,
+            messages,
+            updatedAt: new Date().toISOString(),
+          },
+        };
+      });
+    } else if (chatData.type === 'end') {
+      // Mark streaming as complete
+      setState((prev) => {
+        if (!prev.session) return prev;
+
+        const messages = prev.session.messages.map((msg) =>
+          msg.id === currentMessageId.current
+            ? { ...msg, isStreaming: false }
+            : msg
+        );
+
+        currentMessageId.current = null;
+
+        return {
+          ...prev,
+          session: {
+            ...prev.session,
+            messages,
+            updatedAt: new Date().toISOString(),
+          },
+          isLoading: false,
+        };
+      });
+    } else if (chatData.type === 'error') {
       setState((prev) => ({
         ...prev,
-        error: 'Connection error. Please try again.',
+        error: chatData.message || 'An error occurred',
         isLoading: false,
       }));
-    };
-
-    websocket.onclose = () => {
-      console.log('WebSocket disconnected');
-      ws.current = null;
-    };
-
-    ws.current = websocket;
+      currentMessageId.current = null;
+    }
   }, []);
+
+  const handleOpen = useCallback(() => {
+    console.log('[ChatWS] Connected');
+    setState((prev) => ({ ...prev, error: null }));
+
+    // Clear pending message flag on connect
+    pendingMessage.current = null;
+  }, []);
+
+  const handleClose = useCallback(() => {
+    console.log('[ChatWS] Disconnected');
+  }, []);
+
+  const handleError = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      error: 'Connection error. Please try again.',
+      isLoading: false,
+    }));
+  }, []);
+
+  const { isConnected, send, reconnect } = useWebSocketBase({
+    url: WS_ENDPOINTS.chat(sessionId.current),
+    enabled: state.isOpen, // Only connect when chat is open
+    onMessage: handleMessage,
+    onOpen: handleOpen,
+    onClose: handleClose,
+    onError: handleError,
+    name: 'ChatWS',
+    maxReconnectAttempts: 10,
+    heartbeatInterval: 30000,
+  });
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -173,32 +179,19 @@ export function useChat() {
         };
       });
 
-      // Connect WebSocket if not connected
-      if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
-        connectWebSocket();
-        // Wait for connection
-        await new Promise((resolve) => {
-          const checkConnection = setInterval(() => {
-            if (ws.current?.readyState === WebSocket.OPEN) {
-              clearInterval(checkConnection);
-              resolve(true);
-            }
-          }, 100);
-        });
-      }
+      // Send message (useWebSocketBase handles queuing if not connected)
+      const sent = send({
+        type: 'message',
+        content: content.trim(),
+        model: state.selectedModel,
+      });
 
-      // Send message through WebSocket
-      if (ws.current?.readyState === WebSocket.OPEN) {
-        ws.current.send(
-          JSON.stringify({
-            type: 'message',
-            content: content.trim(),
-            model: state.selectedModel,
-          })
-        );
+      if (!sent) {
+        // Message was queued, it will be sent when connected
+        console.log('[ChatWS] Message queued for sending');
       }
     },
-    [state.isLoading, state.selectedModel, connectWebSocket]
+    [state.isLoading, state.selectedModel, send]
   );
 
   const toggleChat = useCallback(() => {
@@ -217,11 +210,14 @@ export function useChat() {
 
   const handleModelChange = useCallback((model: string) => {
     // Reset session when model changes
+    const newSessionId = uuidv4();
+    sessionId.current = newSessionId;
+
     setState((prev) => ({
       ...prev,
       selectedModel: model,
       session: {
-        id: uuidv4(),
+        id: newSessionId,
         messages: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -229,23 +225,10 @@ export function useChat() {
       },
     }));
 
-    // Close existing WebSocket connection
-    if (ws.current) {
-      ws.current.close();
-      ws.current = null;
-    }
-
-    // Update session ID for new WebSocket connection
-    sessionId.current = uuidv4();
+    currentMessageId.current = null;
   }, []);
 
   const createNewSession = useCallback(() => {
-    // Close existing WebSocket connection
-    if (ws.current) {
-      ws.current.close();
-      ws.current = null;
-    }
-
     // Create new session ID
     const newSessionId = uuidv4();
     sessionId.current = newSessionId;
@@ -265,16 +248,10 @@ export function useChat() {
     }));
 
     currentMessageId.current = null;
-  }, []);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (ws.current) {
-        ws.current.close();
-      }
-    };
-  }, []);
+    // Reconnect with new session ID
+    reconnect();
+  }, [reconnect]);
 
   return {
     state,
@@ -283,5 +260,6 @@ export function useChat() {
     closeChat,
     handleModelChange,
     createNewSession,
+    isConnected,
   };
 }

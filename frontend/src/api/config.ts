@@ -5,6 +5,12 @@ export const API_CONFIG = {
   // URL base do backend - usar variável de ambiente ou padrão
   BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
 
+  // URL base do WebSocket - usar variável de ambiente ou derivar da BASE_URL
+  WS_URL: import.meta.env.VITE_WS_URL || (() => {
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    return baseUrl.replace(/^http/, 'ws');
+  })(),
+
   // Timeouts padrão
   TIMEOUT: 30000,
 
@@ -54,4 +60,27 @@ export const API_ENDPOINTS = {
     triage: `${API_CONFIG.BASE_URL}/api/expert-triage`,
     sync: `${API_CONFIG.BASE_URL}/api/expert-sync`,
   },
+
+  // Live spectator endpoints
+  live: {
+    status: `${API_CONFIG.BASE_URL}/api/live/status`,
+    projects: `${API_CONFIG.BASE_URL}/api/live/projects`,
+    voting: `${API_CONFIG.BASE_URL}/api/live/voting`,
+    vote: `${API_CONFIG.BASE_URL}/api/live/vote`,
+  },
+} as const;
+
+// WebSocket endpoints centralizados
+export const WS_ENDPOINTS = {
+  // Cards WebSocket
+  cards: `${API_CONFIG.WS_URL}/api/cards/ws`,
+
+  // Execution WebSocket (com cardId dinâmico)
+  execution: (cardId: string) => `${API_CONFIG.WS_URL}/api/execution/ws/${cardId}`,
+
+  // Chat WebSocket (com sessionId dinâmico)
+  chat: (sessionId: string) => `${API_CONFIG.WS_URL}/api/chat/ws/${sessionId}`,
+
+  // Live spectator WebSocket
+  live: `${API_CONFIG.WS_URL}/api/live/ws`,
 } as const;
