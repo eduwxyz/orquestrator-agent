@@ -1,6 +1,7 @@
 """Live spectator routes and WebSocket."""
 
 import json
+import os
 from datetime import datetime
 from typing import Optional
 from uuid import uuid4
@@ -23,6 +24,43 @@ from ..services.voting_service import get_voting_service
 from ..services.live_broadcast_service import get_live_broadcast_service
 
 router = APIRouter(prefix="/api/live", tags=["live"])
+
+# ============================================================================
+# Live Mode Configuration
+# ============================================================================
+
+LIVE_PROJECTS_PATH = os.environ.get("LIVE_PROJECTS_PATH", "/opt/zenflow/live-projects")
+
+LIVE_MODE_PROMPT = """Voce eh uma IA desenvolvedora que esta sendo assistida AO VIVO por varias pessoas!
+
+CONTEXTO:
+- Voce esta em um "AI Live Studio" onde espectadores assistem voce programar em tempo real
+- As pessoas veem seu Kanban, logs e progresso de cada tarefa
+- Seu objetivo eh ENTRETER e IMPRESSIONAR quem esta assistindo!
+
+SUA MISSAO:
+Crie projetos INTERESSANTES, VISUAIS e DIVERTIDOS! Exemplos:
+- Jogos simples (Snake, Pong, Tetris, Quiz, Jogo da Velha)
+- Visualizacoes criativas (Arte generativa, Animacoes CSS, Efeitos visuais)
+- Ferramentas uteis (Conversor, Gerador de senhas, Timer Pomodoro)
+- Mini-apps interativos (Todo list estilizado, Calculadora bonita)
+
+REGRAS:
+1. SEMPRE crie projetos que funcionem e possam ser visualizados
+2. Use HTML/CSS/JS para projetos web (facil de ver resultado)
+3. Cada projeto deve ficar em sua propria pasta dentro de {projects_path}
+4. Seja criativo e varie os tipos de projeto
+5. Faca commits frequentes para os espectadores verem o progresso
+6. Use nomes descritivos e divertidos para os projetos
+7. Apos terminar um projeto, comece outro automaticamente!
+
+PASTA DE TRABALHO: {projects_path}
+Crie subpastas para cada projeto: projeto1-snake/, projeto2-arte/, etc.
+
+Comece agora! Escolha algo interessante para criar e impressione a audiencia!"""
+
+# Global state for live mode
+_live_mode_active = False
 
 
 # ============================================================================
@@ -295,6 +333,83 @@ async def admin_add_project(
     return {
         "success": True,
         "project_id": project.id
+    }
+
+
+# ============================================================================
+# Live Mode Control (Start/Stop)
+# ============================================================================
+
+@router.get("/admin/live-mode")
+async def get_live_mode_status():
+    """Get current live mode status."""
+    global _live_mode_active
+    return {
+        "active": _live_mode_active,
+        "projects_path": LIVE_PROJECTS_PATH
+    }
+
+
+@router.post("/admin/live-mode/start")
+async def start_live_mode(db: AsyncSession = Depends(get_db)):
+    """Start live mode - submit the entertainment goal to orchestrator."""
+    global _live_mode_active
+
+    if _live_mode_active:
+        raise HTTPException(status_code=400, detail="Live mode is already active")
+
+    # Import orchestrator service
+    from ..services.orchestrator_service import get_orchestrator_service
+
+    # Get orchestrator
+    orchestrator = get_orchestrator_service()
+
+    # Format prompt with projects path
+    prompt = LIVE_MODE_PROMPT.format(projects_path=LIVE_PROJECTS_PATH)
+
+    # Submit as a new goal
+    try:
+        goal_id = await orchestrator.submit_goal(
+            description=prompt,
+            priority=10  # High priority
+        )
+
+        _live_mode_active = True
+
+        # Broadcast status update
+        broadcast = get_live_broadcast_service()
+        await broadcast.update_status(is_working=True, current_stage="starting")
+        await broadcast.broadcast_log("Live mode started! AI is now creating projects for entertainment!", "success")
+
+        return {
+            "success": True,
+            "message": "Live mode started",
+            "goal_id": goal_id,
+            "projects_path": LIVE_PROJECTS_PATH
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start live mode: {str(e)}")
+
+
+@router.post("/admin/live-mode/stop")
+async def stop_live_mode():
+    """Stop live mode."""
+    global _live_mode_active
+
+    if not _live_mode_active:
+        raise HTTPException(status_code=400, detail="Live mode is not active")
+
+    _live_mode_active = False
+
+    # Broadcast status update
+    broadcast = get_live_broadcast_service()
+    await broadcast.update_status(is_working=False, current_stage=None)
+    await broadcast.broadcast_log("Live mode stopped.", "info")
+
+    return {
+        "success": True,
+        "message": "Live mode stopped"
     }
 
 
