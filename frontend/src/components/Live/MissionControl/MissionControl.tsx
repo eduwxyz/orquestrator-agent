@@ -1,7 +1,8 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { LiveState } from '../../../types/live';
 import { VotingPanel } from '../VotingPanel';
+import { AutoReactions } from './AutoReactions';
 import styles from './MissionControl.module.css';
 
 interface MissionControlProps {
@@ -30,6 +31,9 @@ export function MissionControl({ state, isConnected }: MissionControlProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const [uptime, setUptime] = useState(0);
   const [agents, setAgents] = useState<Agent[]>(MOCK_AGENTS);
+  const [reactionTrigger, setReactionTrigger] = useState<'success' | 'error' | 'start' | 'idle' | null>(null);
+  const lastLogCountRef = useRef(0);
+  const wasWorkingRef = useRef(false);
 
   // Session ID for voting
   const [sessionId] = useState(() => {
@@ -39,6 +43,40 @@ export function MissionControl({ state, isConnected }: MissionControlProps) {
     sessionStorage.setItem('live_session_id', newId);
     return newId;
   });
+
+  // Trigger reaction helper
+  const triggerReaction = useCallback((type: 'success' | 'error' | 'start' | 'idle') => {
+    setReactionTrigger(type);
+    // Reset after a short delay to allow re-triggering
+    setTimeout(() => setReactionTrigger(null), 100);
+  }, []);
+
+  // Detect events and trigger reactions
+  useEffect(() => {
+    const logs = state.logs;
+    const newLogs = logs.slice(lastLogCountRef.current);
+    lastLogCountRef.current = logs.length;
+
+    // Check new logs for success/error
+    for (const log of newLogs) {
+      if (log.logType === 'success') {
+        triggerReaction('success');
+        break;
+      } else if (log.logType === 'error') {
+        triggerReaction('error');
+        break;
+      }
+    }
+  }, [state.logs, triggerReaction]);
+
+  // Detect work start/stop
+  useEffect(() => {
+    if (state.status.isWorking && !wasWorkingRef.current) {
+      // Just started working
+      triggerReaction('start');
+    }
+    wasWorkingRef.current = state.status.isWorking;
+  }, [state.status.isWorking, triggerReaction]);
 
   // Update agents based on state
   useEffect(() => {
@@ -117,6 +155,9 @@ export function MissionControl({ state, isConnected }: MissionControlProps) {
 
   return (
     <div className={styles.container}>
+      {/* Auto Reactions Overlay */}
+      <AutoReactions trigger={reactionTrigger} />
+
       {/* Header */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
