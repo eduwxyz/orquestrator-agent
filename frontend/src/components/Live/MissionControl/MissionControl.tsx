@@ -1,5 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { LiveState } from '../../../types/live';
+import { VotingPanel } from '../VotingPanel';
 import styles from './MissionControl.module.css';
 
 interface MissionControlProps {
@@ -28,6 +30,15 @@ export function MissionControl({ state, isConnected }: MissionControlProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const [uptime, setUptime] = useState(0);
   const [agents, setAgents] = useState<Agent[]>(MOCK_AGENTS);
+
+  // Session ID for voting
+  const [sessionId] = useState(() => {
+    const stored = sessionStorage.getItem('live_session_id');
+    if (stored) return stored;
+    const newId = uuidv4();
+    sessionStorage.setItem('live_session_id', newId);
+    return newId;
+  });
 
   // Update agents based on state
   useEffect(() => {
@@ -349,6 +360,11 @@ export function MissionControl({ state, isConnected }: MissionControlProps) {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Voting Panel */}
+          <div className={styles.votingSection}>
+            <VotingPanel voting={state.voting} sessionId={sessionId} />
           </div>
         </section>
       </main>
