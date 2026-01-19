@@ -112,7 +112,7 @@ export interface WSCardUpdate extends WSMessageBase {
 export interface WSLogEntry extends WSMessageBase {
   type: 'log_entry';
   content: string;
-  logType?: 'info' | 'success' | 'error' | 'warning';
+  logType?: 'info' | 'success' | 'error' | 'warning' | 'tool' | 'result' | 'text';
 }
 
 export interface WSVotingStarted extends WSMessageBase {
