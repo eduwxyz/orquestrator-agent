@@ -19,6 +19,13 @@ from .usage_checker_service import get_usage_checker_service, UsageInfo
 from .orchestrator_logger import get_orchestrator_logger
 from .live_broadcast_service import get_live_broadcast_service
 
+from claude_agent_sdk import (
+    query,
+    ClaudeAgentOptions,
+    AssistantMessage,
+    TextBlock,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -125,13 +132,26 @@ class OrchestratorService:
         return self._running
 
     async def _run_loop(self) -> None:
-        """Main orchestrator loop."""
+        """Main orchestrator loop with retry for database locks."""
         while self._running:
-            try:
-                await self._execute_cycle()
-            except Exception as e:
-                logger.exception(f"[Orchestrator] Error in loop: {e}")
-                await self.logger.log_error(f"Loop error: {e}")
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    await self._execute_cycle()
+                    break  # Success, exit retry loop
+                except Exception as e:
+                    error_str = str(e)
+                    if "database is locked" in error_str and attempt < max_retries - 1:
+                        wait_time = (attempt + 1) * 3  # 3s, 6s, 9s
+                        logger.warning(f"[Orchestrator] DB locked, retry {attempt + 1}/{max_retries} in {wait_time}s")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        logger.exception(f"[Orchestrator] Error in loop: {e}")
+                        try:
+                            await self.logger.log_error(f"Loop error: {e}")
+                        except Exception:
+                            pass  # Don't fail if logging fails
+                        break
 
             # Wait for next cycle
             await asyncio.sleep(self.settings.orchestrator_loop_interval_seconds)
@@ -483,6 +503,7 @@ class OrchestratorService:
 
         # Broadcast to live spectators
         live_broadcast = get_live_broadcast_service()
+        await live_broadcast.broadcast_agent_status("orchestrator", "working", "Analisando objetivo...")
         await live_broadcast.broadcast_log(
             f"🤖 AI analyzing goal with Opus 4.5...",
             "info"
@@ -608,15 +629,16 @@ class OrchestratorService:
         )
 
     async def _act_execute_card(self, card_id: str, repos: Dict[str, Any]) -> ActResult:
-        """Execute a card through the complete workflow (plan → implement → test → review → done)."""
+        """Execute a card through simplified workflow (plan → implement → done) for live showcase."""
         card_repo = repos["card_repo"]
+        live_broadcast = get_live_broadcast_service()
 
         card = await card_repo.get_by_id(card_id)
         if not card:
             return ActResult(success=False, error="Card not found")
 
         # Import execution functions
-        from ..agent import execute_plan, execute_implement, execute_test_implementation, execute_review
+        from ..agent import execute_plan, execute_implement
         from pathlib import Path
 
         # Get project path from project manager
@@ -626,18 +648,7 @@ class OrchestratorService:
         except Exception:
             cwd = str(Path.cwd())
 
-        # Define workflow stages in order
-        workflow_stages = ["backlog", "plan", "implement", "test", "review", "done"]
         current_column = card.column_id
-
-        # Find starting point in workflow
-        try:
-            start_index = workflow_stages.index(current_column)
-        except ValueError:
-            return ActResult(
-                success=True,
-                data={"message": f"Card in {current_column}, no action needed"}
-            )
 
         # If already done, nothing to do
         if current_column == "done":
@@ -647,17 +658,19 @@ class OrchestratorService:
             )
 
         await self.logger.log_act(
-            f"Starting full workflow for card {card_id[:8]} from {current_column}",
+            f"Starting workflow for card {card_id[:8]} from {current_column}",
             goal_id=None,
             data={"card_id": card_id, "starting_column": current_column}
         )
 
         try:
-            # Execute each stage sequentially until done
-
-            # Stage 1: PLAN (if not already past it)
+            # Stage 1: PLAN
             if current_column in ["backlog", "plan"]:
-                await self.logger.log_act(f"[1/4] Executing PLAN stage...")
+                # Broadcast: Planner agent working
+                await live_broadcast.broadcast_agent_status("planner", "working", "Planejando o projeto...")
+                await live_broadcast.update_status(is_working=True, current_stage="planning", progress=10)
+
+                await self.logger.log_act(f"[1/2] Executing PLAN stage...")
                 await self._move_card_with_broadcast(card_id, "plan", card_repo)
 
                 result = await execute_plan(
@@ -669,12 +682,15 @@ class OrchestratorService:
                 )
 
                 if not result.success:
+                    await live_broadcast.broadcast_agent_status("planner", "error", result.error)
                     await self.logger.log_error(f"PLAN failed: {result.error}")
                     return ActResult(success=False, error=f"Plan failed: {result.error}")
 
-                await self.logger.log_act(f"[1/4] PLAN completed successfully")
+                await self.logger.log_act(f"[1/2] PLAN completed successfully")
+                await live_broadcast.broadcast_agent_status("planner", "idle", None)
+                await live_broadcast.update_status(is_working=True, current_stage="planning", progress=40)
 
-                # Save spec_path to card (execute_plan returns it but doesn't persist)
+                # Save spec_path to card
                 if result.spec_path:
                     await card_repo.update_spec_path(card_id, result.spec_path)
                     await self.logger.log_act(f"Saved spec_path: {result.spec_path}")
@@ -684,12 +700,15 @@ class OrchestratorService:
 
             # Stage 2: IMPLEMENT
             if current_column in ["backlog", "plan", "implement"]:
-                # Validate spec_path exists before proceeding
                 if not card.spec_path:
                     await self.logger.log_error(f"Cannot execute IMPLEMENT: card has no spec_path")
                     return ActResult(success=False, error="Card has no spec_path. Run /plan first.")
 
-                await self.logger.log_act(f"[2/4] Executing IMPLEMENT stage...")
+                # Broadcast: Coder agent working
+                await live_broadcast.broadcast_agent_status("coder", "working", "Implementando o código...")
+                await live_broadcast.update_status(is_working=True, current_stage="implementing", progress=50)
+
+                await self.logger.log_act(f"[2/2] Executing IMPLEMENT stage...")
                 await self._move_card_with_broadcast(card_id, "implement", card_repo)
 
                 result = await execute_implement(
@@ -700,66 +719,37 @@ class OrchestratorService:
                 )
 
                 if not result.success:
+                    await live_broadcast.broadcast_agent_status("coder", "error", result.error)
                     await self.logger.log_error(f"IMPLEMENT failed: {result.error}")
                     return ActResult(success=False, error=f"Implement failed: {result.error}")
 
-                await self.logger.log_act(f"[2/4] IMPLEMENT completed successfully")
+                await self.logger.log_act(f"[2/2] IMPLEMENT completed successfully")
+                await live_broadcast.broadcast_agent_status("coder", "idle", None)
+                await live_broadcast.update_status(is_working=True, current_stage="implementing", progress=90)
 
-            # Stage 3: TEST
-            if current_column in ["backlog", "plan", "implement", "test"]:
-                # Validate spec_path exists before proceeding
-                if not card.spec_path:
-                    await self.logger.log_error(f"Cannot execute TEST: card has no spec_path")
-                    return ActResult(success=False, error="Card has no spec_path. Run /plan first.")
+            # Move directly to done (skip test/review for live showcase)
+            print(f"[DEBUG] About to move card {card_id[:8]} to done")
+            moved_card, move_error = await self._move_card_with_broadcast(card_id, "done", card_repo)
+            print(f"[DEBUG] Move result: card={moved_card is not None}, error={move_error}")
 
-                await self.logger.log_act(f"[3/4] Executing TEST stage...")
-                await self._move_card_with_broadcast(card_id, "test", card_repo)
+            if move_error:
+                print(f"[DEBUG] Move failed with error: {move_error}")
+                await self.logger.log_error(f"Failed to move card to done: {move_error}")
+                return ActResult(success=False, error=f"Failed to move to done: {move_error}")
 
-                result = await execute_test_implementation(
-                    card_id=card_id,
-                    spec_path=card.spec_path,
-                    cwd=cwd,
-                    model=card.model_test,
-                )
+            # CRITICAL: Commit immediately to ensure next cycle sees the change
+            print(f"[DEBUG] Committing session...")
+            await card_repo.session.commit()
+            print(f"[DEBUG] Commit done, verifying card column...")
 
-                if not result.success:
-                    await self.logger.log_error(f"TEST failed: {result.error}")
-                    return ActResult(
-                        success=False,
-                        error=f"Test failed: {result.error}",
-                        data={"needs_fix": True}
-                    )
+            # Verify the move worked
+            verify_card = await card_repo.get_by_id(card_id)
+            print(f"[DEBUG] Card column after commit: {verify_card.column_id if verify_card else 'NOT FOUND'}")
 
-                await self.logger.log_act(f"[3/4] TEST completed successfully")
-
-            # Stage 4: REVIEW
-            if current_column in ["backlog", "plan", "implement", "test", "review"]:
-                # Validate spec_path exists before proceeding
-                if not card.spec_path:
-                    await self.logger.log_error(f"Cannot execute REVIEW: card has no spec_path")
-                    return ActResult(success=False, error="Card has no spec_path. Run /plan first.")
-
-                await self.logger.log_act(f"[4/4] Executing REVIEW stage...")
-                await self._move_card_with_broadcast(card_id, "review", card_repo)
-
-                result = await execute_review(
-                    card_id=card_id,
-                    spec_path=card.spec_path,
-                    cwd=cwd,
-                    model=card.model_review,
-                )
-
-                if not result.success:
-                    await self.logger.log_error(f"REVIEW failed: {result.error}")
-                    return ActResult(success=False, error=f"Review failed: {result.error}")
-
-                await self.logger.log_act(f"[4/4] REVIEW completed successfully")
-
-            # Move to done
-            await self._move_card_with_broadcast(card_id, "done", card_repo)
+            await live_broadcast.update_status(is_working=True, current_stage="completed", progress=100)
 
             await self.logger.log_act(
-                f"Full workflow completed for card {card_id[:8]}",
+                f"Workflow completed for card {card_id[:8]}",
                 goal_id=None,
                 data={"card_id": card_id, "final_column": "done"}
             )
@@ -767,7 +757,7 @@ class OrchestratorService:
             return ActResult(
                 success=True,
                 should_learn=True,
-                learning=f"Successfully completed full workflow for card: {card.title}",
+                learning=f"Successfully completed workflow for card: {card.title}",
                 data={"column": "done", "workflow_completed": True}
             )
 
@@ -884,12 +874,12 @@ class OrchestratorService:
 
         # For live_mode goals: save to gallery and start voting
         if goal.source in ["live_mode", "live_mode_voting"]:
-            # Small delay to ensure previous transaction is fully committed
-            await asyncio.sleep(1)
+            # Longer delay to ensure previous transaction is fully committed (avoid DB locked)
+            await asyncio.sleep(3)
             # Create CompletedProject for gallery
             await self._save_completed_project(goal)
-            # Another delay before voting
-            await asyncio.sleep(1)
+            # Another delay before voting (avoid DB locked)
+            await asyncio.sleep(3)
             # Start voting for next project
             await self._start_voting_for_next_project()
 
@@ -901,7 +891,7 @@ class OrchestratorService:
         )
 
     async def _save_completed_project(self, goal) -> None:
-        """Save completed project to gallery."""
+        """Save completed project to gallery with retry logic."""
         from uuid import uuid4
         from ..models.live import CompletedProject
         from ..database import async_session_maker
@@ -913,52 +903,58 @@ class OrchestratorService:
             logger.warning("Goal has no source_id, skipping gallery save")
             return
 
-        try:
-            parts = goal.source_id.split("|")
-            project_folder = parts[0] if len(parts) > 0 else "unknown"
-            project_title = parts[1] if len(parts) > 1 else "Projeto"
-            project_category = parts[2] if len(parts) > 2 else None
+        parts = goal.source_id.split("|")
+        project_folder = parts[0] if len(parts) > 0 else "unknown"
+        project_title = parts[1] if len(parts) > 1 else "Projeto"
+        project_category = parts[2] if len(parts) > 2 else None
 
-            # Create CompletedProject
-            async with async_session_maker() as session:
-                completed = CompletedProject(
-                    id=str(uuid4()),
-                    title=project_title,
-                    description=goal.description[:500] if goal.description else None,
-                    category=project_category,
-                    preview_url=f"/projects/{project_folder}/index.html",
-                    screenshot_url=None,  # TODO: Add screenshot generation
-                    like_count=0,
-                    card_id=goal.cards[0] if goal.cards else None,
-                )
-                session.add(completed)
-                await session.commit()
+        # Retry logic for SQLite locks
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                async with async_session_maker() as session:
+                    completed = CompletedProject(
+                        id=str(uuid4()),
+                        title=project_title,
+                        description=goal.description[:500] if goal.description else None,
+                        category=project_category,
+                        preview_url=f"/projects/{project_folder}/index.html",
+                        screenshot_url=None,
+                        like_count=0,
+                        card_id=goal.cards[0] if goal.cards else None,
+                    )
+                    session.add(completed)
+                    await session.commit()
 
-                logger.info(f"[Orchestrator] Saved to gallery: {project_title}")
-                await live_broadcast.broadcast_log(
-                    f"📸 Projeto adicionado à galeria: {project_title}",
-                    "success"
-                )
+                    logger.info(f"[Orchestrator] Saved to gallery: {project_title}")
+                    await live_broadcast.broadcast_log(
+                        f"📸 Projeto adicionado à galeria: {project_title}",
+                        "success"
+                    )
 
-                # Broadcast new project to gallery
-                await live_broadcast.broadcast({
-                    "type": "project_added",
-                    "project": {
-                        "id": completed.id,
-                        "title": completed.title,
-                        "preview_url": completed.preview_url,
-                        "like_count": 0
-                    }
-                })
+                    # Broadcast new project to gallery
+                    await live_broadcast.broadcast({
+                        "type": "project_added",
+                        "project": {
+                            "id": completed.id,
+                            "title": completed.title,
+                            "preview_url": completed.preview_url,
+                            "like_count": 0
+                        }
+                    })
+                    return  # Success, exit retry loop
 
-        except Exception as e:
-            logger.exception(f"[Orchestrator] Failed to save to gallery: {e}")
-            await live_broadcast.broadcast_log(f"⚠️ Erro ao salvar na galeria: {e}", "error")
+            except Exception as e:
+                if "database is locked" in str(e) and attempt < max_retries - 1:
+                    logger.warning(f"[Orchestrator] DB locked, retrying in {(attempt + 1) * 2}s...")
+                    await asyncio.sleep((attempt + 1) * 2)
+                else:
+                    logger.exception(f"[Orchestrator] Failed to save to gallery: {e}")
+                    await live_broadcast.broadcast_log(f"⚠️ Erro ao salvar na galeria: {e}", "error")
+                    return
 
     async def _start_voting_for_next_project(self) -> None:
-        """Start a voting round with 3 random project options."""
-        import random
-        from ..routes.live import PROJECT_OPTIONS
+        """Start a voting round with AI-generated project suggestions."""
         from .voting_service import get_voting_service
         from ..database import async_session_maker
 
@@ -970,48 +966,112 @@ class OrchestratorService:
             logger.warning("Voting already active, skipping auto-start")
             return
 
-        # Select 3 random projects
-        selected_projects = random.sample(PROJECT_OPTIONS, min(3, len(PROJECT_OPTIONS)))
+        # Generate AI suggestions for next project
+        await live_broadcast.broadcast_log("🤖 AI gerando sugestões de projetos...", "info")
+        voting_options = await self._generate_ai_project_suggestions()
 
-        # Prepare voting options
-        voting_options = [
-            {
-                "title": p["title"],
-                "description": p["description"],
-                "category": p["id"],  # Used to start project after voting
-            }
-            for p in selected_projects
-        ]
+        if not voting_options:
+            # Fallback to default options
+            voting_options = [
+                {"title": "🐍 Jogo da Cobrinha", "description": "Snake game clássico com visual neon", "category": "snake"},
+                {"title": "🧮 Calculadora", "description": "Calculadora com design moderno", "category": "calculator"},
+                {"title": "🎮 Quiz Interativo", "description": "Quiz de perguntas e respostas", "category": "quiz"},
+            ]
 
         # Broadcast that voting is starting
-        await live_broadcast.broadcast_log("⏳ Votação começa em 5 segundos...", "info")
-        await asyncio.sleep(5)
+        await live_broadcast.broadcast_log("⏳ Votação começa em 3 segundos...", "info")
+        await asyncio.sleep(3)
 
-        # Start voting round (60 seconds)
-        async with async_session_maker() as session:
+        # Retry logic for SQLite locks
+        max_retries = 3
+        for attempt in range(max_retries):
             try:
-                voting_round, options = await voting_service.start_round(
-                    db=session,
-                    duration_seconds=60,
-                    options=voting_options
-                )
+                async with async_session_maker() as session:
+                    voting_round, options = await voting_service.start_round(
+                        db=session,
+                        duration_seconds=60,  # 60 seconds for voting
+                        options=voting_options
+                    )
 
-                # Broadcast voting started
-                await live_broadcast.broadcast_voting_started(
-                    options=[
-                        {"id": o.id, "title": o.title, "description": o.description, "vote_count": 0}
-                        for o in options
-                    ],
-                    ends_at=voting_round.ends_at.isoformat(),
-                    duration_seconds=60
-                )
+                    # Broadcast voting started
+                    await live_broadcast.broadcast_voting_started(
+                        options=[
+                            {"id": o.id, "title": o.title, "description": o.description, "vote_count": 0}
+                            for o in options
+                        ],
+                        ends_at=voting_round.ends_at.isoformat(),
+                        duration_seconds=60
+                    )
 
-                await live_broadcast.broadcast_log("🗳️ VOTE AGORA! 60 segundos!", "success")
-                logger.info(f"[Orchestrator] Auto-started voting with {len(options)} options")
+                    await live_broadcast.broadcast_log("🗳️ VOTE AGORA! 60 segundos!", "success")
+                    logger.info(f"[Orchestrator] Auto-started voting with {len(options)} options")
+                    return  # Success, exit retry loop
 
             except Exception as e:
-                logger.exception(f"[Orchestrator] Failed to start voting: {e}")
-                await live_broadcast.broadcast_log(f"❌ Erro ao iniciar votação: {e}", "error")
+                if "database is locked" in str(e) and attempt < max_retries - 1:
+                    logger.warning(f"[Orchestrator] DB locked for voting, retrying in {(attempt + 1) * 2}s...")
+                    await asyncio.sleep((attempt + 1) * 2)
+                else:
+                    logger.exception(f"[Orchestrator] Failed to start voting: {e}")
+                    await live_broadcast.broadcast_log(f"❌ Erro ao iniciar votação: {e}", "error")
+                    return
+
+    async def _generate_ai_project_suggestions(self) -> list[dict]:
+        """Use AI to generate creative project suggestions using Claude Agent SDK."""
+        import json
+        import re
+
+        prompt = """Gere 3 sugestões criativas de mini-projetos web para uma live de programação.
+
+Requisitos:
+- Projetos simples que podem ser feitos em 1 arquivo HTML/CSS/JS
+- Visuais e interativos
+- Divertidos para uma audiência assistir sendo criados
+
+Retorne APENAS um JSON array no formato:
+[
+  {"title": "🎮 Título", "description": "Descrição curta", "category": "identificador"},
+  ...
+]
+
+Seja criativo! Exemplos de categorias: game, tool, animation, quiz, art, simulator."""
+
+        try:
+            options = ClaudeAgentOptions(
+                cwd="/opt/zenflow",
+                setting_sources=["user", "project"],
+                allowed_tools=[],  # No tools needed, just text generation
+                permission_mode="acceptEdits",
+                model="haiku",  # Fast model for simple task
+                max_tokens=500,
+            )
+
+            # Collect response
+            full_response = ""
+            async for message in query(prompt=prompt, options=options):
+                if isinstance(message, AssistantMessage):
+                    for block in message.content:
+                        if isinstance(block, TextBlock):
+                            full_response += block.text
+
+            # Parse response
+            content = full_response
+            # Extract JSON from response (might be wrapped in markdown)
+            json_match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
+            if json_match:
+                content = json_match.group(1)
+            elif "```" in content:
+                content = content.split("```")[1]
+                if content.startswith("json"):
+                    content = content[4:]
+
+            suggestions = json.loads(content.strip())
+            logger.info(f"[Orchestrator] AI generated {len(suggestions)} project suggestions")
+            return suggestions[:3]  # Ensure max 3
+
+        except Exception as e:
+            logger.warning(f"[Orchestrator] Failed to generate AI suggestions: {e}")
+            return []
 
     # ==================== HELPERS ====================
 

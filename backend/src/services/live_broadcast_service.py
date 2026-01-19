@@ -380,6 +380,31 @@ class LiveBroadcastService:
                 await self.broadcast_log(f"❌ Failed to start project: {e}", "error")
 
     # =========================================================================
+    # Agent Status
+    # =========================================================================
+
+    async def broadcast_agent_status(
+        self,
+        agent_id: str,
+        status: str,
+        task: Optional[str] = None
+    ) -> None:
+        """Broadcast agent status change to spectators.
+
+        Args:
+            agent_id: "orchestrator", "planner", "coder", "reviewer"
+            status: "idle", "working", "error"
+            task: Current task description (optional)
+        """
+        await self.broadcast({
+            "type": "agent_status",
+            "agent_id": agent_id,
+            "status": status,
+            "task": task,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+
+    # =========================================================================
     # Project Likes
     # =========================================================================
 

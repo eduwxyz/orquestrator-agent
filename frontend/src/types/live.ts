@@ -81,6 +81,7 @@ export type LiveWSMessageType =
   | 'voting_update'
   | 'voting_ended'
   | 'project_liked'
+  | 'agent_status'
   | 'pong';
 
 export interface WSMessageBase {
@@ -141,6 +142,13 @@ export interface WSProjectLiked extends WSMessageBase {
   likeCount: number;
 }
 
+export interface WSAgentStatus extends WSMessageBase {
+  type: 'agent_status';
+  agentId: string;
+  status: 'idle' | 'working' | 'error';
+  task?: string;
+}
+
 export type LiveWSMessage =
   | WSPresenceUpdate
   | WSStatusUpdate
@@ -149,7 +157,8 @@ export type LiveWSMessage =
   | WSVotingStarted
   | WSVotingUpdate
   | WSVotingEnded
-  | WSProjectLiked;
+  | WSProjectLiked
+  | WSAgentStatus;
 
 // ============================================================================
 // Live State

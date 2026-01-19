@@ -34,10 +34,16 @@ LIVE_PROJECTS_PATH = os.environ.get("LIVE_PROJECTS_PATH", "/opt/zenflow/live-pro
 LIVE_MODE_PROMPT = """⚠️ IMPORTANTE: CRIE APENAS 1 CARD. NÃO DECOMPONHA!
 
 Projeto: {project_type}
-Pasta: {projects_path}/{project_folder}/
+Pasta do projeto: {project_path}/
 
-Crie o projeto completo em um ÚNICO arquivo index.html com HTML/CSS/JS inline.
-O projeto deve ser funcional e visualmente atraente.
+## Estrutura esperada:
+- {project_path}/spec.md (plano de implementação)
+- {project_path}/index.html (arquivo principal com HTML/CSS/JS inline)
+
+## Instruções:
+1. Salve o plano de implementação em `{project_path}/spec.md`
+2. Crie o projeto completo em `{project_path}/index.html` com HTML/CSS/JS inline
+3. O projeto deve ser funcional e visualmente atraente
 
 ⚠️ REGRA ABSOLUTA: 1 CARD APENAS. Não divida em múltiplas tarefas."""
 
@@ -372,23 +378,41 @@ PROJECT_OPTIONS = [
 _project_counter = 0
 
 
-async def _start_project_by_id(project_id: str) -> dict:
-    """Internal function to start a project by its ID. Called after voting ends."""
+async def _start_project_by_id(project_id: str, title: str = None, description: str = None) -> dict:
+    """Internal function to start a project by its ID or AI-generated data. Called after voting ends."""
     global _live_mode_active, _project_counter
 
-    # Find project in options
+    # Find project in predefined options
     project = next((p for p in PROJECT_OPTIONS if p["id"] == project_id), None)
-    if not project:
-        raise ValueError(f"Project not found: {project_id}")
 
     _project_counter += 1
-    project_folder = f"projeto{_project_counter}-{project['folder']}"
 
-    # Create directories
-    os.makedirs(LIVE_PROJECTS_PATH, exist_ok=True)
-    os.makedirs(os.path.join(LIVE_PROJECTS_PATH, "specs"), exist_ok=True)
+    if project:
+        # Use predefined project
+        project_folder = f"projeto{_project_counter}-{project['folder']}"
+        project_title = project["title"]
+        project_desc = project.get("description", "")
+    else:
+        # AI-generated project - use the title/description passed or create from id
+        import re
+        # Create folder name from category/id
+        safe_name = re.sub(r'[^a-zA-Z0-9-]', '', project_id.lower().replace(' ', '-'))[:20]
+        project_folder = f"projeto{_project_counter}-{safe_name or 'ai-project'}"
+        project_title = title or project_id
+        project_desc = description or f"Projeto gerado pela IA: {project_title}"
+        project = {
+            "id": project_id,
+            "title": project_title,
+            "description": project_desc,
+            "folder": safe_name or 'ai-project'
+        }
 
-    # Set as active project
+    project_path = os.path.join(LIVE_PROJECTS_PATH, project_folder)
+
+    # Create project directory
+    os.makedirs(project_path, exist_ok=True)
+
+    # Set as active project (specific project folder)
     from ..models.project import ActiveProject
     from ..database import async_session_maker
     from sqlalchemy import delete
@@ -396,9 +420,9 @@ async def _start_project_by_id(project_id: str) -> dict:
     async with async_session_maker() as session:
         await session.execute(delete(ActiveProject))
         live_project = ActiveProject(
-            id="live-projects",
-            path=LIVE_PROJECTS_PATH,
-            name="Live Projects",
+            id=project_folder,
+            path=project_path,
+            name=f"Live: {project['title']}",
             has_claude_config=False,
             claude_config_path=None,
         )
@@ -410,9 +434,8 @@ async def _start_project_by_id(project_id: str) -> dict:
 
     orchestrator = get_orchestrator_service()
     prompt = LIVE_MODE_PROMPT.format(
-        projects_path=LIVE_PROJECTS_PATH,
         project_type=project["title"],
-        project_folder=project_folder
+        project_path=project_path
     )
 
     result = await orchestrator.submit_goal(
@@ -427,7 +450,7 @@ async def _start_project_by_id(project_id: str) -> dict:
     broadcast = get_live_broadcast_service()
     await broadcast.update_status(is_working=True, current_stage="starting")
     await broadcast.broadcast_log(f"🚀 Starting: {project['title']}", "success")
-    await broadcast.broadcast_log(f"📁 Folder: {project_folder}", "info")
+    await broadcast.broadcast_log(f"📁 Path: {project_path}", "info")
 
     return {
         "success": True,
@@ -465,27 +488,28 @@ async def start_live_mode(
 
     _project_counter += 1
     project_folder = f"projeto{_project_counter}-{project['folder']}"
+    project_path = os.path.join(LIVE_PROJECTS_PATH, project_folder)
 
-    # Create live-projects directory if it doesn't exist
-    os.makedirs(LIVE_PROJECTS_PATH, exist_ok=True)
-    os.makedirs(os.path.join(LIVE_PROJECTS_PATH, "specs"), exist_ok=True)
+    # Create project directory
+    os.makedirs(project_path, exist_ok=True)
+    print(f"[LiveMode] Created project folder: {project_path}")
 
-    # Set as active project
+    # Set as active project (specific project folder, not root)
     async with async_session_maker() as session:
         # Clear previous active projects
         await session.execute(delete(ActiveProject))
 
-        # Create live project entry
+        # Create live project entry with specific project path
         live_project = ActiveProject(
-            id="live-projects",
-            path=LIVE_PROJECTS_PATH,
-            name="Live Projects",
+            id=project_folder,
+            path=project_path,
+            name=f"Live: {project['title']}",
             has_claude_config=False,
             claude_config_path=None,
         )
         session.add(live_project)
         await session.commit()
-        print(f"[LiveMode] Set active project to: {LIVE_PROJECTS_PATH}")
+        print(f"[LiveMode] Set active project to: {project_path}")
 
     # Import orchestrator service
     from ..services.orchestrator_service import get_orchestrator_service
@@ -495,9 +519,8 @@ async def start_live_mode(
 
     # Format prompt with project details
     prompt = LIVE_MODE_PROMPT.format(
-        projects_path=LIVE_PROJECTS_PATH,
         project_type=project["title"],
-        project_folder=project_folder
+        project_path=project_path
     )
 
     # Submit as a new goal (source_id stores project info for later)
@@ -588,3 +611,59 @@ async def live_websocket(websocket: WebSocket):
     finally:
         # Cleanup
         await broadcast.disconnect(session_id)
+
+
+# ============================================================================
+# Voting Callback - Start winning project after voting ends
+# ============================================================================
+
+async def _on_voting_ended(winner, all_options):
+    """Callback when voting round ends - start the winning project."""
+    if not winner:
+        return
+
+    broadcast = get_live_broadcast_service()
+
+    # Broadcast results
+    await broadcast.broadcast({
+        "type": "voting_ended",
+        "winner": {
+            "id": winner.id,
+            "title": winner.title,
+            "description": winner.description,
+            "vote_count": winner.vote_count
+        },
+        "results": [
+            {"id": o.id, "title": o.title, "vote_count": o.vote_count}
+            for o in all_options
+        ]
+    })
+
+    await broadcast.broadcast_log(f"🏆 Vencedor: {winner.title} ({winner.vote_count} votos)!", "success")
+
+    # Small delay before starting
+    import asyncio
+    await asyncio.sleep(3)
+
+    # Start the winning project using its category (which maps to project id)
+    # Pass title and description for AI-generated projects
+    try:
+        await broadcast.broadcast_log(f"🚀 Iniciando projeto: {winner.title}...", "info")
+        await _start_project_by_id(
+            project_id=winner.category,
+            title=winner.title,
+            description=winner.description
+        )
+    except Exception as e:
+        await broadcast.broadcast_log(f"❌ Erro ao iniciar projeto: {e}", "error")
+
+
+# Register the callback when module loads
+def _register_voting_callback():
+    """Register voting ended callback."""
+    voting = get_voting_service()
+    voting.on_ended(_on_voting_ended)
+
+
+# Call registration
+_register_voting_callback()

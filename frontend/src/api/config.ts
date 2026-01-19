@@ -7,26 +7,27 @@ const isProduction = () => {
 };
 
 const getBaseUrl = () => {
-  // Se tem variável de ambiente, usar ela
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  // Em produção, usar a mesma origem (URLs relativas via proxy nginx)
+  // Em produção, SEMPRE usar URLs relativas (nginx faz proxy)
+  // Isso ignora VITE_API_URL em produção
   if (isProduction()) {
     return '';  // URL relativa - nginx faz proxy para backend
   }
-  // Default para desenvolvimento
+  // Em desenvolvimento, usar variável de ambiente ou padrão
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
   return 'http://localhost:3001';
 };
 
 const getWsUrl = () => {
-  if (import.meta.env.VITE_WS_URL) {
-    return import.meta.env.VITE_WS_URL;
-  }
   // Em produção, usar mesmo host com protocolo ws/wss
   if (isProduction()) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${protocol}//${window.location.host}`;
+  }
+  // Em desenvolvimento, usar variável de ambiente ou padrão
+  if (import.meta.env.VITE_WS_URL) {
+    return import.meta.env.VITE_WS_URL;
   }
   return 'ws://localhost:3001';
 };

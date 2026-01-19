@@ -1,39 +1,60 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { LiveState } from '../../../types/live';
-import { VotingPanel } from '../VotingPanel';
+import { VotingModal } from '../VotingModal';
 import { AutoReactions } from './AutoReactions';
 import styles from './MissionControl.module.css';
 
+interface AgentState {
+  status: 'idle' | 'working' | 'error';
+  task: string | null;
+}
+
 interface MissionControlProps {
-  state: LiveState;
+  state: LiveState & { agents?: Record<string, AgentState> };
   isConnected: boolean;
 }
 
-// Simulated agents for visual effect
-interface Agent {
+// Agent display configuration
+interface AgentDisplay {
   id: string;
   name: string;
   role: string;
   avatar: string;
-  status: 'idle' | 'working' | 'error';
-  task?: string;
-  progress: number;
+  stateKey: string;
 }
 
-const MOCK_AGENTS: Agent[] = [
-  { id: '1', name: 'AGENT-01', role: 'Orchestrator', avatar: '🤖', status: 'working', task: 'Coordinating tasks...', progress: 45 },
-  { id: '2', name: 'AGENT-02', role: 'Coder', avatar: '💻', status: 'idle', progress: 0 },
-  { id: '3', name: 'AGENT-03', role: 'Reviewer', avatar: '🔍', status: 'idle', progress: 0 },
+const AGENT_CONFIG: AgentDisplay[] = [
+  { id: '1', name: 'ORCHESTRATOR', role: 'Coordinator', avatar: '🤖', stateKey: 'orchestrator' },
+  { id: '2', name: 'PLANNER', role: 'Planner', avatar: '📋', stateKey: 'planner' },
+  { id: '3', name: 'CODER', role: 'Coder', avatar: '💻', stateKey: 'coder' },
 ];
 
 export function MissionControl({ state, isConnected }: MissionControlProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const [uptime, setUptime] = useState(0);
-  const [agents, setAgents] = useState<Agent[]>(MOCK_AGENTS);
   const [reactionTrigger, setReactionTrigger] = useState<'success' | 'error' | 'start' | 'idle' | null>(null);
   const lastLogCountRef = useRef(0);
   const wasWorkingRef = useRef(false);
+
+  // Build agents from real state
+  const agents = useMemo(() => {
+    const agentStates = state.agents || {
+      orchestrator: { status: 'idle' as const, task: null },
+      planner: { status: 'idle' as const, task: null },
+      coder: { status: 'idle' as const, task: null },
+    };
+
+    return AGENT_CONFIG.map(config => ({
+      id: config.id,
+      name: config.name,
+      role: config.role,
+      avatar: config.avatar,
+      status: agentStates[config.stateKey]?.status || 'idle',
+      task: agentStates[config.stateKey]?.task || undefined,
+      progress: state.status.progress || 0,
+    }));
+  }, [state.agents, state.status.progress]);
 
   // Session ID for voting
   const [sessionId] = useState(() => {
@@ -78,29 +99,6 @@ export function MissionControl({ state, isConnected }: MissionControlProps) {
     wasWorkingRef.current = state.status.isWorking;
   }, [state.status.isWorking, triggerReaction]);
 
-  // Update agents based on state
-  useEffect(() => {
-    if (state.status.isWorking) {
-      setAgents(prev => prev.map((agent, idx) => {
-        if (idx === 0) {
-          return {
-            ...agent,
-            status: 'working' as const,
-            task: state.status.currentCard?.title || 'Processing...',
-            progress: state.status.progress || Math.floor(Math.random() * 100),
-          };
-        }
-        return agent;
-      }));
-    } else {
-      setAgents(prev => prev.map(agent => ({
-        ...agent,
-        status: 'idle' as const,
-        task: undefined,
-        progress: 0,
-      })));
-    }
-  }, [state.status]);
 
   // Uptime counter
   useEffect(() => {
@@ -403,12 +401,11 @@ export function MissionControl({ state, isConnected }: MissionControlProps) {
             </div>
           </div>
 
-          {/* Voting Panel */}
-          <div className={styles.votingSection}>
-            <VotingPanel voting={state.voting} sessionId={sessionId} />
-          </div>
         </section>
       </main>
+
+      {/* Voting Modal - Full Screen Overlay */}
+      <VotingModal voting={state.voting} sessionId={sessionId} />
     </div>
   );
 }

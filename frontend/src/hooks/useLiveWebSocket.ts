@@ -14,6 +14,13 @@ import {
 // State Management
 // ============================================================================
 
+type AgentStatus = 'idle' | 'working' | 'error';
+
+interface AgentState {
+  status: AgentStatus;
+  task: string | null;
+}
+
 type LiveAction =
   | { type: 'SET_SPECTATOR_COUNT'; count: number }
   | { type: 'SET_STATUS'; isWorking: boolean; stage?: string; card?: LiveCard; progress?: number }
@@ -25,9 +32,10 @@ type LiveAction =
   | { type: 'VOTING_UPDATE'; votes: Record<string, number> }
   | { type: 'VOTING_ENDED'; winner: VotingOption | null; results: VotingOption[] }
   | { type: 'PROJECT_LIKED'; projectId: string; likeCount: number }
-  | { type: 'DECREMENT_VOTING_TIME' };
+  | { type: 'DECREMENT_VOTING_TIME' }
+  | { type: 'AGENT_STATUS'; agentId: string; status: AgentStatus; task: string | null };
 
-const initialState: LiveState = {
+const initialState: LiveState & { agents: Record<string, AgentState> } = {
   status: {
     isWorking: false,
     currentStage: null,
@@ -52,9 +60,16 @@ const initialState: LiveState = {
   },
   logs: [],
   projects: [],
+  agents: {
+    orchestrator: { status: 'idle', task: null },
+    planner: { status: 'idle', task: null },
+    coder: { status: 'idle', task: null },
+  },
 };
 
-function liveReducer(state: LiveState, action: LiveAction): LiveState {
+type ExtendedLiveState = LiveState & { agents: Record<string, AgentState> };
+
+function liveReducer(state: ExtendedLiveState, action: LiveAction): ExtendedLiveState {
   switch (action.type) {
     case 'SET_SPECTATOR_COUNT':
       return {
@@ -200,6 +215,18 @@ function liveReducer(state: LiveState, action: LiveAction): LiveState {
         },
       };
 
+    case 'AGENT_STATUS':
+      return {
+        ...state,
+        agents: {
+          ...state.agents,
+          [action.agentId]: {
+            status: action.status,
+            task: action.task,
+          },
+        },
+      };
+
     default:
       return state;
   }
@@ -294,6 +321,16 @@ export function useLiveWebSocket() {
           type: 'PROJECT_LIKED',
           projectId: message.projectId,
           likeCount: message.likeCount,
+        });
+        break;
+
+      case 'agent_status':
+        const agentMsg = message as any;
+        dispatch({
+          type: 'AGENT_STATUS',
+          agentId: agentMsg.agent_id ?? agentMsg.agentId,
+          status: agentMsg.status,
+          task: agentMsg.task,
         });
         break;
     }

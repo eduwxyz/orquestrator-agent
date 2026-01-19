@@ -211,7 +211,7 @@ class VotingService:
             logger.info("Voting timer cancelled")
 
     async def end_round(self, db: AsyncSession) -> Optional[VotingOption]:
-        """End the current voting round and determine winner."""
+        """End the current voting round and determine winner (AI breaks ties)."""
         if not self._active_round:
             return None
 
@@ -220,11 +220,18 @@ class VotingService:
             self._timer_task.cancel()
             self._timer_task = None
 
-        # Find winner (highest votes)
+        # Find winner (highest votes), AI breaks ties
+        winner = None
         if self._active_options:
-            winner = max(self._active_options, key=lambda o: o.vote_count)
-        else:
-            winner = None
+            max_votes = max(o.vote_count for o in self._active_options)
+            top_options = [o for o in self._active_options if o.vote_count == max_votes]
+
+            if len(top_options) == 1:
+                winner = top_options[0]
+            else:
+                # Tie! AI decides
+                winner = await self._ai_break_tie(top_options)
+                logger.info(f"[Voting] AI broke tie, chose: {winner.title if winner else 'None'}")
 
         # Update round in DB
         self._active_round.is_active = False
@@ -274,6 +281,47 @@ class VotingService:
     def on_ended(self, callback: Callable[[VotingOption, List[VotingOption]], Awaitable[None]]) -> None:
         """Register callback for when voting ends."""
         self._on_ended_callbacks.append(callback)
+
+    async def _ai_break_tie(self, options: List[VotingOption]) -> Optional[VotingOption]:
+        """Use AI to break a tie between options."""
+        import anthropic
+        import random
+
+        if not options:
+            return None
+
+        try:
+            client = anthropic.Anthropic()
+            options_text = "\n".join([f"- {o.title}: {o.description}" for o in options])
+
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=100,
+                messages=[{
+                    "role": "user",
+                    "content": f"""Houve um empate na votação! Escolha o projeto mais interessante para uma live de programação.
+
+Opções:
+{options_text}
+
+Responda APENAS com o título exato da opção escolhida (incluindo emoji se houver)."""
+                }]
+            )
+
+            chosen_title = response.content[0].text.strip()
+
+            # Find matching option
+            for opt in options:
+                if opt.title.lower() in chosen_title.lower() or chosen_title.lower() in opt.title.lower():
+                    return opt
+
+            # Fallback: random choice
+            logger.warning(f"[Voting] AI response didn't match options, choosing randomly")
+            return random.choice(options)
+
+        except Exception as e:
+            logger.warning(f"[Voting] AI tie-break failed: {e}, choosing randomly")
+            return random.choice(options)
 
 
 # Singleton instance
