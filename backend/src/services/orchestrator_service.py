@@ -319,15 +319,16 @@ class OrchestratorService:
         goal_repo = repos["goal_repo"]
         card_repo = repos["card_repo"]
 
-        # Priority 1: Check usage limits
-        usage = await self.usage_checker.check_usage()
-        self._last_usage_check = usage
+        # Priority 1: Check usage limits (optional)
+        if self.settings.orchestrator_usage_check_enabled:
+            usage = await self.usage_checker.check_usage()
+            self._last_usage_check = usage
 
-        if not usage.is_safe_to_execute:
-            return ThinkResult(
-                decision=OrchestratorDecision.WAIT,
-                reason=f"Usage limit exceeded: session={usage.session_used_percent}%, daily={usage.daily_used_percent}%"
-            )
+            if not usage.is_safe_to_execute:
+                return ThinkResult(
+                    decision=OrchestratorDecision.WAIT,
+                    reason=f"Usage limit exceeded: session={usage.session_used_percent}%, daily={usage.daily_used_percent}%"
+                )
 
         # Get active goal
         active_goal = await goal_repo.get_active_goal()
@@ -509,6 +510,9 @@ class OrchestratorService:
 
     async def _act_verify_limit(self) -> ActResult:
         """Verify Claude usage limits."""
+        if not self.settings.orchestrator_usage_check_enabled:
+            return ActResult(success=True, data={"usage": None})
+
         usage = await self.usage_checker.check_usage()
         return ActResult(
             success=True,
@@ -701,12 +705,14 @@ class OrchestratorService:
                 await self.logger.log_act(f"[1/2] Executing PLAN stage...")
                 await self._move_card_with_broadcast(card_id, "plan", card_repo)
 
+                # Use live mode model settings (lighter than opus to avoid OOM on VPS)
+                plan_model = self.settings.live_mode_model_plan
                 result = await execute_plan(
                     card_id=card_id,
                     title=card.title,
                     description=card.description or "",
                     cwd=cwd,
-                    model=card.model_plan,
+                    model=plan_model,
                 )
 
                 if not result.success:
@@ -739,11 +745,13 @@ class OrchestratorService:
                 await self.logger.log_act(f"[2/2] Executing IMPLEMENT stage...")
                 await self._move_card_with_broadcast(card_id, "implement", card_repo)
 
+                # Use live mode model settings (lighter than opus to avoid OOM on VPS)
+                implement_model = self.settings.live_mode_model_implement
                 result = await execute_implement(
                     card_id=card_id,
                     spec_path=card.spec_path,
                     cwd=cwd,
-                    model=card.model_implement,
+                    model=implement_model,
                 )
 
                 if not result.success:
@@ -1309,6 +1317,7 @@ Seja criativo! Exemplos de categorias: game, tool, animation, quiz, art, simulat
             "running": self._running,
             "loop_interval_seconds": self.settings.orchestrator_loop_interval_seconds,
             "usage_limit_percent": self.settings.orchestrator_usage_limit_percent,
+            "usage_check_enabled": self.settings.orchestrator_usage_check_enabled,
             "last_usage_check": self._last_usage_check.__dict__ if self._last_usage_check else None,
         }
 

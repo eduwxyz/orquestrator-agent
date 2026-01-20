@@ -40,9 +40,15 @@ class Settings(BaseSettings):
     orchestrator_loop_interval_seconds: int = 60  # 1 minute
     orchestrator_log_file: str = "orchestrator.log"
     orchestrator_usage_limit_percent: int = 80  # Pause if usage > 80%
+    orchestrator_usage_check_enabled: bool = False  # Disable usage check to avoid blocking execution
 
     # Short-term memory settings
     short_term_memory_retention_hours: int = 24
+
+    # Live mode settings - use lighter models for VPS with limited memory
+    live_mode_model_plan: str = "sonnet-4.5"  # Lighter than opus-4.5 to avoid OOM
+    live_mode_model_implement: str = "sonnet-4.5"
+    live_mode_model_decompose: str = "haiku"  # Fast model for decomposition (JSON only)
 
 
 @lru_cache
