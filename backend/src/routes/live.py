@@ -1,6 +1,8 @@
 """Live spectator routes and WebSocket."""
 
+import asyncio
 import json
+import logging
 import os
 from datetime import datetime
 from typing import Optional
@@ -9,10 +11,13 @@ from uuid import uuid4
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Request, HTTPException
 from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import OperationalError
+
+logger = logging.getLogger(__name__)
 
 from ..database import get_db
 from ..models.card import Card
-from ..models.live import Vote, VoteType, CompletedProject
+from ..models.live import Vote, VoteType, CompletedProject, GameScore
 from ..schemas.live import (
     LiveStatusResponse, LiveKanbanResponse, LiveCardResponse,
     VotingStateResponse, VoteRequest, VoteResponse,
@@ -47,8 +52,8 @@ Pasta do projeto: {project_path}/
 
 ⚠️ REGRA ABSOLUTA: 1 CARD APENAS. Não divida em múltiplas tarefas."""
 
-# Global state for live mode
-_live_mode_active = False
+# Note: Live mode status is now determined by checking if there are cards
+# in processing columns (plan, implement, test, review) in the database
 
 
 # ============================================================================
@@ -56,14 +61,25 @@ _live_mode_active = False
 # ============================================================================
 
 @router.get("/status", response_model=LiveStatusResponse)
-async def get_live_status():
+async def get_live_status(db: AsyncSession = Depends(get_db)):
     """Get current AI status for spectators."""
     broadcast = get_live_broadcast_service()
     presence = get_presence_service()
 
+    # Check if there are cards being processed (source of truth)
+    processing_columns = ['plan', 'implement', 'test', 'review']
+    result = await db.execute(
+        select(func.count(Card.id))
+        .where(Card.column_id.in_(processing_columns))
+    )
+    cards_in_progress = result.scalar() or 0
+
+    # Use broadcast status for details, but override is_working based on DB
     status = broadcast._current_status
+    is_working = cards_in_progress > 0 or status.get("is_working", False)
+
     return LiveStatusResponse(
-        is_working=status.get("is_working", False),
+        is_working=is_working,
         current_stage=status.get("current_stage"),
         current_card=status.get("current_card"),
         progress=status.get("progress"),
@@ -82,12 +98,12 @@ async def get_live_kanban(db: AsyncSession = Depends(get_db)):
     )
     cards = result.scalars().all()
 
-    # Group by column
+    # Group by column (must match card_repository.py ALLOWED_TRANSITIONS)
     columns = {
         "backlog": [],
-        "planning": [],
-        "implementing": [],
-        "testing": [],
+        "plan": [],
+        "implement": [],
+        "test": [],
         "review": [],
         "done": []
     }
@@ -247,6 +263,131 @@ async def like_project(
 
 
 # ============================================================================
+# Game Ranking Endpoints
+# ============================================================================
+
+@router.get("/game/ranking")
+async def get_game_ranking(
+    game_type: str = "snake",
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get game ranking/leaderboard."""
+    result = await db.execute(
+        select(GameScore)
+        .where(GameScore.game_type == game_type)
+        .order_by(GameScore.score.desc())
+        .limit(limit)
+    )
+    scores = result.scalars().all()
+
+    return {
+        "ranking": [
+            {
+                "id": s.id,
+                "playerName": s.player_name,
+                "score": s.score,
+                "gameType": s.game_type,
+                "createdAt": s.created_at.isoformat()
+            }
+            for s in scores
+        ],
+        "total": len(scores)
+    }
+
+
+@router.post("/game/score")
+async def submit_game_score(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """Submit a game score with retry for concurrent writes."""
+    data = await request.json()
+
+    player_name = data.get("player_name", "").strip()[:50]
+    score = data.get("score", 0)
+    game_type = data.get("game_type", "snake")
+    session_id = data.get("session_id", str(uuid4()))
+
+    if not player_name:
+        raise HTTPException(status_code=400, detail="Player name is required")
+
+    if score <= 0:
+        raise HTTPException(status_code=400, detail="Score must be positive")
+
+    # Retry logic for concurrent writes (SQLite database locked)
+    max_retries = 5
+    game_score = None
+
+    for attempt in range(max_retries):
+        try:
+            # Create score entry
+            game_score = GameScore(
+                id=str(uuid4()),
+                player_name=player_name,
+                session_id=session_id,
+                game_type=game_type,
+                score=score
+            )
+
+            db.add(game_score)
+            await db.commit()
+            break  # Success, exit retry loop
+
+        except OperationalError as e:
+            if "database is locked" in str(e).lower() and attempt < max_retries - 1:
+                await db.rollback()
+                wait_time = 0.1 * (attempt + 1)  # 0.1s, 0.2s, 0.3s, 0.4s
+                logger.warning(f"[GameScore] DB locked, retry {attempt + 1}/{max_retries} in {wait_time}s")
+                await asyncio.sleep(wait_time)
+            else:
+                logger.error(f"[GameScore] Failed to save score after {attempt + 1} attempts: {e}")
+                raise HTTPException(status_code=503, detail="Database busy, please try again")
+
+    if not game_score:
+        raise HTTPException(status_code=503, detail="Failed to save score")
+
+    # Check rank (read operation, less likely to lock)
+    try:
+        result = await db.execute(
+            select(func.count(GameScore.id))
+            .where(GameScore.game_type == game_type)
+            .where(GameScore.score > score)
+        )
+        rank = (result.scalar() or 0) + 1
+    except OperationalError:
+        rank = 99  # Fallback rank if read fails
+
+    # Broadcast to all viewers if top 10
+    if rank <= 10:
+        broadcast = get_live_broadcast_service()
+        await broadcast.broadcast({
+            "type": "game_ranking_update",
+            "entry": {
+                "id": game_score.id,
+                "playerName": player_name,
+                "score": score,
+                "gameType": game_type,
+                "createdAt": game_score.created_at.isoformat(),
+                "isNew": True
+            },
+            "rank": rank
+        })
+
+        # Also broadcast as log for visibility
+        if rank == 1:
+            await broadcast.broadcast_log(f"🏆 NOVO RECORDE! {player_name} fez {score} pts no {game_type}!", "success")
+        else:
+            await broadcast.broadcast_log(f"🎮 {player_name} entrou no TOP {rank} com {score} pts!", "info")
+
+    return {
+        "success": True,
+        "score_id": game_score.id,
+        "rank": rank
+    }
+
+
+# ============================================================================
 # Admin Endpoints (for starting voting, adding projects)
 # ============================================================================
 
@@ -353,11 +494,20 @@ async def admin_add_project(
 # ============================================================================
 
 @router.get("/admin/live-mode")
-async def get_live_mode_status():
-    """Get current live mode status."""
-    global _live_mode_active
+async def get_live_mode_status(db: AsyncSession = Depends(get_db)):
+    """Get current live mode status based on kanban state."""
+    # Live mode is active if there are cards being processed (not in backlog or done)
+    processing_columns = ['plan', 'implement', 'test', 'review']
+
+    result = await db.execute(
+        select(func.count(Card.id))
+        .where(Card.column_id.in_(processing_columns))
+    )
+    cards_in_progress = result.scalar() or 0
+
     return {
-        "active": _live_mode_active,
+        "active": cards_in_progress > 0,
+        "cards_in_progress": cards_in_progress,
         "projects_path": LIVE_PROJECTS_PATH
     }
 
@@ -380,7 +530,7 @@ _project_counter = 0
 
 async def _start_project_by_id(project_id: str, title: str = None, description: str = None) -> dict:
     """Internal function to start a project by its ID or AI-generated data. Called after voting ends."""
-    global _live_mode_active, _project_counter
+    global _project_counter
 
     # Find project in predefined options
     project = next((p for p in PROJECT_OPTIONS if p["id"] == project_id), None)
@@ -444,8 +594,6 @@ async def _start_project_by_id(project_id: str, title: str = None, description: 
         source_id=f"{project_folder}|{project['title']}|{project.get('id', '')}"  # folder|title|category
     )
 
-    _live_mode_active = True
-
     # Broadcast
     broadcast = get_live_broadcast_service()
     await broadcast.update_status(is_working=True, current_stage="starting")
@@ -465,10 +613,18 @@ async def start_live_mode(
     db: AsyncSession = Depends(get_db)
 ):
     """Start live mode - submit the entertainment goal to orchestrator."""
-    global _live_mode_active, _project_counter
+    global _project_counter
 
-    if _live_mode_active:
-        raise HTTPException(status_code=400, detail="Live mode is already active")
+    # Check if there are cards already being processed
+    processing_columns = ['plan', 'implement', 'test', 'review']
+    result = await db.execute(
+        select(func.count(Card.id))
+        .where(Card.column_id.in_(processing_columns))
+    )
+    cards_in_progress = result.scalar() or 0
+
+    if cards_in_progress > 0:
+        raise HTTPException(status_code=400, detail=f"Live mode is already active ({cards_in_progress} cards in progress)")
 
     # Set active project to live-projects directory
     from ..models.project import ActiveProject
@@ -532,8 +688,6 @@ async def start_live_mode(
         )
         goal_id = result.get("goal_id") if isinstance(result, dict) else str(result)
 
-        _live_mode_active = True
-
         # Broadcast status update
         broadcast = get_live_broadcast_service()
         await broadcast.update_status(is_working=True, current_stage="starting")
@@ -554,23 +708,35 @@ async def start_live_mode(
 
 
 @router.post("/admin/live-mode/stop")
-async def stop_live_mode():
-    """Stop live mode."""
-    global _live_mode_active
+async def stop_live_mode(db: AsyncSession = Depends(get_db)):
+    """Stop live mode - moves all in-progress cards back to backlog."""
+    # Check if there are cards being processed
+    processing_columns = ['plan', 'implement', 'test', 'review']
+    result = await db.execute(
+        select(func.count(Card.id))
+        .where(Card.column_id.in_(processing_columns))
+    )
+    cards_in_progress = result.scalar() or 0
 
-    if not _live_mode_active:
+    if cards_in_progress == 0:
         raise HTTPException(status_code=400, detail="Live mode is not active")
 
-    _live_mode_active = False
+    # Move all in-progress cards back to backlog
+    await db.execute(
+        update(Card)
+        .where(Card.column_id.in_(processing_columns))
+        .values(column_id='backlog')
+    )
+    await db.commit()
 
     # Broadcast status update
     broadcast = get_live_broadcast_service()
     await broadcast.update_status(is_working=False, current_stage=None)
-    await broadcast.broadcast_log("Live mode stopped.", "info")
+    await broadcast.broadcast_log(f"Live mode stopped. {cards_in_progress} cards moved to backlog.", "info")
 
     return {
         "success": True,
-        "message": "Live mode stopped"
+        "message": f"Live mode stopped. {cards_in_progress} cards moved to backlog."
     }
 
 

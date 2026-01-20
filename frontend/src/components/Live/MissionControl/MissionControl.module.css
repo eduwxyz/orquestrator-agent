@@ -244,6 +244,38 @@
   gap: 1rem;
 }
 
+.galleryButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.15) 0%, rgba(34, 197, 94, 0.15) 100%);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  border-radius: 8px;
+  color: #22d3ee;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.galleryButton:hover {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.25) 0%, rgba(34, 197, 94, 0.25) 100%);
+  border-color: #22d3ee;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34, 211, 238, 0.2);
+}
+
+.galleryIcon {
+  font-size: 1rem;
+}
+
+.galleryText {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 .timer {
   font-size: 1.5rem;
   font-weight: 700;
@@ -289,7 +321,7 @@
 .main {
   display: grid;
   grid-template-columns: 1fr 350px;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: auto 1fr;
   gap: 1rem;
   padding: 1rem;
   height: calc(100vh - 60px);
@@ -307,13 +339,14 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  min-height: 0; /* Permite shrink para scroll funcionar */
+  max-height: 280px;
   overflow: hidden;
 }
 
 .terminal {
   flex: 1;
-  min-height: 0; /* Permite shrink para scroll funcionar */
+  min-height: 0;
+  max-height: 280px;
   background: #0d1117;
   border: 1px solid #30363d;
   border-radius: 8px;
@@ -546,78 +579,129 @@
 }
 
 /* ============================================================================
-   Event Feed
+   Game Section
    ============================================================================ */
 
-.eventSection {
+.gameSection {
   grid-column: 1;
   grid-row: 2;
+  display: flex;
+  gap: 1rem;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.eventFeed {
+/* ============================================================================
+   Name Prompt Modal
+   ============================================================================ */
+
+.namePromptOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.namePromptModal {
   background: #161b22;
   border: 1px solid #30363d;
-  border-radius: 8px;
-  padding: 1rem;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.eventList {
+  border-radius: 12px;
+  padding: 2rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 1rem;
+  min-width: 280px;
+  animation: fadeInUp 0.3s ease-out;
 }
 
-.eventItem {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.5rem;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-  animation: slideIn 0.3s ease-out;
-  border-left: 3px solid transparent;
+.namePromptTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f59e0b;
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
 }
 
-.eventItem.success {
-  border-left-color: #22c55e;
-  animation: slideIn 0.3s ease-out, successFlash 0.5s ease-out;
-}
-
-.eventItem.error {
-  border-left-color: #ef4444;
-  animation: slideIn 0.3s ease-out, errorFlash 0.5s ease-out;
-}
-
-.eventItem.info {
-  border-left-color: #22d3ee;
-}
-
-.eventItem.warning {
-  border-left-color: #f59e0b;
-}
-
-.eventIcon {
-  font-size: 1rem;
-  flex-shrink: 0;
-}
-
-.eventContent {
-  flex: 1;
-  min-width: 0;
-}
-
-.eventMessage {
-  font-size: 0.75rem;
-  color: #e6edf3;
-  word-break: break-word;
-}
-
-.eventTime {
-  font-size: 0.625rem;
-  color: #6e7681;
+.namePromptScore {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #22c55e;
   font-variant-numeric: tabular-nums;
+}
+
+.namePromptInput {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #e6edf3;
+  font-size: 1rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.namePromptInput:focus {
+  border-color: #22d3ee;
+}
+
+.namePromptInput::placeholder {
+  color: #6e7681;
+}
+
+.namePromptButtons {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.namePromptButton {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #22c55e 0%, #22d3ee 100%);
+  border: none;
+  border-radius: 6px;
+  color: #0d1117;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.namePromptButton:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+.namePromptButton:active {
+  transform: scale(0.98);
+}
+
+.namePromptCancelButton {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #8b949e;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.namePromptCancelButton:hover {
+  border-color: #6e7681;
+  color: #e6edf3;
 }
 
 /* ============================================================================

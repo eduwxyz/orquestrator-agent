@@ -82,6 +82,7 @@ export type LiveWSMessageType =
   | 'voting_ended'
   | 'project_liked'
   | 'agent_status'
+  | 'game_ranking_update'
   | 'pong';
 
 export interface WSMessageBase {
@@ -149,6 +150,21 @@ export interface WSAgentStatus extends WSMessageBase {
   task?: string;
 }
 
+export interface GameRankingEntry {
+  id: string;
+  playerName: string;
+  score: number;
+  gameType: string;
+  createdAt: string;
+  isNew?: boolean;
+}
+
+export interface WSGameRankingUpdate extends WSMessageBase {
+  type: 'game_ranking_update';
+  entry: GameRankingEntry;
+  rank: number;
+}
+
 export type LiveWSMessage =
   | WSPresenceUpdate
   | WSStatusUpdate
@@ -158,7 +174,8 @@ export type LiveWSMessage =
   | WSVotingUpdate
   | WSVotingEnded
   | WSProjectLiked
-  | WSAgentStatus;
+  | WSAgentStatus
+  | WSGameRankingUpdate;
 
 // ============================================================================
 // Live State

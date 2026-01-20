@@ -1,4 +1,4 @@
-import { useCallback, useReducer, useEffect } from 'react';
+import { useCallback, useReducer, useEffect, useRef } from 'react';
 import { useWebSocketBase } from './useWebSocketBase';
 import { WS_ENDPOINTS } from '../api/config';
 import {
@@ -7,7 +7,8 @@ import {
   LiveCard,
   VotingOption,
   WSLogEntry,
-  LiveColumnId
+  LiveColumnId,
+  LiveKanban
 } from '../types/live';
 
 // ============================================================================
@@ -24,6 +25,7 @@ interface AgentState {
 type LiveAction =
   | { type: 'SET_SPECTATOR_COUNT'; count: number }
   | { type: 'SET_STATUS'; isWorking: boolean; stage?: string; card?: LiveCard; progress?: number }
+  | { type: 'SET_KANBAN'; kanban: LiveKanban }
   | { type: 'CARD_MOVED'; card: LiveCard; fromColumn: string; toColumn: string }
   | { type: 'CARD_CREATED'; card: LiveCard }
   | { type: 'CARD_UPDATED'; card: LiveCard }
@@ -87,6 +89,12 @@ function liveReducer(state: ExtendedLiveState, action: LiveAction): ExtendedLive
           currentCard: action.card || null,
           progress: action.progress ?? null,
         },
+      };
+
+    case 'SET_KANBAN':
+      return {
+        ...state,
+        kanban: action.kanban,
       };
 
     case 'CARD_MOVED': {
@@ -236,8 +244,13 @@ function liveReducer(state: ExtendedLiveState, action: LiveAction): ExtendedLive
 // Hook
 // ============================================================================
 
-export function useLiveWebSocket() {
+interface UseLiveWebSocketOptions {
+  onGameRankingUpdate?: (entry: any, rank: number) => void;
+}
+
+export function useLiveWebSocket(options: UseLiveWebSocketOptions = {}) {
   const [state, dispatch] = useReducer(liveReducer, initialState);
+  const { onGameRankingUpdate } = options;
 
   const handleMessage = useCallback((data: unknown) => {
     const message = data as LiveWSMessage;
@@ -295,12 +308,14 @@ export function useLiveWebSocket() {
         break;
 
       case 'voting_started':
+        // Backend sends snake_case
+        const votingMsg = message as any;
         dispatch({
           type: 'VOTING_STARTED',
-          roundId: message.roundId,
-          options: message.options,
-          endsAt: message.endsAt,
-          duration: message.durationSeconds,
+          roundId: votingMsg.round_id ?? votingMsg.roundId,
+          options: votingMsg.options,
+          endsAt: votingMsg.ends_at ?? votingMsg.endsAt,
+          duration: votingMsg.duration_seconds ?? votingMsg.durationSeconds ?? 60,
         });
         break;
 
@@ -333,8 +348,15 @@ export function useLiveWebSocket() {
           task: agentMsg.task,
         });
         break;
+
+      case 'game_ranking_update':
+        const rankMsg = message as any;
+        if (onGameRankingUpdate) {
+          onGameRankingUpdate(rankMsg.entry, rankMsg.rank);
+        }
+        break;
     }
-  }, []);
+  }, [onGameRankingUpdate]);
 
   const { isConnected, status, send, reconnect } = useWebSocketBase({
     url: WS_ENDPOINTS.live,
@@ -358,6 +380,81 @@ export function useLiveWebSocket() {
 
     return () => clearInterval(timer);
   }, [state.voting.isActive]);
+
+  // Fetch initial state when connected
+  const hasFetchedInitial = useRef(false);
+  useEffect(() => {
+    if (!isConnected) {
+      hasFetchedInitial.current = false;
+      return;
+    }
+
+    if (hasFetchedInitial.current) return;
+    hasFetchedInitial.current = true;
+
+    // Fetch kanban and status in parallel
+    const fetchInitialState = async () => {
+      try {
+        const [kanbanRes, statusRes] = await Promise.all([
+          fetch('/api/live/kanban'),
+          fetch('/api/live/status'),
+        ]);
+
+        if (kanbanRes.ok) {
+          const kanbanData = await kanbanRes.json();
+          // Transform snake_case to match our state
+          const columns: Record<string, LiveCard[]> = {
+            backlog: [],
+            plan: [],
+            implement: [],
+            test: [],
+            review: [],
+            done: [],
+          };
+
+          // Map API columns to our columns
+          for (const [col, cards] of Object.entries(kanbanData.columns || {})) {
+            if (col in columns) {
+              columns[col] = (cards as any[]).map(c => ({
+                id: c.id,
+                title: c.title,
+                description: c.description,
+                columnId: c.column_id,
+                createdAt: c.created_at,
+              }));
+            }
+          }
+
+          dispatch({
+            type: 'SET_KANBAN',
+            kanban: {
+              columns: columns as LiveKanban['columns'],
+              totalCards: kanbanData.total_cards || 0,
+            },
+          });
+        }
+
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          dispatch({
+            type: 'SET_STATUS',
+            isWorking: statusData.is_working ?? false,
+            stage: statusData.current_stage,
+            card: statusData.current_card,
+            progress: statusData.progress,
+          });
+          dispatch({
+            type: 'SET_SPECTATOR_COUNT',
+            count: statusData.spectator_count ?? 0,
+          });
+        }
+      } catch (error) {
+        console.error('[LiveWS] Failed to fetch initial state:', error);
+      }
+    };
+
+    fetchInitialState();
+  }, [isConnected]);
 
   return {
     state,

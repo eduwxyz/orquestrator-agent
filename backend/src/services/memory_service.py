@@ -33,6 +33,7 @@ class MemoryService:
         self.log_repo = LogRepository(session, retention_hours)
         self.goal_repo = GoalRepository(session)
         self.qdrant = get_qdrant_service()
+        self._pending_logs: List[dict] = []  # Batch logging to avoid DB locks
 
     # ==================== SHORT-TERM MEMORY (SQLite) ====================
 
@@ -43,14 +44,33 @@ class MemoryService:
         context: Optional[dict] = None,
         goal_id: Optional[str] = None,
     ) -> None:
-        """Record an orchestrator step in short-term memory."""
-        await self.log_repo.add(
-            log_type=step_type,
-            content=content,
-            context=context,
-            goal_id=goal_id,
-        )
-        logger.debug(f"[Memory] Recorded {step_type.value}: {content[:50]}...")
+        """Accumulate log in memory (doesn't block DB)."""
+        self._pending_logs.append({
+            "step_type": step_type,
+            "content": content,
+            "context": context,
+            "goal_id": goal_id,
+        })
+        logger.debug(f"[Memory] Queued {step_type.value}: {content[:50]}...")
+
+    async def flush_pending_logs(self) -> int:
+        """Write all pending logs in batch."""
+        if not self._pending_logs:
+            return 0
+
+        count = 0
+        for log_data in self._pending_logs:
+            await self.log_repo.add(
+                log_type=log_data["step_type"],
+                content=log_data["content"],
+                context=log_data["context"],
+                goal_id=log_data["goal_id"],
+            )
+            count += 1
+
+        self._pending_logs.clear()
+        logger.debug(f"[Memory] Flushed {count} pending logs")
+        return count
 
     async def get_recent_context(self, limit: int = 20) -> Dict[str, Any]:
         """

@@ -171,6 +171,9 @@ class OrchestratorService:
         # Get fresh session for this cycle (uses current project's database)
         session_factory = self._get_session_factory()
 
+        # Will be set if goal completes and needs gallery save
+        goal_for_gallery = None
+
         async with session_factory() as session:
             try:
                 # Create repos with fresh session
@@ -227,10 +230,35 @@ class OrchestratorService:
 
                 await session.commit()
 
+                # Flush pending logs after main commit (batch write to avoid DB locks)
+                memory = repos["memory"]
+                await memory.flush_pending_logs()
+                await session.commit()
+
+                # Store goal_for_gallery to process after session closes
+                goal_for_gallery = act_result.data.get("goal_for_gallery") if act_result.data else None
+
             except Exception as e:
                 await session.rollback()
                 await live_broadcast.broadcast_log(f"Cycle error: {str(e)}", "error")
+
+                # Try to save logs even on error (for debugging)
+                try:
+                    memory = repos["memory"]
+                    await memory.flush_pending_logs()
+                    await session.commit()
+                except Exception:
+                    pass  # If fails, logs are lost (acceptable)
+
                 raise
+
+        # AFTER session is closed: Process gallery save and voting
+        # This avoids "database is locked" because no other session is holding the lock
+        if goal_for_gallery:
+            await live_broadcast.broadcast_log("📸 Salvando na galeria...", "info")
+            await self._save_completed_project_from_data(goal_for_gallery)
+            await asyncio.sleep(2)
+            await self._start_voting_for_next_project()
 
         cycle_duration = (datetime.utcnow() - cycle_start).total_seconds()
         await self.logger.log_info(f"Cycle completed in {cycle_duration:.2f}s")
@@ -854,7 +882,7 @@ class OrchestratorService:
         )
 
     async def _act_complete_goal(self, goal_id: str, repos: Dict[str, Any]) -> ActResult:
-        """Complete a goal and extract learning, then start voting for next project."""
+        """Complete a goal and extract learning. Gallery save happens AFTER commit."""
         goal_repo = repos["goal_repo"]
 
         goal = await goal_repo.get_by_id(goal_id)
@@ -872,26 +900,84 @@ class OrchestratorService:
         await live_broadcast.broadcast_log("🎉 Projeto concluído!", "success")
         await live_broadcast.update_status(is_working=False, current_stage="completed")
 
-        # For live_mode goals: save to gallery and start voting
-        if goal.source in ["live_mode", "live_mode_voting"]:
-            # Longer delay to ensure previous transaction is fully committed (avoid DB locked)
-            await asyncio.sleep(3)
-            # Create CompletedProject for gallery
-            await self._save_completed_project(goal)
-            # Another delay before voting (avoid DB locked)
-            await asyncio.sleep(3)
-            # Start voting for next project
-            await self._start_voting_for_next_project()
+        # NOTE: Gallery save and voting moved to _execute_cycle (after commit)
+        # to avoid "database is locked" errors from concurrent sessions
 
         return ActResult(
             success=True,
             should_learn=True,
             learning=learning,
-            data={"cards_completed": len(goal.cards or [])}
+            data={
+                "cards_completed": len(goal.cards or []),
+                # Pass goal data for post-commit gallery save
+                "goal_for_gallery": {
+                    "source": goal.source,
+                    "source_id": goal.source_id,
+                    "description": goal.description,
+                    "cards": goal.cards,
+                } if goal.source in ["live_mode", "live_mode_voting"] else None
+            }
         )
 
+    async def _save_completed_project_from_data(self, goal_data: dict) -> None:
+        """Save completed project to gallery (called AFTER session commit)."""
+        from uuid import uuid4
+        from ..models.live import CompletedProject
+        from ..database import async_session_maker
+
+        live_broadcast = get_live_broadcast_service()
+
+        # Parse source_id: "folder|title|category"
+        source_id = goal_data.get("source_id")
+        if not source_id:
+            logger.warning("Goal has no source_id, skipping gallery save")
+            return
+
+        parts = source_id.split("|")
+        project_folder = parts[0] if len(parts) > 0 else "unknown"
+        project_title = parts[1] if len(parts) > 1 else "Projeto"
+        project_category = parts[2] if len(parts) > 2 else None
+        description = goal_data.get("description", "")
+        cards = goal_data.get("cards", [])
+
+        try:
+            async with async_session_maker() as session:
+                completed = CompletedProject(
+                    id=str(uuid4()),
+                    title=project_title,
+                    description=description[:500] if description else None,
+                    category=project_category,
+                    preview_url=f"/projects/{project_folder}/index.html",
+                    screenshot_url=None,
+                    like_count=0,
+                    card_id=cards[0] if cards else None,
+                )
+                session.add(completed)
+                await session.commit()
+
+                logger.info(f"[Orchestrator] Saved to gallery: {project_title}")
+                await live_broadcast.broadcast_log(
+                    f"📸 Projeto adicionado à galeria: {project_title}",
+                    "success"
+                )
+
+                # Broadcast new project to gallery
+                await live_broadcast.broadcast({
+                    "type": "project_added",
+                    "project": {
+                        "id": completed.id,
+                        "title": completed.title,
+                        "preview_url": completed.preview_url,
+                        "like_count": 0
+                    }
+                })
+
+        except Exception as e:
+            logger.exception(f"[Orchestrator] Failed to save to gallery: {e}")
+            await live_broadcast.broadcast_log(f"⚠️ Erro ao salvar na galeria: {e}", "error")
+
     async def _save_completed_project(self, goal) -> None:
-        """Save completed project to gallery with retry logic."""
+        """Save completed project to gallery with retry logic (DEPRECATED - use _save_completed_project_from_data)."""
         from uuid import uuid4
         from ..models.live import CompletedProject
         from ..database import async_session_maker
@@ -908,8 +994,8 @@ class OrchestratorService:
         project_title = parts[1] if len(parts) > 1 else "Projeto"
         project_category = parts[2] if len(parts) > 2 else None
 
-        # Retry logic for SQLite locks
-        max_retries = 3
+        # Retry logic for SQLite locks - more aggressive delays
+        max_retries = 5
         for attempt in range(max_retries):
             try:
                 async with async_session_maker() as session:
@@ -946,8 +1032,10 @@ class OrchestratorService:
 
             except Exception as e:
                 if "database is locked" in str(e) and attempt < max_retries - 1:
-                    logger.warning(f"[Orchestrator] DB locked, retrying in {(attempt + 1) * 2}s...")
-                    await asyncio.sleep((attempt + 1) * 2)
+                    wait_time = (attempt + 1) * 5  # 5s, 10s, 15s, 20s
+                    logger.warning(f"[Orchestrator] DB locked for gallery, retry {attempt + 1}/{max_retries} in {wait_time}s...")
+                    await live_broadcast.broadcast_log(f"⏳ DB ocupado, tentando novamente em {wait_time}s...", "warning")
+                    await asyncio.sleep(wait_time)
                 else:
                     logger.exception(f"[Orchestrator] Failed to save to gallery: {e}")
                     await live_broadcast.broadcast_log(f"⚠️ Erro ao salvar na galeria: {e}", "error")
@@ -982,8 +1070,8 @@ class OrchestratorService:
         await live_broadcast.broadcast_log("⏳ Votação começa em 3 segundos...", "info")
         await asyncio.sleep(3)
 
-        # Retry logic for SQLite locks
-        max_retries = 3
+        # Retry logic for SQLite locks - more aggressive delays
+        max_retries = 5
         for attempt in range(max_retries):
             try:
                 async with async_session_maker() as session:
@@ -1009,8 +1097,10 @@ class OrchestratorService:
 
             except Exception as e:
                 if "database is locked" in str(e) and attempt < max_retries - 1:
-                    logger.warning(f"[Orchestrator] DB locked for voting, retrying in {(attempt + 1) * 2}s...")
-                    await asyncio.sleep((attempt + 1) * 2)
+                    wait_time = (attempt + 1) * 5  # 5s, 10s, 15s, 20s
+                    logger.warning(f"[Orchestrator] DB locked for voting, retry {attempt + 1}/{max_retries} in {wait_time}s...")
+                    await live_broadcast.broadcast_log(f"⏳ DB ocupado para votação, tentando em {wait_time}s...", "warning")
+                    await asyncio.sleep(wait_time)
                 else:
                     logger.exception(f"[Orchestrator] Failed to start voting: {e}")
                     await live_broadcast.broadcast_log(f"❌ Erro ao iniciar votação: {e}", "error")

@@ -3,6 +3,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { LiveState } from '../../../types/live';
 import { VotingModal } from '../VotingModal';
 import { AutoReactions } from './AutoReactions';
+import { SnakeGame } from './SnakeGame';
+import { GameRanking, RankingEntry } from './GameRanking';
+import { ProjectGallery } from './ProjectGallery';
 import styles from './MissionControl.module.css';
 
 interface AgentState {
@@ -13,6 +16,7 @@ interface AgentState {
 interface MissionControlProps {
   state: LiveState & { agents?: Record<string, AgentState> };
   isConnected: boolean;
+  rankingUpdate?: { entry: RankingEntry; rank: number } | null;
 }
 
 // Agent display configuration
@@ -30,12 +34,24 @@ const AGENT_CONFIG: AgentDisplay[] = [
   { id: '3', name: 'CODER', role: 'Coder', avatar: '💻', stateKey: 'coder' },
 ];
 
-export function MissionControl({ state, isConnected }: MissionControlProps) {
+export function MissionControl({ state, isConnected, rankingUpdate }: MissionControlProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const [uptime, setUptime] = useState(0);
   const [reactionTrigger, setReactionTrigger] = useState<'success' | 'error' | 'start' | 'idle' | null>(null);
   const lastLogCountRef = useRef(0);
   const wasWorkingRef = useRef(false);
+
+  // Game state
+  const [ranking, setRanking] = useState<RankingEntry[]>([]);
+  const [playerName, setPlayerName] = useState<string>(() => {
+    return localStorage.getItem('snake_player_name') || '';
+  });
+  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [pendingScore, setPendingScore] = useState<number | null>(null);
+  const [inputName, setInputName] = useState('');
+  const [lastSaveResult, setLastSaveResult] = useState<{ success: boolean; rank?: number; message?: string } | null>(null);
+  const [isChangingName, setIsChangingName] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
 
   // Build agents from real state
   const agents = useMemo(() => {
@@ -134,22 +150,129 @@ export function MissionControl({ state, isConnected }: MissionControlProps) {
     }
   };
 
-  const getEventIcon = (logType?: string) => {
-    switch (logType) {
-      case 'success': return '✓';
-      case 'error': return '✗';
-      case 'warning': return '⚠';
-      case 'tool': return '⚡';
-      case 'result': return '→';
-      default: return '•';
-    }
-  };
-
   // Calculate stats
   const completedTasks = state.kanban.columns.done?.length || 0;
   const totalTasks = state.kanban.totalCards;
   const inProgress = (state.kanban.columns.implement?.length || 0) +
                      (state.kanban.columns.test?.length || 0);
+
+  // Fetch ranking
+  const fetchRanking = useCallback(async () => {
+    try {
+      const response = await fetch('/api/live/game/ranking?game_type=snake&limit=10');
+      if (response.ok) {
+        const data = await response.json();
+        setRanking(data.ranking || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch ranking:', error);
+    }
+  }, []);
+
+  // Submit score
+  const submitScore = useCallback(async (score: number, name: string) => {
+    console.log('[SnakeGame] Submitting score:', { name, score, sessionId });
+    try {
+      const response = await fetch('/api/live/game/score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          player_name: name,
+          score,
+          game_type: 'snake',
+          session_id: sessionId,
+        }),
+      });
+      const data = await response.json();
+      console.log('[SnakeGame] Score response:', response.status, data);
+
+      if (response.ok) {
+        setLastSaveResult({ success: true, rank: data.rank });
+        // Refresh ranking after submitting
+        fetchRanking();
+      } else {
+        setLastSaveResult({ success: false, message: data.detail || 'Erro ao salvar' });
+      }
+
+      // Clear toast after 3s
+      setTimeout(() => setLastSaveResult(null), 3000);
+    } catch (error) {
+      console.error('[SnakeGame] Failed to submit score:', error);
+      setLastSaveResult({ success: false, message: 'Erro de conexão' });
+      setTimeout(() => setLastSaveResult(null), 3000);
+    }
+  }, [sessionId, fetchRanking]);
+
+  // Handle game over
+  const handleGameOver = useCallback((score: number) => {
+    if (score === 0) return; // Don't save zero scores
+
+    if (playerName) {
+      submitScore(score, playerName);
+    } else {
+      setPendingScore(score);
+      setShowNamePrompt(true);
+    }
+  }, [playerName, submitScore]);
+
+  // Handle name submit
+  const handleNameSubmit = useCallback((name: string) => {
+    const trimmedName = name.trim().slice(0, 15); // Max 15 chars
+    console.log('[SnakeGame] handleNameSubmit:', { name, trimmedName, pendingScore, isChangingName });
+    if (!trimmedName) return;
+
+    localStorage.setItem('snake_player_name', trimmedName);
+    setPlayerName(trimmedName);
+    setShowNamePrompt(false);
+    setIsChangingName(false);
+
+    if (pendingScore !== null && !isChangingName) {
+      submitScore(pendingScore, trimmedName);
+      setPendingScore(null);
+    }
+  }, [pendingScore, submitScore, isChangingName]);
+
+  // Handle change name request
+  const handleChangeName = useCallback(() => {
+    setInputName(playerName);
+    setIsChangingName(true);
+    setShowNamePrompt(true);
+  }, [playerName]);
+
+  // Load ranking on mount
+  useEffect(() => {
+    fetchRanking();
+  }, [fetchRanking]);
+
+  // Poll ranking every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(fetchRanking, 10000);
+    return () => clearInterval(interval);
+  }, [fetchRanking]);
+
+  // Handle real-time ranking updates from WebSocket
+  useEffect(() => {
+    if (rankingUpdate?.entry) {
+      // Add new entry to ranking with isNew flag
+      setRanking(prev => {
+        const newEntry = { ...rankingUpdate.entry, isNew: true };
+
+        // Check if entry already exists
+        const existingIndex = prev.findIndex(e => e.id === newEntry.id);
+        if (existingIndex >= 0) {
+          return prev;
+        }
+
+        // Insert at correct position based on rank
+        const newRanking = [...prev];
+        const insertIndex = rankingUpdate.rank - 1;
+        newRanking.splice(insertIndex, 0, newEntry);
+
+        // Keep only top 10
+        return newRanking.slice(0, 10);
+      });
+    }
+  }, [rankingUpdate]);
 
   return (
     <div className={styles.container}>
@@ -185,6 +308,14 @@ export function MissionControl({ state, isConnected }: MissionControlProps) {
         </div>
 
         <div className={styles.headerRight}>
+          <button
+            className={styles.galleryButton}
+            onClick={() => setShowGallery(true)}
+            title="Ver projetos finalizados"
+          >
+            <span className={styles.galleryIcon}>🏆</span>
+            <span className={styles.galleryText}>Projetos</span>
+          </button>
           <div className={styles.timer}>{formatUptime(uptime)}</div>
           <div className={`${styles.connectionStatus} ${isConnected ? styles.connected : styles.disconnected}`}>
             <div className={styles.statusDot} />
@@ -367,45 +498,85 @@ export function MissionControl({ state, isConnected }: MissionControlProps) {
           </div>
         </section>
 
-        {/* Event Feed */}
-        <section className={styles.eventSection}>
-          <div className={styles.eventFeed}>
-            <div className={styles.panelTitle}>
-              <span className={styles.panelTitleIcon}>📋</span>
-              Event Log
-            </div>
-            <div className={styles.eventList}>
-              {state.logs.slice(-10).reverse().map((log, idx) => (
-                <div
-                  key={`event-${log.timestamp}-${idx}`}
-                  className={`${styles.eventItem} ${getLogTypeClass(log.logType)}`}
-                >
-                  <span className={styles.eventIcon}>{getEventIcon(log.logType)}</span>
-                  <div className={styles.eventContent}>
-                    <div className={styles.eventMessage}>{log.content}</div>
-                    <div className={styles.eventTime}>
-                      {new Date(log.timestamp).toLocaleTimeString()}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {state.logs.length === 0 && (
-                <div className={styles.eventItem}>
-                  <span className={styles.eventIcon}>•</span>
-                  <div className={styles.eventContent}>
-                    <div className={styles.eventMessage}>System initialized. Waiting for events...</div>
-                    <div className={styles.eventTime}>{new Date().toLocaleTimeString()}</div>
-                  </div>
-                </div>
+        {/* Game Section */}
+        <section className={styles.gameSection}>
+          <SnakeGame
+            onGameOver={handleGameOver}
+            playerName={playerName}
+            onChangeName={handleChangeName}
+            lastSaveResult={lastSaveResult}
+          />
+          <GameRanking
+            ranking={ranking}
+            currentPlayerName={playerName}
+          />
+        </section>
+
+        {/* Name Prompt Modal */}
+        {showNamePrompt && (
+          <div className={styles.namePromptOverlay}>
+            <div className={styles.namePromptModal}>
+              <div className={styles.namePromptTitle}>
+                {isChangingName ? '✏️ Trocar Nome' : '🏆 Salvar Score!'}
+              </div>
+              {!isChangingName && pendingScore !== null && (
+                <div className={styles.namePromptScore}>Score: {pendingScore}</div>
               )}
+              <input
+                type="text"
+                placeholder="Digite seu nome..."
+                maxLength={15}
+                className={styles.namePromptInput}
+                autoFocus
+                value={inputName}
+                onChange={(e) => setInputName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && inputName.trim()) {
+                    handleNameSubmit(inputName);
+                    setInputName('');
+                  }
+                  if (e.key === 'Escape') {
+                    setShowNamePrompt(false);
+                    setIsChangingName(false);
+                    setInputName('');
+                  }
+                }}
+              />
+              <div className={styles.namePromptButtons}>
+                <button
+                  className={styles.namePromptButton}
+                  onClick={() => {
+                    if (inputName.trim()) {
+                      handleNameSubmit(inputName);
+                      setInputName('');
+                    }
+                  }}
+                >
+                  Salvar
+                </button>
+                {isChangingName && (
+                  <button
+                    className={styles.namePromptCancelButton}
+                    onClick={() => {
+                      setShowNamePrompt(false);
+                      setIsChangingName(false);
+                      setInputName('');
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-
-        </section>
+        )}
       </main>
 
       {/* Voting Modal - Full Screen Overlay */}
       <VotingModal voting={state.voting} sessionId={sessionId} />
+
+      {/* Project Gallery Modal */}
+      <ProjectGallery isOpen={showGallery} onClose={() => setShowGallery(false)} />
     </div>
   );
 }
