@@ -1,0 +1,1 @@
+export { VotingModal } from './VotingModal';

@@ -12,6 +12,7 @@ export interface LiveStatus {
   currentCard: LiveCard | null;
   progress: number | null;
   spectatorCount: number;
+  liveStartedAt?: string | null;
 }
 
 // ============================================================================
@@ -81,6 +82,8 @@ export type LiveWSMessageType =
   | 'voting_update'
   | 'voting_ended'
   | 'project_liked'
+  | 'agent_status'
+  | 'game_ranking_update'
   | 'pong';
 
 export interface WSMessageBase {
@@ -99,6 +102,7 @@ export interface WSStatusUpdate extends WSMessageBase {
   currentStage?: string;
   currentCard?: LiveCard;
   progress?: number;
+  liveStartedAt?: string | null;
 }
 
 export interface WSCardUpdate extends WSMessageBase {
@@ -112,7 +116,7 @@ export interface WSCardUpdate extends WSMessageBase {
 export interface WSLogEntry extends WSMessageBase {
   type: 'log_entry';
   content: string;
-  logType?: 'info' | 'success' | 'error' | 'warning';
+  logType?: 'info' | 'success' | 'error' | 'warning' | 'tool' | 'result' | 'text';
 }
 
 export interface WSVotingStarted extends WSMessageBase {
@@ -141,6 +145,28 @@ export interface WSProjectLiked extends WSMessageBase {
   likeCount: number;
 }
 
+export interface WSAgentStatus extends WSMessageBase {
+  type: 'agent_status';
+  agentId: string;
+  status: 'idle' | 'working' | 'error';
+  task?: string;
+}
+
+export interface GameRankingEntry {
+  id: string;
+  playerName: string;
+  score: number;
+  gameType: string;
+  createdAt: string;
+  isNew?: boolean;
+}
+
+export interface WSGameRankingUpdate extends WSMessageBase {
+  type: 'game_ranking_update';
+  entry: GameRankingEntry;
+  rank: number;
+}
+
 export type LiveWSMessage =
   | WSPresenceUpdate
   | WSStatusUpdate
@@ -149,7 +175,9 @@ export type LiveWSMessage =
   | WSVotingStarted
   | WSVotingUpdate
   | WSVotingEnded
-  | WSProjectLiked;
+  | WSProjectLiked
+  | WSAgentStatus
+  | WSGameRankingUpdate;
 
 // ============================================================================
 // Live State

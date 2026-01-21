@@ -1,8 +1,11 @@
 """Main orchestrator service for autonomous goal execution."""
 
 import asyncio
+import json
 import logging
+import re
 from datetime import datetime
+from pathlib import Path
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 from enum import Enum
@@ -19,7 +22,36 @@ from .usage_checker_service import get_usage_checker_service, UsageInfo
 from .orchestrator_logger import get_orchestrator_logger
 from .live_broadcast_service import get_live_broadcast_service
 
+from claude_agent_sdk import (
+    query,
+    ClaudeAgentOptions,
+    AssistantMessage,
+    TextBlock,
+)
+
 logger = logging.getLogger(__name__)
+
+
+class _NoopMemoryService:
+    """No-op memory service to disable external memory dependencies."""
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def get_recent_context(self) -> dict:
+        return {}
+
+    def query_relevant_learnings(self, *args, **kwargs) -> list:
+        return []
+
+    async def record_step(self, *args, **kwargs) -> None:
+        return None
+
+    async def flush_pending_logs(self) -> None:
+        return None
+
+    def store_learning(self, *args, **kwargs):
+        return None
 
 
 class OrchestratorDecision(str, Enum):
@@ -87,12 +119,13 @@ class OrchestratorService:
 
     def _create_repos(self, session: AsyncSession):
         """Create repository instances with a fresh session."""
+        memory_cls = MemoryService if self.settings.memory_service_enabled else _NoopMemoryService
         return {
             "goal_repo": GoalRepository(session),
             "action_repo": ActionRepository(session),
             "log_repo": LogRepository(session, self.settings.short_term_memory_retention_hours),
             "card_repo": CardRepository(session),
-            "memory": MemoryService(session, self.settings.short_term_memory_retention_hours),
+            "memory": memory_cls(session, self.settings.short_term_memory_retention_hours),
         }
 
     # ==================== LOOP CONTROL ====================
@@ -125,13 +158,26 @@ class OrchestratorService:
         return self._running
 
     async def _run_loop(self) -> None:
-        """Main orchestrator loop."""
+        """Main orchestrator loop with retry for database locks."""
         while self._running:
-            try:
-                await self._execute_cycle()
-            except Exception as e:
-                logger.exception(f"[Orchestrator] Error in loop: {e}")
-                await self.logger.log_error(f"Loop error: {e}")
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    await self._execute_cycle()
+                    break  # Success, exit retry loop
+                except Exception as e:
+                    error_str = str(e)
+                    if "database is locked" in error_str and attempt < max_retries - 1:
+                        wait_time = (attempt + 1) * 3  # 3s, 6s, 9s
+                        logger.warning(f"[Orchestrator] DB locked, retry {attempt + 1}/{max_retries} in {wait_time}s")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        logger.exception(f"[Orchestrator] Error in loop: {e}")
+                        try:
+                            await self.logger.log_error(f"Loop error: {e}")
+                        except Exception:
+                            pass  # Don't fail if logging fails
+                        break
 
             # Wait for next cycle
             await asyncio.sleep(self.settings.orchestrator_loop_interval_seconds)
@@ -151,11 +197,13 @@ class OrchestratorService:
         # Get fresh session for this cycle (uses current project's database)
         session_factory = self._get_session_factory()
 
+        # Will be set if goal completes and needs gallery save
+        goal_for_gallery = None
+
         async with session_factory() as session:
             try:
                 # Create repos with fresh session
                 repos = self._create_repos(session)
-
                 # Step 1: READ - Get recent context
                 await self.logger.log_read("Reading short-term memory...")
                 await live_broadcast.broadcast_log("📖 Reading context...", "info")
@@ -207,10 +255,35 @@ class OrchestratorService:
 
                 await session.commit()
 
+                # Flush pending logs after main commit (batch write to avoid DB locks)
+                memory = repos["memory"]
+                await memory.flush_pending_logs()
+                await session.commit()
+
+                # Store goal_for_gallery to process after session closes
+                goal_for_gallery = act_result.data.get("goal_for_gallery") if act_result.data else None
+
             except Exception as e:
                 await session.rollback()
                 await live_broadcast.broadcast_log(f"Cycle error: {str(e)}", "error")
+
+                # Try to save logs even on error (for debugging)
+                try:
+                    memory = repos["memory"]
+                    await memory.flush_pending_logs()
+                    await session.commit()
+                except Exception:
+                    pass  # If fails, logs are lost (acceptable)
+
                 raise
+
+        # AFTER session is closed: Process gallery save and voting
+        # This avoids "database is locked" because no other session is holding the lock
+        if goal_for_gallery:
+            await live_broadcast.broadcast_log("📸 Salvando na galeria...", "info")
+            await self._save_completed_project_from_data(goal_for_gallery)
+            await asyncio.sleep(2)
+            await self._start_next_project_auto()
 
         cycle_duration = (datetime.utcnow() - cycle_start).total_seconds()
         await self.logger.log_info(f"Cycle completed in {cycle_duration:.2f}s")
@@ -271,15 +344,16 @@ class OrchestratorService:
         goal_repo = repos["goal_repo"]
         card_repo = repos["card_repo"]
 
-        # Priority 1: Check usage limits
-        usage = await self.usage_checker.check_usage()
-        self._last_usage_check = usage
+        # Priority 1: Check usage limits (optional)
+        if self.settings.orchestrator_usage_check_enabled:
+            usage = await self.usage_checker.check_usage()
+            self._last_usage_check = usage
 
-        if not usage.is_safe_to_execute:
-            return ThinkResult(
-                decision=OrchestratorDecision.WAIT,
-                reason=f"Usage limit exceeded: session={usage.session_used_percent}%, daily={usage.daily_used_percent}%"
-            )
+            if not usage.is_safe_to_execute:
+                return ThinkResult(
+                    decision=OrchestratorDecision.WAIT,
+                    reason=f"Usage limit exceeded: session={usage.session_used_percent}%, daily={usage.daily_used_percent}%"
+                )
 
         # Get active goal
         active_goal = await goal_repo.get_active_goal()
@@ -461,6 +535,9 @@ class OrchestratorService:
 
     async def _act_verify_limit(self) -> ActResult:
         """Verify Claude usage limits."""
+        if not self.settings.orchestrator_usage_check_enabled:
+            return ActResult(success=True, data={"usage": None})
+
         usage = await self.usage_checker.check_usage()
         return ActResult(
             success=True,
@@ -483,6 +560,7 @@ class OrchestratorService:
 
         # Broadcast to live spectators
         live_broadcast = get_live_broadcast_service()
+        await live_broadcast.broadcast_agent_status("orchestrator", "working", "Analisando objetivo...")
         await live_broadcast.broadcast_log(
             f"🤖 AI analyzing goal with Opus 4.5...",
             "info"
@@ -608,15 +686,16 @@ class OrchestratorService:
         )
 
     async def _act_execute_card(self, card_id: str, repos: Dict[str, Any]) -> ActResult:
-        """Execute a card through the complete workflow (plan → implement → test → review → done)."""
+        """Execute a card through simplified workflow (plan → implement → done) for live showcase."""
         card_repo = repos["card_repo"]
+        live_broadcast = get_live_broadcast_service()
 
         card = await card_repo.get_by_id(card_id)
         if not card:
             return ActResult(success=False, error="Card not found")
 
         # Import execution functions
-        from ..agent import execute_plan, execute_implement, execute_test_implementation, execute_review
+        from ..agent import execute_plan, execute_implement
         from pathlib import Path
 
         # Get project path from project manager
@@ -626,18 +705,7 @@ class OrchestratorService:
         except Exception:
             cwd = str(Path.cwd())
 
-        # Define workflow stages in order
-        workflow_stages = ["backlog", "plan", "implement", "test", "review", "done"]
         current_column = card.column_id
-
-        # Find starting point in workflow
-        try:
-            start_index = workflow_stages.index(current_column)
-        except ValueError:
-            return ActResult(
-                success=True,
-                data={"message": f"Card in {current_column}, no action needed"}
-            )
 
         # If already done, nothing to do
         if current_column == "done":
@@ -647,34 +715,41 @@ class OrchestratorService:
             )
 
         await self.logger.log_act(
-            f"Starting full workflow for card {card_id[:8]} from {current_column}",
+            f"Starting workflow for card {card_id[:8]} from {current_column}",
             goal_id=None,
             data={"card_id": card_id, "starting_column": current_column}
         )
 
         try:
-            # Execute each stage sequentially until done
-
-            # Stage 1: PLAN (if not already past it)
+            # Stage 1: PLAN
             if current_column in ["backlog", "plan"]:
-                await self.logger.log_act(f"[1/4] Executing PLAN stage...")
+                # Broadcast: Planner agent working
+                await live_broadcast.broadcast_agent_status("planner", "working", "Planejando o projeto...")
+                await live_broadcast.update_status(is_working=True, current_stage="planning", progress=10)
+
+                await self.logger.log_act(f"[1/2] Executing PLAN stage...")
                 await self._move_card_with_broadcast(card_id, "plan", card_repo)
 
+                # Use live mode model settings (lighter than opus to avoid OOM on VPS)
+                plan_model = self.settings.live_mode_model_plan
                 result = await execute_plan(
                     card_id=card_id,
                     title=card.title,
                     description=card.description or "",
                     cwd=cwd,
-                    model=card.model_plan,
+                    model=plan_model,
                 )
 
                 if not result.success:
+                    await live_broadcast.broadcast_agent_status("planner", "error", result.error)
                     await self.logger.log_error(f"PLAN failed: {result.error}")
                     return ActResult(success=False, error=f"Plan failed: {result.error}")
 
-                await self.logger.log_act(f"[1/4] PLAN completed successfully")
+                await self.logger.log_act(f"[1/2] PLAN completed successfully")
+                await live_broadcast.broadcast_agent_status("planner", "idle", None)
+                await live_broadcast.update_status(is_working=True, current_stage="planning", progress=40)
 
-                # Save spec_path to card (execute_plan returns it but doesn't persist)
+                # Save spec_path to card
                 if result.spec_path:
                     await card_repo.update_spec_path(card_id, result.spec_path)
                     await self.logger.log_act(f"Saved spec_path: {result.spec_path}")
@@ -684,82 +759,58 @@ class OrchestratorService:
 
             # Stage 2: IMPLEMENT
             if current_column in ["backlog", "plan", "implement"]:
-                # Validate spec_path exists before proceeding
                 if not card.spec_path:
                     await self.logger.log_error(f"Cannot execute IMPLEMENT: card has no spec_path")
                     return ActResult(success=False, error="Card has no spec_path. Run /plan first.")
 
-                await self.logger.log_act(f"[2/4] Executing IMPLEMENT stage...")
+                # Broadcast: Coder agent working
+                await live_broadcast.broadcast_agent_status("coder", "working", "Implementando o código...")
+                await live_broadcast.update_status(is_working=True, current_stage="implementing", progress=50)
+
+                await self.logger.log_act(f"[2/2] Executing IMPLEMENT stage...")
                 await self._move_card_with_broadcast(card_id, "implement", card_repo)
 
+                # Use live mode model settings (lighter than opus to avoid OOM on VPS)
+                implement_model = self.settings.live_mode_model_implement
                 result = await execute_implement(
                     card_id=card_id,
                     spec_path=card.spec_path,
                     cwd=cwd,
-                    model=card.model_implement,
+                    model=implement_model,
                 )
 
                 if not result.success:
+                    await live_broadcast.broadcast_agent_status("coder", "error", result.error)
                     await self.logger.log_error(f"IMPLEMENT failed: {result.error}")
                     return ActResult(success=False, error=f"Implement failed: {result.error}")
 
-                await self.logger.log_act(f"[2/4] IMPLEMENT completed successfully")
+                await self.logger.log_act(f"[2/2] IMPLEMENT completed successfully")
+                await live_broadcast.broadcast_agent_status("coder", "idle", None)
+                await live_broadcast.update_status(is_working=True, current_stage="implementing", progress=90)
 
-            # Stage 3: TEST
-            if current_column in ["backlog", "plan", "implement", "test"]:
-                # Validate spec_path exists before proceeding
-                if not card.spec_path:
-                    await self.logger.log_error(f"Cannot execute TEST: card has no spec_path")
-                    return ActResult(success=False, error="Card has no spec_path. Run /plan first.")
+            # Move directly to done (skip test/review for live showcase)
+            print(f"[DEBUG] About to move card {card_id[:8]} to done")
+            moved_card, move_error = await self._move_card_with_broadcast(card_id, "done", card_repo)
+            print(f"[DEBUG] Move result: card={moved_card is not None}, error={move_error}")
 
-                await self.logger.log_act(f"[3/4] Executing TEST stage...")
-                await self._move_card_with_broadcast(card_id, "test", card_repo)
+            if move_error:
+                print(f"[DEBUG] Move failed with error: {move_error}")
+                await self.logger.log_error(f"Failed to move card to done: {move_error}")
+                return ActResult(success=False, error=f"Failed to move to done: {move_error}")
 
-                result = await execute_test_implementation(
-                    card_id=card_id,
-                    spec_path=card.spec_path,
-                    cwd=cwd,
-                    model=card.model_test,
-                )
+            # CRITICAL: Commit immediately to ensure next cycle sees the change
+            print(f"[DEBUG] Committing session...")
+            await card_repo.session.commit()
+            print(f"[DEBUG] Commit done, verifying card column...")
 
-                if not result.success:
-                    await self.logger.log_error(f"TEST failed: {result.error}")
-                    return ActResult(
-                        success=False,
-                        error=f"Test failed: {result.error}",
-                        data={"needs_fix": True}
-                    )
+            # Verify the move worked
+            verify_card = await card_repo.get_by_id(card_id)
+            print(f"[DEBUG] Card column after commit: {verify_card.column_id if verify_card else 'NOT FOUND'}")
 
-                await self.logger.log_act(f"[3/4] TEST completed successfully")
-
-            # Stage 4: REVIEW
-            if current_column in ["backlog", "plan", "implement", "test", "review"]:
-                # Validate spec_path exists before proceeding
-                if not card.spec_path:
-                    await self.logger.log_error(f"Cannot execute REVIEW: card has no spec_path")
-                    return ActResult(success=False, error="Card has no spec_path. Run /plan first.")
-
-                await self.logger.log_act(f"[4/4] Executing REVIEW stage...")
-                await self._move_card_with_broadcast(card_id, "review", card_repo)
-
-                result = await execute_review(
-                    card_id=card_id,
-                    spec_path=card.spec_path,
-                    cwd=cwd,
-                    model=card.model_review,
-                )
-
-                if not result.success:
-                    await self.logger.log_error(f"REVIEW failed: {result.error}")
-                    return ActResult(success=False, error=f"Review failed: {result.error}")
-
-                await self.logger.log_act(f"[4/4] REVIEW completed successfully")
-
-            # Move to done
-            await self._move_card_with_broadcast(card_id, "done", card_repo)
+            await live_broadcast.update_status(is_working=True, current_stage="completed", progress=100)
 
             await self.logger.log_act(
-                f"Full workflow completed for card {card_id[:8]}",
+                f"Workflow completed for card {card_id[:8]}",
                 goal_id=None,
                 data={"card_id": card_id, "final_column": "done"}
             )
@@ -767,7 +818,7 @@ class OrchestratorService:
             return ActResult(
                 success=True,
                 should_learn=True,
-                learning=f"Successfully completed full workflow for card: {card.title}",
+                learning=f"Successfully completed workflow for card: {card.title}",
                 data={"column": "done", "workflow_completed": True}
             )
 
@@ -864,7 +915,7 @@ class OrchestratorService:
         )
 
     async def _act_complete_goal(self, goal_id: str, repos: Dict[str, Any]) -> ActResult:
-        """Complete a goal and extract learning, then start voting for next project."""
+        """Complete a goal and extract learning. Gallery save happens AFTER commit."""
         goal_repo = repos["goal_repo"]
 
         goal = await goal_repo.get_by_id(goal_id)
@@ -882,26 +933,27 @@ class OrchestratorService:
         await live_broadcast.broadcast_log("🎉 Projeto concluído!", "success")
         await live_broadcast.update_status(is_working=False, current_stage="completed")
 
-        # For live_mode goals: save to gallery and start voting
-        if goal.source in ["live_mode", "live_mode_voting"]:
-            # Small delay to ensure previous transaction is fully committed
-            await asyncio.sleep(1)
-            # Create CompletedProject for gallery
-            await self._save_completed_project(goal)
-            # Another delay before voting
-            await asyncio.sleep(1)
-            # Start voting for next project
-            await self._start_voting_for_next_project()
+        # NOTE: Gallery save and voting moved to _execute_cycle (after commit)
+        # to avoid "database is locked" errors from concurrent sessions
 
         return ActResult(
             success=True,
             should_learn=True,
             learning=learning,
-            data={"cards_completed": len(goal.cards or [])}
+            data={
+                "cards_completed": len(goal.cards or []),
+                # Pass goal data for post-commit gallery save
+                "goal_for_gallery": {
+                    "source": goal.source,
+                    "source_id": goal.source_id,
+                    "description": goal.description,
+                    "cards": goal.cards,
+                } if goal.source in ["live_mode", "live_mode_voting", "live_mode_auto"] else None
+            }
         )
 
-    async def _save_completed_project(self, goal) -> None:
-        """Save completed project to gallery."""
+    async def _save_completed_project_from_data(self, goal_data: dict) -> None:
+        """Save completed project to gallery (called AFTER session commit)."""
         from uuid import uuid4
         from ..models.live import CompletedProject
         from ..database import async_session_maker
@@ -909,27 +961,29 @@ class OrchestratorService:
         live_broadcast = get_live_broadcast_service()
 
         # Parse source_id: "folder|title|category"
-        if not goal.source_id:
+        source_id = goal_data.get("source_id")
+        if not source_id:
             logger.warning("Goal has no source_id, skipping gallery save")
             return
 
-        try:
-            parts = goal.source_id.split("|")
-            project_folder = parts[0] if len(parts) > 0 else "unknown"
-            project_title = parts[1] if len(parts) > 1 else "Projeto"
-            project_category = parts[2] if len(parts) > 2 else None
+        parts = source_id.split("|")
+        project_folder = parts[0] if len(parts) > 0 else "unknown"
+        project_title = parts[1] if len(parts) > 1 else "Projeto"
+        project_category = parts[2] if len(parts) > 2 else None
+        description = goal_data.get("description", "")
+        cards = goal_data.get("cards", [])
 
-            # Create CompletedProject
+        try:
             async with async_session_maker() as session:
                 completed = CompletedProject(
                     id=str(uuid4()),
                     title=project_title,
-                    description=goal.description[:500] if goal.description else None,
+                    description=description[:500] if description else None,
                     category=project_category,
                     preview_url=f"/projects/{project_folder}/index.html",
-                    screenshot_url=None,  # TODO: Add screenshot generation
+                    screenshot_url=None,
                     like_count=0,
-                    card_id=goal.cards[0] if goal.cards else None,
+                    card_id=cards[0] if cards else None,
                 )
                 session.add(completed)
                 await session.commit()
@@ -950,68 +1004,235 @@ class OrchestratorService:
                         "like_count": 0
                     }
                 })
+                self._append_project_history(project_title)
 
         except Exception as e:
             logger.exception(f"[Orchestrator] Failed to save to gallery: {e}")
             await live_broadcast.broadcast_log(f"⚠️ Erro ao salvar na galeria: {e}", "error")
 
-    async def _start_voting_for_next_project(self) -> None:
-        """Start a voting round with 3 random project options."""
-        import random
-        from ..routes.live import PROJECT_OPTIONS
-        from .voting_service import get_voting_service
+    async def _save_completed_project(self, goal) -> None:
+        """Save completed project to gallery with retry logic (DEPRECATED - use _save_completed_project_from_data)."""
+        from uuid import uuid4
+        from ..models.live import CompletedProject
         from ..database import async_session_maker
 
         live_broadcast = get_live_broadcast_service()
-        voting_service = get_voting_service()
 
-        # Check if voting is already active
-        if voting_service.is_active:
-            logger.warning("Voting already active, skipping auto-start")
+        # Parse source_id: "folder|title|category"
+        if not goal.source_id:
+            logger.warning("Goal has no source_id, skipping gallery save")
             return
 
-        # Select 3 random projects
-        selected_projects = random.sample(PROJECT_OPTIONS, min(3, len(PROJECT_OPTIONS)))
+        parts = goal.source_id.split("|")
+        project_folder = parts[0] if len(parts) > 0 else "unknown"
+        project_title = parts[1] if len(parts) > 1 else "Projeto"
+        project_category = parts[2] if len(parts) > 2 else None
 
-        # Prepare voting options
-        voting_options = [
-            {
-                "title": p["title"],
-                "description": p["description"],
-                "category": p["id"],  # Used to start project after voting
-            }
-            for p in selected_projects
-        ]
-
-        # Broadcast that voting is starting
-        await live_broadcast.broadcast_log("⏳ Votação começa em 5 segundos...", "info")
-        await asyncio.sleep(5)
-
-        # Start voting round (60 seconds)
-        async with async_session_maker() as session:
+        # Retry logic for SQLite locks - more aggressive delays
+        max_retries = 5
+        for attempt in range(max_retries):
             try:
-                voting_round, options = await voting_service.start_round(
-                    db=session,
-                    duration_seconds=60,
-                    options=voting_options
-                )
+                async with async_session_maker() as session:
+                    completed = CompletedProject(
+                        id=str(uuid4()),
+                        title=project_title,
+                        description=goal.description[:500] if goal.description else None,
+                        category=project_category,
+                        preview_url=f"/projects/{project_folder}/index.html",
+                        screenshot_url=None,
+                        like_count=0,
+                        card_id=goal.cards[0] if goal.cards else None,
+                    )
+                    session.add(completed)
+                    await session.commit()
 
-                # Broadcast voting started
-                await live_broadcast.broadcast_voting_started(
-                    options=[
-                        {"id": o.id, "title": o.title, "description": o.description, "vote_count": 0}
-                        for o in options
-                    ],
-                    ends_at=voting_round.ends_at.isoformat(),
-                    duration_seconds=60
-                )
+                    logger.info(f"[Orchestrator] Saved to gallery: {project_title}")
+                    await live_broadcast.broadcast_log(
+                        f"📸 Projeto adicionado à galeria: {project_title}",
+                        "success"
+                    )
 
-                await live_broadcast.broadcast_log("🗳️ VOTE AGORA! 60 segundos!", "success")
-                logger.info(f"[Orchestrator] Auto-started voting with {len(options)} options")
+                    # Broadcast new project to gallery
+                    await live_broadcast.broadcast({
+                        "type": "project_added",
+                        "project": {
+                            "id": completed.id,
+                            "title": completed.title,
+                            "preview_url": completed.preview_url,
+                            "like_count": 0
+                        }
+                    })
+                    return  # Success, exit retry loop
 
             except Exception as e:
-                logger.exception(f"[Orchestrator] Failed to start voting: {e}")
-                await live_broadcast.broadcast_log(f"❌ Erro ao iniciar votação: {e}", "error")
+                if "database is locked" in str(e) and attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 5  # 5s, 10s, 15s, 20s
+                    logger.warning(f"[Orchestrator] DB locked for gallery, retry {attempt + 1}/{max_retries} in {wait_time}s...")
+                    await live_broadcast.broadcast_log(f"⏳ DB ocupado, tentando novamente em {wait_time}s...", "warning")
+                    await asyncio.sleep(wait_time)
+                else:
+                    logger.exception(f"[Orchestrator] Failed to save to gallery: {e}")
+                    await live_broadcast.broadcast_log(f"⚠️ Erro ao salvar na galeria: {e}", "error")
+                    return
+
+    def _history_path(self) -> Path:
+        history_path = Path(self.settings.project_history_path)
+        if history_path.is_absolute():
+            return history_path
+        return Path(__file__).resolve().parents[2] / history_path
+
+    def _read_project_history(self) -> list[str]:
+        history_path = self._history_path()
+        if not history_path.exists():
+            return []
+        return [line.strip() for line in history_path.read_text().splitlines() if line.strip()]
+
+    def _append_project_history(self, title: str) -> None:
+        history_path = self._history_path()
+        history_path.parent.mkdir(parents=True, exist_ok=True)
+        with history_path.open("a", encoding="utf-8") as handle:
+            handle.write(f"{title.strip()}\n")
+
+    def read_project_history(self) -> list[str]:
+        return self._read_project_history()
+
+    async def decide_next_project(self, history: list[str]) -> Optional[dict]:
+        return await self._decide_next_project(history)
+
+    async def _decide_next_project(self, history: list[str]) -> Optional[dict]:
+        history_text = "\n".join(f"- {item}" for item in history[-25:]) if history else "Nenhum ainda."
+        prompt = f"""Você é o diretor criativo de uma live de programação. Escolha UM próximo projeto divertido e diferente.
+
+Regras:
+- Não repita nenhum item desta lista:
+{history_text}
+- Precisa ter impacto visual/sonoro e interatividade.
+- Deve caber em um único arquivo HTML/CSS/JS inline.
+
+Responda APENAS com JSON neste formato:
+{{"title":"...","description":"...","category":"slug-curto"}}
+
+O campo category deve ser um slug curto (sem espaços, apenas letras, números e hífen)."""
+
+        options = ClaudeAgentOptions(
+            cwd="/opt/zenflow",
+            setting_sources=["user", "project"],
+            allowed_tools=[],
+            permission_mode="acceptEdits",
+            model="sonnet",
+        )
+
+        try:
+            full_response = ""
+            async for message in query(prompt=prompt, options=options):
+                if isinstance(message, AssistantMessage):
+                    for block in message.content:
+                        if isinstance(block, TextBlock):
+                            full_response += block.text
+
+            match = re.search(r"\{.*\}", full_response, re.DOTALL)
+            if not match:
+                return None
+            data = json.loads(match.group(0))
+            return {
+                "title": str(data.get("title", "")).strip(),
+                "description": str(data.get("description", "")).strip(),
+                "category": str(data.get("category", "")).strip(),
+            }
+        except Exception as e:
+            logger.warning(f"[Orchestrator] Failed to decide next project: {e}")
+            return None
+
+    async def _start_next_project_auto(self) -> None:
+        live_broadcast = get_live_broadcast_service()
+        history = self._read_project_history()
+        history_set = {h.lower() for h in history}
+
+        for attempt in range(3):
+            project = await self._decide_next_project(history)
+            if not project or not project["title"]:
+                await live_broadcast.broadcast_log("⚠️ Não foi possível decidir o próximo projeto.", "warning")
+                return
+
+            if project["title"].lower() in history_set:
+                await live_broadcast.broadcast_log("⚠️ Projeto repetido ignorado, tentando outro...", "warning")
+                continue
+
+            category_raw = project.get("category") or project["title"]
+            category = re.sub(r"[^a-z0-9-]", "", category_raw.lower()) or "projeto-live"
+
+            try:
+                from ..routes.live import _start_project_by_id
+                await live_broadcast.broadcast_log(f"🤖 Próximo projeto escolhido: {project['title']}", "info")
+                await _start_project_by_id(
+                    project_id=category,
+                    title=project["title"],
+                    description=project.get("description") or "",
+                )
+                return
+            except Exception as e:
+                logger.exception(f"[Orchestrator] Failed to start next project: {e}")
+                await live_broadcast.broadcast_log(f"❌ Erro ao iniciar próximo projeto: {e}", "error")
+                return
+
+        await live_broadcast.broadcast_log("⚠️ Não foi possível escolher um projeto único.", "warning")
+
+    async def _generate_ai_project_suggestions(self) -> list[dict]:
+        """Use AI to generate creative project suggestions using Claude Agent SDK."""
+        import json
+        import re
+
+        prompt = """Gere 3 sugestões criativas de mini-projetos web para uma live de programação.
+
+Requisitos:
+- Projetos simples que podem ser feitos em 1 arquivo HTML/CSS/JS
+- Visuais e interativos
+- Divertidos para uma audiência assistir sendo criados
+
+Retorne APENAS um JSON array no formato:
+[
+  {"title": "🎮 Título", "description": "Descrição curta", "category": "identificador"},
+  ...
+]
+
+Seja criativo! Exemplos de categorias: game, tool, animation, quiz, art, simulator."""
+
+        try:
+            options = ClaudeAgentOptions(
+                cwd="/opt/zenflow",
+                setting_sources=["user", "project"],
+                allowed_tools=[],  # No tools needed, just text generation
+                permission_mode="acceptEdits",
+                model="haiku",  # Fast model for simple task
+                max_tokens=500,
+            )
+
+            # Collect response
+            full_response = ""
+            async for message in query(prompt=prompt, options=options):
+                if isinstance(message, AssistantMessage):
+                    for block in message.content:
+                        if isinstance(block, TextBlock):
+                            full_response += block.text
+
+            # Parse response
+            content = full_response
+            # Extract JSON from response (might be wrapped in markdown)
+            json_match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
+            if json_match:
+                content = json_match.group(1)
+            elif "```" in content:
+                content = content.split("```")[1]
+                if content.startswith("json"):
+                    content = content[4:]
+
+            suggestions = json.loads(content.strip())
+            logger.info(f"[Orchestrator] AI generated {len(suggestions)} project suggestions")
+            return suggestions[:3]  # Ensure max 3
+
+        except Exception as e:
+            logger.warning(f"[Orchestrator] Failed to generate AI suggestions: {e}")
+            return []
 
     # ==================== HELPERS ====================
 
@@ -1159,6 +1380,7 @@ class OrchestratorService:
             "running": self._running,
             "loop_interval_seconds": self.settings.orchestrator_loop_interval_seconds,
             "usage_limit_percent": self.settings.orchestrator_usage_limit_percent,
+            "usage_check_enabled": self.settings.orchestrator_usage_check_enabled,
             "last_usage_check": self._last_usage_check.__dict__ if self._last_usage_check else None,
         }
 

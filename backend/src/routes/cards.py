@@ -40,7 +40,7 @@ async def get_all_cards(db: AsyncSession = Depends(get_db)):
         # Buscar execução ativa no banco (usar SQL direto por enquanto)
         result = await db.execute(
             select(1).select_from(text("executions"))
-            .where(text("card_id = :card_id AND is_active = 1"))
+            .where(text("card_id = :card_id AND is_active = true"))
             .params(card_id=card.id)
         )
         execution = result.first()
@@ -51,7 +51,7 @@ async def get_all_cards(db: AsyncSession = Depends(get_db)):
                 text("""
                     SELECT id, status, command, started_at, completed_at, workflow_stage, workflow_error
                     FROM executions
-                    WHERE card_id = :card_id AND is_active = 1
+                    WHERE card_id = :card_id AND is_active = true
                 """).params(card_id=card.id)
             )
             exec_data = exec_result.first()
@@ -262,5 +262,4 @@ async def capture_diff(card_id: str, db: AsyncSession = Depends(get_db)):
     card = await repo.update(card_id, card_update)
 
     return CardSingleResponse(card=CardResponse.model_validate(card))
-
 

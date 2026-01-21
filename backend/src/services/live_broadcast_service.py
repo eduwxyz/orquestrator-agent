@@ -8,11 +8,9 @@ from fastapi import WebSocket
 import logging
 
 from .presence_service import get_presence_service
-from .voting_service import get_voting_service
 from ..schemas.live import (
     WSPresenceUpdate, WSStatusUpdate, WSCardUpdate,
-    WSLogEntry, WSVotingStarted, WSVotingUpdate, WSVotingEnded,
-    WSProjectLiked, VotingOptionSchema
+    WSLogEntry, WSProjectLiked
 )
 
 logger = logging.getLogger(__name__)
@@ -58,17 +56,11 @@ class LiveBroadcastService:
         logger.info("LiveBroadcastService initialized")
 
     def _setup_callbacks(self):
-        """Setup callbacks from presence and voting services."""
+        """Setup callbacks from presence service."""
         presence = get_presence_service()
-        voting = get_voting_service()
 
         # Presence changes
         presence.on_change(self._on_presence_change)
-
-        # Voting events
-        voting.on_started(self._on_voting_started)
-        voting.on_update(self._on_voting_update)
-        voting.on_ended(self._on_voting_ended)
 
     async def connect(self, session_id: str, websocket: WebSocket) -> None:
         """Register a new WebSocket connection."""
@@ -101,8 +93,6 @@ class LiveBroadcastService:
                 return
 
             presence = get_presence_service()
-            voting = get_voting_service()
-
             # Send presence count
             await self._send_to_one(websocket, WSPresenceUpdate(
                 spectator_count=presence.count
@@ -113,18 +103,9 @@ class LiveBroadcastService:
                 is_working=self._current_status["is_working"],
                 current_stage=self._current_status.get("current_stage"),
                 current_card=self._current_status.get("current_card"),
-                progress=self._current_status.get("progress")
+                progress=self._current_status.get("progress"),
+                live_started_at=self._current_status.get("live_started_at")
             ))
-
-            # Send voting state if active
-            if voting.is_active:
-                state = voting.get_state()
-                await self._send_to_one(websocket, WSVotingStarted(
-                    round_id=state.round_id,
-                    options=state.options,
-                    ends_at=state.ends_at,
-                    duration_seconds=state.time_remaining_seconds or 0
-                ))
 
             # Send recent logs
             for log in self._recent_logs[-20:]:  # Last 20 logs
@@ -199,21 +180,26 @@ class LiveBroadcastService:
         is_working: bool,
         current_stage: Optional[str] = None,
         current_card: Optional[Dict[str, Any]] = None,
-        progress: Optional[int] = None
+        progress: Optional[int] = None,
+        live_started_at: Optional[datetime] = None
     ) -> None:
         """Update AI status and broadcast to spectators."""
+        if live_started_at is None:
+            live_started_at = self._current_status.get("live_started_at")
         self._current_status = {
             "is_working": is_working,
             "current_stage": current_stage,
             "current_card": current_card,
-            "progress": progress
+            "progress": progress,
+            "live_started_at": live_started_at
         }
 
         await self.broadcast(WSStatusUpdate(
             is_working=is_working,
             current_stage=current_stage,
             current_card=current_card,
-            progress=progress
+            progress=progress,
+            live_started_at=live_started_at
         ))
 
     # =========================================================================
@@ -287,97 +273,31 @@ class LiveBroadcastService:
         """Handle presence count change."""
         await self.broadcast(WSPresenceUpdate(spectator_count=count))
 
+
     # =========================================================================
-    # Voting Methods
+    # Agent Status
     # =========================================================================
 
-    async def broadcast_voting_started(
+    async def broadcast_agent_status(
         self,
-        options: list,
-        ends_at: str,
-        duration_seconds: int
+        agent_id: str,
+        status: str,
+        task: Optional[str] = None
     ) -> None:
-        """Broadcast voting started to spectators."""
+        """Broadcast agent status change to spectators.
+
+        Args:
+            agent_id: "orchestrator", "planner", "coder", "reviewer"
+            status: "idle", "working", "error"
+            task: Current task description (optional)
+        """
         await self.broadcast({
-            "type": "voting_started",
-            "options": options,
-            "ends_at": ends_at,
-            "duration_seconds": duration_seconds
+            "type": "agent_status",
+            "agent_id": agent_id,
+            "status": status,
+            "task": task,
+            "timestamp": datetime.utcnow().isoformat()
         })
-
-    async def broadcast_voting_update(self, votes: dict) -> None:
-        """Broadcast vote count update."""
-        await self.broadcast(WSVotingUpdate(votes=votes))
-
-    # =========================================================================
-    # Voting Callbacks
-    # =========================================================================
-
-    async def _on_voting_started(self, round, options) -> None:
-        """Handle voting started."""
-        await self.broadcast(WSVotingStarted(
-            round_id=round.id,
-            options=[
-                VotingOptionSchema(
-                    id=opt.id,
-                    title=opt.title,
-                    description=opt.description,
-                    category=opt.category,
-                    vote_count=opt.vote_count
-                )
-                for opt in options
-            ],
-            ends_at=round.ends_at,
-            duration_seconds=int((round.ends_at - datetime.utcnow()).total_seconds())
-        ))
-
-    async def _on_voting_update(self, votes: Dict[str, int]) -> None:
-        """Handle vote count update."""
-        await self.broadcast(WSVotingUpdate(votes=votes))
-
-    async def _on_voting_ended(self, winner, all_options) -> None:
-        """Handle voting ended and start winning project."""
-        if winner:
-            winner_schema = VotingOptionSchema(
-                id=winner.id,
-                title=winner.title,
-                description=winner.description,
-                category=winner.category,
-                vote_count=winner.vote_count
-            )
-        else:
-            winner_schema = None
-
-        await self.broadcast(WSVotingEnded(
-            round_id="",
-            winner=winner_schema,
-            results=[
-                VotingOptionSchema(
-                    id=opt.id,
-                    title=opt.title,
-                    description=opt.description,
-                    category=opt.category,
-                    vote_count=opt.vote_count
-                )
-                for opt in sorted(all_options, key=lambda o: o.vote_count, reverse=True)
-            ]
-        ))
-
-        # Auto-start the winning project!
-        if winner:
-            await self.broadcast_log(f"🏆 Winner: {winner.title} ({winner.vote_count} votes)!", "success")
-            await self.broadcast_log(f"🚀 Starting project in 3 seconds...", "info")
-
-            # Small delay for UX
-            await asyncio.sleep(3)
-
-            # Start the winning project (category contains the project id)
-            try:
-                from ..routes.live import _start_project_by_id
-                await _start_project_by_id(winner.category)
-            except Exception as e:
-                logger.error(f"Failed to start winning project: {e}")
-                await self.broadcast_log(f"❌ Failed to start project: {e}", "error")
 
     # =========================================================================
     # Project Likes

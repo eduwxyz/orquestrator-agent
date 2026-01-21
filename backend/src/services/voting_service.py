@@ -87,6 +87,61 @@ class VotingService:
             time_remaining_seconds=time_remaining
         )
 
+    async def refresh_state(self, db: AsyncSession) -> None:
+        """Refresh in-memory voting state from the database."""
+        now = datetime.utcnow()
+
+        result = await db.execute(
+            select(VotingRound)
+            .where(VotingRound.is_active == True)  # noqa: E712
+            .order_by(VotingRound.started_at.desc())
+        )
+        rounds = list(result.scalars().all())
+        if not rounds:
+            self._active_round = None
+            self._active_options = []
+            self._voted_sessions.clear()
+            return
+
+        if len(rounds) > 1:
+            stale_ids = [r.id for r in rounds[1:]]
+            await db.execute(
+                update(VotingRound)
+                .where(VotingRound.id.in_(stale_ids))
+                .values(is_active=False, ended_at=datetime.utcnow())
+            )
+            await db.commit()
+            rounds = rounds[:1]
+
+        expired_rounds = [r for r in rounds if now >= r.ends_at]
+        active_rounds = [r for r in rounds if now < r.ends_at]
+
+        for round_item in expired_rounds:
+            options_result = await db.execute(
+                select(VotingOption).where(VotingOption.voting_round_id == round_item.id)
+            )
+            self._active_round = round_item
+            self._active_options = list(options_result.scalars().all())
+            await self.end_round(db)
+
+        if not active_rounds:
+            self._active_round = None
+            self._active_options = []
+            self._voted_sessions.clear()
+            return
+
+        active_round = active_rounds[-1]
+        options_result = await db.execute(
+            select(VotingOption).where(VotingOption.voting_round_id == active_round.id)
+        )
+        self._active_round = active_round
+        self._active_options = list(options_result.scalars().all())
+
+        remaining = max(1, int((active_round.ends_at - now).total_seconds()))
+        if self._timer_task:
+            self._timer_task.cancel()
+        self._timer_task = asyncio.create_task(self._end_round_timer(remaining))
+
     async def start_round(
         self,
         db: AsyncSession,
@@ -109,6 +164,7 @@ class VotingService:
             is_active=True
         )
         db.add(voting_round)
+        await db.flush()  # Ensure round exists before inserting options
 
         # Create options
         option_list = options or DEFAULT_VOTING_OPTIONS
@@ -143,7 +199,7 @@ class VotingService:
                 logger.error(f"Error in voting started callback: {e}")
 
         # Start timer
-        self._timer_task = asyncio.create_task(self._end_round_timer(db, duration_seconds))
+        self._timer_task = asyncio.create_task(self._end_round_timer(duration_seconds))
 
         return voting_round, voting_options
 
@@ -202,16 +258,21 @@ class VotingService:
 
         return True, "Vote recorded", option.vote_count
 
-    async def _end_round_timer(self, db: AsyncSession, duration: int):
+    async def _end_round_timer(self, duration: int):
         """Timer to end the voting round."""
         try:
             await asyncio.sleep(duration)
-            await self.end_round(db)
+            # Create fresh db session - the original one is closed after 60s
+            from ..database import async_session_maker
+            async with async_session_maker() as db:
+                await self.end_round(db)
         except asyncio.CancelledError:
             logger.info("Voting timer cancelled")
+        except Exception as e:
+            logger.error(f"Error in voting timer: {e}")
 
     async def end_round(self, db: AsyncSession) -> Optional[VotingOption]:
-        """End the current voting round and determine winner."""
+        """End the current voting round and determine winner (AI breaks ties)."""
         if not self._active_round:
             return None
 
@@ -220,11 +281,18 @@ class VotingService:
             self._timer_task.cancel()
             self._timer_task = None
 
-        # Find winner (highest votes)
+        # Find winner (highest votes), AI breaks ties
+        winner = None
         if self._active_options:
-            winner = max(self._active_options, key=lambda o: o.vote_count)
-        else:
-            winner = None
+            max_votes = max(o.vote_count for o in self._active_options)
+            top_options = [o for o in self._active_options if o.vote_count == max_votes]
+
+            if len(top_options) == 1:
+                winner = top_options[0]
+            else:
+                # Tie! AI decides
+                winner = await self._ai_break_tie(top_options)
+                logger.info(f"[Voting] AI broke tie, chose: {winner.title if winner else 'None'}")
 
         # Update round in DB
         self._active_round.is_active = False
@@ -274,6 +342,47 @@ class VotingService:
     def on_ended(self, callback: Callable[[VotingOption, List[VotingOption]], Awaitable[None]]) -> None:
         """Register callback for when voting ends."""
         self._on_ended_callbacks.append(callback)
+
+    async def _ai_break_tie(self, options: List[VotingOption]) -> Optional[VotingOption]:
+        """Use AI to break a tie between options."""
+        import random
+
+        if not options:
+            return None
+
+        try:
+            import anthropic
+            client = anthropic.Anthropic()
+            options_text = "\n".join([f"- {o.title}: {o.description}" for o in options])
+
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=100,
+                messages=[{
+                    "role": "user",
+                    "content": f"""Houve um empate na votação! Escolha o projeto mais interessante para uma live de programação.
+
+Opções:
+{options_text}
+
+Responda APENAS com o título exato da opção escolhida (incluindo emoji se houver)."""
+                }]
+            )
+
+            chosen_title = response.content[0].text.strip()
+
+            # Find matching option
+            for opt in options:
+                if opt.title.lower() in chosen_title.lower() or chosen_title.lower() in opt.title.lower():
+                    return opt
+
+            # Fallback: random choice
+            logger.warning(f"[Voting] AI response didn't match options, choosing randomly")
+            return random.choice(options)
+
+        except Exception as e:
+            logger.warning(f"[Voting] AI tie-break failed: {e}, choosing randomly")
+            return random.choice(options)
 
 
 # Singleton instance

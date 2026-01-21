@@ -15,6 +15,8 @@ from claude_agent_sdk import (
     ResultMessage,
 )
 
+from ..config.settings import get_settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -111,8 +113,11 @@ class GoalDecomposerService:
             # Build prompt
             prompt = DECOMPOSITION_PROMPT.format(goal_description=goal_description)
 
-            # Configure Claude Agent SDK for Opus 4.5
+            # Configure Claude Agent SDK - use configured model for live mode
             # Note: use "acceptEdits" instead of "bypassPermissions" to work with root user
+            settings = get_settings()
+            decompose_model = settings.live_mode_model_decompose
+
             options = ClaudeAgentOptions(
                 cwd=self.cwd,
                 setting_sources=["user", "project"],
@@ -122,8 +127,10 @@ class GoalDecomposerService:
                     "Grep",   # Allow searching content
                 ],
                 permission_mode="acceptEdits",
-                model="opus",
+                model=decompose_model,
             )
+
+            logger.info(f"[GoalDecomposer] Using model: {decompose_model}")
 
             # Collect response
             full_response = ""
