@@ -12,6 +12,7 @@ export interface LiveStatus {
   currentCard: LiveCard | null;
   progress: number | null;
   spectatorCount: number;
+  liveStartedAt?: string | null;
 }
 
 // ============================================================================
@@ -101,6 +102,7 @@ export interface WSStatusUpdate extends WSMessageBase {
   currentStage?: string;
   currentCard?: LiveCard;
   progress?: number;
+  liveStartedAt?: string | null;
 }
 
 export interface WSCardUpdate extends WSMessageBase {

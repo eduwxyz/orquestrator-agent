@@ -24,7 +24,7 @@ interface AgentState {
 
 type LiveAction =
   | { type: 'SET_SPECTATOR_COUNT'; count: number }
-  | { type: 'SET_STATUS'; isWorking: boolean; stage?: string; card?: LiveCard; progress?: number }
+  | { type: 'SET_STATUS'; isWorking: boolean; stage?: string; card?: LiveCard; progress?: number; liveStartedAt?: string | null }
   | { type: 'SET_KANBAN'; kanban: LiveKanban }
   | { type: 'CARD_MOVED'; card: LiveCard; fromColumn: string; toColumn: string }
   | { type: 'CARD_CREATED'; card: LiveCard }
@@ -44,6 +44,7 @@ const initialState: LiveState & { agents: Record<string, AgentState> } = {
     currentCard: null,
     progress: null,
     spectatorCount: 0,
+    liveStartedAt: null,
   },
   kanban: {
     columns: {
@@ -88,6 +89,7 @@ function liveReducer(state: ExtendedLiveState, action: LiveAction): ExtendedLive
           currentStage: action.stage as LiveState['status']['currentStage'],
           currentCard: action.card || null,
           progress: action.progress ?? null,
+          liveStartedAt: action.liveStartedAt ?? state.status.liveStartedAt ?? null,
         },
       };
 
@@ -271,6 +273,7 @@ export function useLiveWebSocket(options: UseLiveWebSocketOptions = {}) {
           stage: msg.current_stage ?? msg.currentStage,
           card: msg.current_card ?? msg.currentCard,
           progress: msg.progress,
+          liveStartedAt: msg.live_started_at ?? msg.liveStartedAt ?? null,
         });
         break;
 
@@ -442,6 +445,7 @@ export function useLiveWebSocket(options: UseLiveWebSocketOptions = {}) {
             stage: statusData.current_stage,
             card: statusData.current_card,
             progress: statusData.progress,
+            liveStartedAt: statusData.live_started_at ?? null,
           });
           dispatch({
             type: 'SET_SPECTATOR_COUNT',

@@ -1,7 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { LiveState } from '../../../types/live';
-import { VotingModal } from '../VotingModal';
 import { AutoReactions } from './AutoReactions';
 import { SnakeGame } from './SnakeGame';
 import { GameRanking, RankingEntry } from './GameRanking';
@@ -36,10 +34,12 @@ const AGENT_CONFIG: AgentDisplay[] = [
 
 export function MissionControl({ state, isConnected, rankingUpdate }: MissionControlProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
-  const [uptime, setUptime] = useState(0);
   const [reactionTrigger, setReactionTrigger] = useState<'success' | 'error' | 'start' | 'idle' | null>(null);
   const lastLogCountRef = useRef(0);
   const wasWorkingRef = useRef(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  const youtubeLink = 'https://www.youtube.com/@eduwxyz/';
 
   // Game state
   const [ranking, setRanking] = useState<RankingEntry[]>([]);
@@ -52,6 +52,13 @@ export function MissionControl({ state, isConnected, rankingUpdate }: MissionCon
   const [lastSaveResult, setLastSaveResult] = useState<{ success: boolean; rank?: number; message?: string } | null>(null);
   const [isChangingName, setIsChangingName] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+
+  useEffect(() => {
+    const seen = localStorage.getItem('live_onboarding_seen');
+    if (!seen) {
+      setShowOnboarding(true);
+    }
+  }, []);
 
   // Build agents from real state
   const agents = useMemo(() => {
@@ -71,15 +78,6 @@ export function MissionControl({ state, isConnected, rankingUpdate }: MissionCon
       progress: state.status.progress || 0,
     }));
   }, [state.agents, state.status.progress]);
-
-  // Session ID for voting
-  const [sessionId] = useState(() => {
-    const stored = sessionStorage.getItem('live_session_id');
-    if (stored) return stored;
-    const newId = uuidv4();
-    sessionStorage.setItem('live_session_id', newId);
-    return newId;
-  });
 
   // Trigger reaction helper
   const triggerReaction = useCallback((type: 'success' | 'error' | 'start' | 'idle') => {
@@ -116,13 +114,6 @@ export function MissionControl({ state, isConnected, rankingUpdate }: MissionCon
   }, [state.status.isWorking, triggerReaction]);
 
 
-  // Uptime counter
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setUptime(prev => prev + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Auto-scroll terminal
   useEffect(() => {
@@ -130,13 +121,6 @@ export function MissionControl({ state, isConnected, rankingUpdate }: MissionCon
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
   }, [state.logs.length]);
-
-  const formatUptime = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
 
   const getLogTypeClass = (logType?: string) => {
     switch (logType) {
@@ -171,7 +155,7 @@ export function MissionControl({ state, isConnected, rankingUpdate }: MissionCon
 
   // Submit score
   const submitScore = useCallback(async (score: number, name: string) => {
-    console.log('[SnakeGame] Submitting score:', { name, score, sessionId });
+    console.log('[SnakeGame] Submitting score:', { name, score });
     try {
       const response = await fetch('/api/live/game/score', {
         method: 'POST',
@@ -180,7 +164,6 @@ export function MissionControl({ state, isConnected, rankingUpdate }: MissionCon
           player_name: name,
           score,
           game_type: 'snake',
-          session_id: sessionId,
         }),
       });
       const data = await response.json();
@@ -201,7 +184,7 @@ export function MissionControl({ state, isConnected, rankingUpdate }: MissionCon
       setLastSaveResult({ success: false, message: 'Erro de conexão' });
       setTimeout(() => setLastSaveResult(null), 3000);
     }
-  }, [sessionId, fetchRanking]);
+  }, [fetchRanking]);
 
   // Handle game over
   const handleGameOver = useCallback((score: number) => {
@@ -276,6 +259,40 @@ export function MissionControl({ state, isConnected, rankingUpdate }: MissionCon
 
   return (
     <div className={styles.container}>
+      {showOnboarding && (
+        <div
+          className={styles.onboardingOverlay}
+          onClick={() => {
+            localStorage.setItem('live_onboarding_seen', 'true');
+            setShowOnboarding(false);
+          }}
+        >
+          <div className={styles.onboardingModal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.onboardingHeader}>
+              <span className={styles.onboardingBadge}>AO VIVO</span>
+              <h2>Bem-vindo ao AI Live Studio</h2>
+            </div>
+            <p>
+              Esse projeto foi criado todo em live. Se quiser ver como foi feito, e alem disso
+              ver muito mais sobre IA Engineer e Agentic Coding, acesse o canal.
+            </p>
+            <div className={styles.onboardingActions}>
+              <a href={youtubeLink} target="_blank" rel="noreferrer">
+                Ver a live no YouTube
+              </a>
+              <button
+                onClick={() => {
+                  localStorage.setItem('live_onboarding_seen', 'true');
+                  setShowOnboarding(false);
+                }}
+              >
+                Entrar
+              </button>
+            </div>
+            <div className={styles.onboardingHint}>Clique fora para fechar</div>
+          </div>
+        </div>
+      )}
       {/* Auto Reactions Overlay */}
       <AutoReactions trigger={reactionTrigger} />
 
@@ -316,7 +333,6 @@ export function MissionControl({ state, isConnected, rankingUpdate }: MissionCon
             <span className={styles.galleryIcon}>🏆</span>
             <span className={styles.galleryText}>Projetos</span>
           </button>
-          <div className={styles.timer}>{formatUptime(uptime)}</div>
           <div className={`${styles.connectionStatus} ${isConnected ? styles.connected : styles.disconnected}`}>
             <div className={styles.statusDot} />
             <span>{isConnected ? 'ONLINE' : 'OFFLINE'}</span>
@@ -571,9 +587,6 @@ export function MissionControl({ state, isConnected, rankingUpdate }: MissionCon
           </div>
         )}
       </main>
-
-      {/* Voting Modal - Full Screen Overlay */}
-      <VotingModal voting={state.voting} sessionId={sessionId} />
 
       {/* Project Gallery Modal */}
       <ProjectGallery isOpen={showGallery} onClose={() => setShowGallery(false)} />

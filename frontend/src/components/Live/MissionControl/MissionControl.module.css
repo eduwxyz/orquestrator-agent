@@ -662,6 +662,100 @@
   width: 100%;
 }
 
+/* ============================================================================
+   Onboarding Modal
+   ============================================================================ */
+
+.onboardingOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 120;
+  backdrop-filter: blur(6px);
+}
+
+.onboardingModal {
+  width: min(520px, 92vw);
+  background: linear-gradient(180deg, rgba(13, 17, 23, 0.98), rgba(22, 27, 34, 0.98));
+  border: 1px solid #30363d;
+  border-radius: 16px;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  color: #e6edf3;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.onboardingHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.onboardingHeader h2 {
+  font-size: 1.35rem;
+  margin: 0;
+  font-weight: 700;
+}
+
+.onboardingBadge {
+  background: linear-gradient(135deg, #22c55e, #22d3ee);
+  color: #0b0f14;
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+}
+
+.onboardingModal p {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.45;
+}
+
+.onboardingActions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.onboardingActions a {
+  color: #22d3ee;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.onboardingActions a:hover {
+  text-decoration: underline;
+}
+
+.onboardingActions button {
+  border: none;
+  border-radius: 8px;
+  background: #22c55e;
+  color: #0d1117;
+  font-weight: 700;
+  padding: 0.6rem 1.2rem;
+  cursor: pointer;
+}
+
+.onboardingActions button:hover {
+  opacity: 0.9;
+}
+
+.onboardingHint {
+  font-size: 0.75rem;
+  color: #8b949e;
+  text-align: right;
+}
+
 .namePromptButton {
   flex: 1;
   padding: 0.75rem 1rem;

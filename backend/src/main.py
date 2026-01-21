@@ -67,6 +67,12 @@ async def _ensure_wal_mode():
     """Ensure SQLite WAL mode is enabled for better concurrency."""
     from sqlalchemy import text
     from .database import engine
+    from sqlalchemy.engine.url import make_url
+
+    db_url = make_url(str(engine.url))
+    if not db_url.drivername.startswith("sqlite"):
+        print("[Server] Non-SQLite database detected, skipping WAL configuration")
+        return
 
     async with engine.begin() as conn:
         # Check current journal mode

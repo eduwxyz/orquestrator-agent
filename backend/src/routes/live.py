@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+from pathlib import Path
 from datetime import datetime
 from typing import Optional
 from uuid import uuid4
@@ -17,15 +18,14 @@ logger = logging.getLogger(__name__)
 
 from ..database import get_db
 from ..models.card import Card
+from ..models.orchestrator import Goal, GoalStatus
 from ..models.live import Vote, VoteType, CompletedProject, GameScore
 from ..schemas.live import (
     LiveStatusResponse, LiveKanbanResponse, LiveCardResponse,
-    VotingStateResponse, VoteRequest, VoteResponse,
     ProjectGalleryResponse, CompletedProjectSchema,
     LikeRequest, LikeResponse
 )
 from ..services.presence_service import get_presence_service
-from ..services.voting_service import get_voting_service
 from ..services.live_broadcast_service import get_live_broadcast_service
 
 router = APIRouter(prefix="/api/live", tags=["live"])
@@ -35,6 +35,7 @@ router = APIRouter(prefix="/api/live", tags=["live"])
 # ============================================================================
 
 LIVE_PROJECTS_PATH = os.environ.get("LIVE_PROJECTS_PATH", "/opt/zenflow/live-projects")
+LIVE_STARTED_AT_PATH = os.environ.get("LIVE_STARTED_AT_PATH", "/opt/zenflow/backend/live_started_at.txt")
 
 LIVE_MODE_PROMPT = """⚠️ IMPORTANTE: CRIE APENAS 1 CARD. NÃO DECOMPONHA!
 
@@ -47,6 +48,9 @@ Pasta do projeto: {project_path}/
 - Incluir um "wow moment" nos primeiros 2-3 minutos.
 - Preferir interatividade (mouse/teclado/gestos) e feedback instantaneo.
 - Evitar temas repetidos da live (na duvida, escolha algo diferente).
+- Nao repetir projetos registrados em `project_history.txt`.
+- Ritmo rapido: algo que mostre progresso visivel em poucos minutos.
+- Limite de complexidade: 1 arquivo HTML/CSS/JS inline (sem dependencias externas).
 
 ## Estrutura esperada:
 - {project_path}/spec.md (plano de implementação)
@@ -72,6 +76,7 @@ async def get_live_status(db: AsyncSession = Depends(get_db)):
     """Get current AI status for spectators."""
     broadcast = get_live_broadcast_service()
     presence = get_presence_service()
+    live_started_at = _read_live_started_at()
 
     # Check if there are cards being processed (source of truth)
     processing_columns = ['plan', 'implement', 'test', 'review']
@@ -90,7 +95,8 @@ async def get_live_status(db: AsyncSession = Depends(get_db)):
         current_stage=status.get("current_stage"),
         current_card=status.get("current_card"),
         progress=status.get("progress"),
-        spectator_count=presence.count
+        spectator_count=presence.count,
+        live_started_at=live_started_at
     )
 
 
@@ -131,42 +137,6 @@ async def get_live_kanban(db: AsyncSession = Depends(get_db)):
         total_cards=len(cards)
     )
 
-
-@router.get("/voting", response_model=VotingStateResponse)
-async def get_voting_state():
-    """Get current voting state."""
-    voting = get_voting_service()
-    from ..database import async_session_maker
-    async with async_session_maker() as db:
-        await voting.refresh_state(db)
-    return voting.get_state()
-
-
-@router.post("/vote", response_model=VoteResponse)
-async def cast_vote(
-    request: VoteRequest,
-    req: Request,
-    db: AsyncSession = Depends(get_db)
-):
-    """Cast a vote for the next project."""
-    voting = get_voting_service()
-    await voting.refresh_state(db)
-
-    # Get IP address for rate limiting
-    ip = req.client.host if req.client else None
-
-    success, message, new_count = await voting.vote(
-        db=db,
-        option_id=request.option_id,
-        session_id=request.session_id,
-        ip_address=ip
-    )
-
-    return VoteResponse(
-        success=success,
-        message=message,
-        new_vote_count=new_count
-    )
 
 
 @router.get("/projects", response_model=ProjectGalleryResponse)
@@ -400,83 +370,8 @@ async def submit_game_score(
 
 
 # ============================================================================
-# Admin Endpoints (for starting voting, adding projects)
+# Admin Endpoints (adding projects)
 # ============================================================================
-
-@router.post("/admin/start-voting")
-async def admin_start_voting(
-    duration_seconds: int = 60,
-    db: AsyncSession = Depends(get_db)
-):
-    """Start a new voting round with project options (admin only)."""
-    voting = get_voting_service()
-    broadcast = get_live_broadcast_service()
-
-    await voting.refresh_state(db)
-
-    if voting.is_active:
-        raise HTTPException(status_code=400, detail="Voting is already active")
-
-    # Use a random slice of PROJECT_OPTIONS as voting options
-    import random
-    sample_size = min(VOTING_OPTIONS_PER_ROUND, len(PROJECT_OPTIONS))
-    sampled = random.sample(PROJECT_OPTIONS, sample_size)
-    voting_options = [
-        {
-            "title": p["title"],
-            "description": p["description"],
-            "category": p["id"],  # Use id as category for mapping back
-        }
-        for p in sampled
-    ]
-
-    round, options = await voting.start_round(db, duration_seconds, voting_options)
-
-    # Broadcast voting started to live spectators
-    await broadcast.broadcast_voting_started(
-        options=[
-            {"id": o.id, "title": o.title, "description": o.description, "vote_count": 0}
-            for o in options
-        ],
-        ends_at=round.ends_at.isoformat(),
-        duration_seconds=duration_seconds
-    )
-
-    await broadcast.broadcast_log(f"🗳️ VOTING STARTED! {duration_seconds}s to vote!", "success")
-
-    return {
-        "success": True,
-        "round_id": round.id,
-        "ends_at": round.ends_at.isoformat(),
-        "duration_seconds": duration_seconds,
-        "options": [
-            {"id": o.id, "title": o.title, "category": o.category, "description": o.description}
-            for o in options
-        ]
-    }
-
-
-@router.post("/admin/end-voting")
-async def admin_end_voting(db: AsyncSession = Depends(get_db)):
-    """End current voting round early (admin only)."""
-    voting = get_voting_service()
-    await voting.refresh_state(db)
-
-    if not voting.is_active:
-        raise HTTPException(status_code=400, detail="No active voting round")
-
-    winner = await voting.end_round(db)
-
-    return {
-        "success": True,
-        "winner": {
-            "id": winner.id,
-            "title": winner.title,
-            "vote_count": winner.vote_count
-        } if winner else None
-    }
-
-
 @router.post("/admin/add-project")
 async def admin_add_project(
     title: str,
@@ -530,72 +425,94 @@ async def get_live_mode_status(db: AsyncSession = Depends(get_db)):
     }
 
 
-# Opções de projetos para votação
-VOTING_OPTIONS_PER_ROUND = 7
-
-PROJECT_OPTIONS = [
-    {"id": "snake", "title": "🐍 Jogo da Cobrinha Neon", "description": "Snake classico com rastro neon e efeitos", "folder": "snake-game"},
-    {"id": "memory", "title": "🎯 Jogo da Memoria Turbo", "description": "Pares de cartas com animacao flip", "folder": "memory-game"},
-    {"id": "quiz", "title": "🎮 Quiz Interativo", "description": "Perguntas rapidas com placar ao vivo", "folder": "quiz-game"},
-    {"id": "rhythm", "title": "🥁 Jogo de Ritmo", "description": "Notas caindo e acerto no tempo", "folder": "rhythm-game"},
-    {"id": "pong", "title": "🏓 Pong Arena", "description": "Pong moderno com boosts e particulas", "folder": "pong-arena"},
-    {"id": "reaction", "title": "⚡ Teste de Reacao", "description": "Clique no momento certo e veja o ranking", "folder": "reaction-test"},
-    {"id": "typing", "title": "⌨️ Desafio de Digitacao", "description": "Frases rapidas com timer e WPM", "folder": "typing-challenge"},
-    {"id": "maze", "title": "🧭 Labirinto Vivo", "description": "Labirinto animado com trilha luminosa", "folder": "live-maze"},
-    {"id": "soundboard", "title": "🔊 Soundboard Divertido", "description": "Botoes sonoros com visual divertido", "folder": "soundboard"},
-    {"id": "piano", "title": "🎹 Piano Virtual", "description": "Piano tocavel pelo teclado", "folder": "virtual-piano"},
-    {"id": "drum", "title": "🥁 Bateria Virtual", "description": "Pads com efeitos e gravacao rapida", "folder": "drum-pad"},
-    {"id": "particles", "title": "✨ Arte de Particulas", "description": "Particulas reagindo ao mouse", "folder": "particle-art"},
-    {"id": "fractal", "title": "🌀 Fractal Hipnotico", "description": "Zoom em fractais com cores vivas", "folder": "fractal-viewer"},
-    {"id": "nebula", "title": "🌌 Nebulosa Generativa", "description": "Ruido e gradientes animados", "folder": "nebula-art"},
-    {"id": "boids", "title": "🕊️ Flock Simulation", "description": "Passaros (boids) seguindo regras simples", "folder": "boids-sim"},
-    {"id": "orbit", "title": "🪐 Mini Sistema Solar", "description": "Orbits, gravidade fake e brilho", "folder": "solar-sim"},
-    {"id": "flowfield", "title": "🧠 Flow Field Art", "description": "Linhas organicas seguindo vetores", "folder": "flow-field"},
-    {"id": "fireworks", "title": "🎆 Fogos Interativos", "description": "Explosoes com clique e audio", "folder": "fireworks"},
-    {"id": "meme", "title": "😂 Meme Generator Live", "description": "Texto, stickers e export rapido", "folder": "meme-generator"},
-    {"id": "dance", "title": "🕺 Boneco Dançarino", "description": "Animacao com ritmo e cores", "folder": "dancing-bot"},
-    {"id": "voiceviz", "title": "🎤 Visualizador de Audio", "description": "Bars e ondas reagindo ao microfone", "folder": "audio-visualizer"},
-    {"id": "weather", "title": "🌤️ App de Clima Show", "description": "Clima com ilustracoes animadas", "folder": "weather-app"},
-    {"id": "pomodoro", "title": "🍅 Pomodoro Cinematico", "description": "Timer com cenas e progresso bonito", "folder": "pomodoro-timer"},
-    {"id": "calculator", "title": "🧮 Calculadora Bonita", "description": "Calculadora com design moderno", "folder": "calculator"},
-    {"id": "todo", "title": "📝 Todo List Elegante", "description": "Lista de tarefas com animacoes", "folder": "todo-list"},
-    {"id": "glitch", "title": "📺 Glitch Studio", "description": "Efeitos glitch e scanlines", "folder": "glitch-studio"},
-    {"id": "lens", "title": "🔍 Lente Magica", "description": "Efeito lupa com distorcao", "folder": "magic-lens"},
-    {"id": "cards", "title": "🃏 Cartas Magicas", "description": "Cartas que viram e brilham", "folder": "magic-cards"},
-]
-
 # Contador de projetos para gerar folders únicos
 _project_counter = 0
 
 
-async def _start_project_by_id(project_id: str, title: str = None, description: str = None) -> dict:
-    """Internal function to start a project by its ID or AI-generated data. Called after voting ends."""
-    global _project_counter
+async def _clear_pending_goals() -> None:
+    from ..database import async_session_maker
+    from sqlalchemy import delete
 
-    # Find project in predefined options
-    project = next((p for p in PROJECT_OPTIONS if p["id"] == project_id), None)
+    async with async_session_maker() as session:
+        await session.execute(delete(Goal).where(Goal.status == GoalStatus.PENDING))
+        await session.commit()
+
+
+def _read_live_started_at() -> Optional[datetime]:
+    if not os.path.exists(LIVE_STARTED_AT_PATH):
+        return None
+    try:
+        value = Path(LIVE_STARTED_AT_PATH).read_text().strip()
+    except OSError:
+        return None
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _write_live_started_at() -> datetime:
+    started_at = datetime.utcnow()
+    Path(LIVE_STARTED_AT_PATH).write_text(started_at.isoformat())
+    return started_at
+
+
+def _clear_live_started_at() -> None:
+    try:
+        os.remove(LIVE_STARTED_AT_PATH)
+    except FileNotFoundError:
+        pass
+
+
+async def _select_ai_project() -> dict:
+    from ..services.orchestrator_service import get_orchestrator_service
+    import re
+
+    orchestrator = get_orchestrator_service()
+    history = orchestrator.read_project_history()
+    history_set = {h.lower() for h in history}
+
+    for _ in range(3):
+        project = await orchestrator.decide_next_project(history)
+        if not project or not project.get("title"):
+            continue
+        if project["title"].lower() in history_set:
+            continue
+
+        category_raw = project.get("category") or project["title"]
+        category = re.sub(r"[^a-z0-9-]", "", category_raw.lower()) or "projeto-live"
+
+        return {
+            "id": category,
+            "title": project["title"],
+            "description": project.get("description") or "",
+        }
+
+    raise HTTPException(status_code=500, detail="Nao foi possivel escolher um novo projeto")
+
+
+async def _start_project_by_id(project_id: str, title: str = None, description: str = None) -> dict:
+    """Internal function to start a project by its ID or AI-generated data."""
+    global _project_counter
 
     _project_counter += 1
 
-    if project:
-        # Use predefined project
-        project_folder = f"projeto{_project_counter}-{project['folder']}"
-        project_title = project["title"]
-        project_desc = project.get("description", "")
-    else:
-        # AI-generated project - use the title/description passed or create from id
-        import re
-        # Create folder name from category/id
-        safe_name = re.sub(r'[^a-zA-Z0-9-]', '', project_id.lower().replace(' ', '-'))[:20]
-        project_folder = f"projeto{_project_counter}-{safe_name or 'ai-project'}"
-        project_title = title or project_id
-        project_desc = description or f"Projeto gerado pela IA: {project_title}"
-        project = {
-            "id": project_id,
-            "title": project_title,
-            "description": project_desc,
-            "folder": safe_name or 'ai-project'
-        }
+    await _clear_pending_goals()
+
+    import re
+    base_name = project_id or title or "projeto-live"
+    safe_name = re.sub(r'[^a-zA-Z0-9-]', '', base_name.lower().replace(' ', '-'))[:20]
+    project_folder = f"projeto{_project_counter}-{safe_name or 'ai-project'}"
+    project_title = title or project_id or "Projeto"
+    project_desc = description or f"Projeto gerado pela IA: {project_title}"
+    project = {
+        "id": project_id or safe_name,
+        "title": project_title,
+        "description": project_desc,
+        "folder": safe_name or 'ai-project'
+    }
 
     project_path = os.path.join(LIVE_PROJECTS_PATH, project_folder)
 
@@ -630,13 +547,13 @@ async def _start_project_by_id(project_id: str, title: str = None, description: 
 
     result = await orchestrator.submit_goal(
         description=prompt,
-        source="live_mode_voting",
+        source="live_mode_auto",
         source_id=f"{project_folder}|{project['title']}|{project.get('id', '')}"  # folder|title|category
     )
 
     # Broadcast
     broadcast = get_live_broadcast_service()
-    await broadcast.update_status(is_working=True, current_stage="starting")
+    await broadcast.update_status(is_working=True, current_stage="starting", live_started_at=_read_live_started_at())
     await broadcast.broadcast_log(f"🚀 Starting: {project['title']}", "success")
     await broadcast.broadcast_log(f"📁 Path: {project_path}", "info")
 
@@ -671,19 +588,12 @@ async def start_live_mode(
     from ..database import async_session_maker
     from sqlalchemy import delete
     import os
-    import random
 
-    # Selecionar projeto (passado ou aleatório)
-    if project_type:
-        project = next((p for p in PROJECT_OPTIONS if p["id"] == project_type), None)
-        if not project:
-            project = random.choice(PROJECT_OPTIONS)
-    else:
-        # Primeiro projeto é aleatório
-        project = random.choice(PROJECT_OPTIONS)
-
+    project = await _select_ai_project()
+    live_started_at = _write_live_started_at()
+    await _clear_pending_goals()
     _project_counter += 1
-    project_folder = f"projeto{_project_counter}-{project['folder']}"
+    project_folder = f"projeto{_project_counter}-{project['id']}"
     project_path = os.path.join(LIVE_PROJECTS_PATH, project_folder)
 
     # Create project directory
@@ -723,14 +633,14 @@ async def start_live_mode(
     try:
         result = await orchestrator.submit_goal(
             description=prompt,
-            source="live_mode",
+            source="live_mode_auto",
             source_id=f"{project_folder}|{project['title']}|{project.get('id', '')}"  # folder|title|category
         )
         goal_id = result.get("goal_id") if isinstance(result, dict) else str(result)
 
         # Broadcast status update
         broadcast = get_live_broadcast_service()
-        await broadcast.update_status(is_working=True, current_stage="starting")
+        await broadcast.update_status(is_working=True, current_stage="starting", live_started_at=live_started_at)
         await broadcast.broadcast_log(f"🚀 Iniciando projeto: {project['title']}", "success")
         await broadcast.broadcast_log(f"📁 Pasta: {project_folder}", "info")
 
@@ -771,7 +681,8 @@ async def stop_live_mode(db: AsyncSession = Depends(get_db)):
 
     # Broadcast status update
     broadcast = get_live_broadcast_service()
-    await broadcast.update_status(is_working=False, current_stage=None)
+    _clear_live_started_at()
+    await broadcast.update_status(is_working=False, current_stage=None, live_started_at=None)
     await broadcast.broadcast_log(f"Live mode stopped. {cards_in_progress} cards moved to backlog.", "info")
 
     return {
@@ -817,59 +728,3 @@ async def live_websocket(websocket: WebSocket):
     finally:
         # Cleanup
         await broadcast.disconnect(session_id)
-
-
-# ============================================================================
-# Voting Callback - Start winning project after voting ends
-# ============================================================================
-
-async def _on_voting_ended(winner, all_options):
-    """Callback when voting round ends - start the winning project."""
-    if not winner:
-        return
-
-    broadcast = get_live_broadcast_service()
-
-    # Broadcast results
-    await broadcast.broadcast({
-        "type": "voting_ended",
-        "winner": {
-            "id": winner.id,
-            "title": winner.title,
-            "description": winner.description,
-            "vote_count": winner.vote_count
-        },
-        "results": [
-            {"id": o.id, "title": o.title, "vote_count": o.vote_count}
-            for o in all_options
-        ]
-    })
-
-    await broadcast.broadcast_log(f"🏆 Vencedor: {winner.title} ({winner.vote_count} votos)!", "success")
-
-    # Small delay before starting
-    import asyncio
-    await asyncio.sleep(3)
-
-    # Start the winning project using its category (which maps to project id)
-    # Pass title and description for AI-generated projects
-    try:
-        await broadcast.broadcast_log(f"🚀 Iniciando projeto: {winner.title}...", "info")
-        await _start_project_by_id(
-            project_id=winner.category,
-            title=winner.title,
-            description=winner.description
-        )
-    except Exception as e:
-        await broadcast.broadcast_log(f"❌ Erro ao iniciar projeto: {e}", "error")
-
-
-# Register the callback when module loads
-def _register_voting_callback():
-    """Register voting ended callback."""
-    voting = get_voting_service()
-    voting.on_ended(_on_voting_ended)
-
-
-# Call registration
-_register_voting_callback()

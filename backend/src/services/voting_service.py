@@ -94,7 +94,7 @@ class VotingService:
         result = await db.execute(
             select(VotingRound)
             .where(VotingRound.is_active == True)  # noqa: E712
-            .order_by(VotingRound.started_at.asc())
+            .order_by(VotingRound.started_at.desc())
         )
         rounds = list(result.scalars().all())
         if not rounds:
@@ -102,6 +102,16 @@ class VotingService:
             self._active_options = []
             self._voted_sessions.clear()
             return
+
+        if len(rounds) > 1:
+            stale_ids = [r.id for r in rounds[1:]]
+            await db.execute(
+                update(VotingRound)
+                .where(VotingRound.id.in_(stale_ids))
+                .values(is_active=False, ended_at=datetime.utcnow())
+            )
+            await db.commit()
+            rounds = rounds[:1]
 
         expired_rounds = [r for r in rounds if now >= r.ends_at]
         active_rounds = [r for r in rounds if now < r.ends_at]
@@ -154,6 +164,7 @@ class VotingService:
             is_active=True
         )
         db.add(voting_round)
+        await db.flush()  # Ensure round exists before inserting options
 
         # Create options
         option_list = options or DEFAULT_VOTING_OPTIONS

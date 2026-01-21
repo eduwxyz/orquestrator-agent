@@ -19,9 +19,11 @@ from typing import Dict, Optional, Any
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import event
+from sqlalchemy.engine.url import make_url
 import logging
 
 from .database import Base
+from .config import get_settings
 
 
 def _set_sqlite_pragma(dbapi_conn, connection_record):
@@ -51,7 +53,11 @@ class DatabaseManager:
             base_data_dir: Base directory for storing legacy project databases
                           (novos databases são criados em .claude/)
         """
-        # Database principal - sempre backend/auth.db
+        self.settings = get_settings()
+        self.database_url = self.settings.database_url
+        self.is_sqlite = make_url(self.database_url).drivername.startswith("sqlite")
+
+        # Database principal - sempre backend/auth.db (SQLite) or shared DB (Postgres)
         self.main_database_path = Path("backend/auth.db")
 
         # Diretório para databases legados (compatibilidade)
@@ -63,6 +69,8 @@ class DatabaseManager:
         self.current_project_id: Optional[str] = None
         self._history_engine: Optional[AsyncEngine] = None
         self._history_session: Optional[Any] = None
+        self._shared_engine: Optional[AsyncEngine] = None
+        self._shared_session: Optional[Any] = None
 
     def get_project_id(self, project_path: str) -> str:
         """
@@ -112,6 +120,25 @@ class DatabaseManager:
         # Normalize the path
         project_path = os.path.abspath(project_path)
         project_id = self.get_project_id(project_path)
+
+        if not self.is_sqlite:
+            if self._shared_engine is None:
+                self._shared_engine = create_async_engine(
+                    self.database_url,
+                    echo=False,
+                    future=True,
+                    pool_pre_ping=True,
+                    pool_size=5,
+                    max_overflow=10,
+                )
+                self._shared_session = sessionmaker(
+                    self._shared_engine, class_=AsyncSession, expire_on_commit=False
+                )
+                async with self._shared_engine.begin() as conn:
+                    await conn.run_sync(Base.metadata.create_all)
+
+            self.current_project_id = project_id
+            return project_id
 
         # NOVO: Create database inside the .claude folder of the project
         claude_dir = os.path.join(project_path, '.claude')
@@ -173,6 +200,28 @@ class DatabaseManager:
 
     async def initialize_history_database(self):
         """Initialize the global project history database."""
+        if not self.is_sqlite:
+            if self._shared_engine is None:
+                self._shared_engine = create_async_engine(
+                    self.database_url,
+                    echo=False,
+                    future=True,
+                    pool_pre_ping=True,
+                    pool_size=5,
+                    max_overflow=10,
+                )
+                self._shared_session = sessionmaker(
+                    self._shared_engine, class_=AsyncSession, expire_on_commit=False
+                )
+            self._history_engine = self._shared_engine
+            self._history_session = self._shared_session
+
+            from .models.project_history import Base as HistoryBase
+
+            async with self._history_engine.begin() as conn:
+                await conn.run_sync(HistoryBase.metadata.create_all)
+            return
+
         if self._history_engine is None:
             db_path = self.get_history_database_path()
             database_url = f"sqlite+aiosqlite:///{db_path}"
@@ -208,6 +257,12 @@ class DatabaseManager:
         """
         if not self.current_project_id:
             raise RuntimeError("No project loaded")
+
+        if not self.is_sqlite:
+            if self._shared_session is None:
+                raise RuntimeError("Shared database session not initialized")
+            return self._shared_session
+
         return self.sessions[self.current_project_id]
 
     def get_history_session(self):

@@ -31,7 +31,7 @@ class ActivityLog(Base):
         nullable=False
     )
     activity_type: Mapped[ActivityType] = mapped_column(
-        Enum(ActivityType),
+        Enum(ActivityType, native_enum=False, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False
     )
     timestamp: Mapped[datetime] = mapped_column(

@@ -1,8 +1,11 @@
 """Main orchestrator service for autonomous goal execution."""
 
 import asyncio
+import json
 import logging
+import re
 from datetime import datetime
+from pathlib import Path
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 from enum import Enum
@@ -201,7 +204,6 @@ class OrchestratorService:
             try:
                 # Create repos with fresh session
                 repos = self._create_repos(session)
-
                 # Step 1: READ - Get recent context
                 await self.logger.log_read("Reading short-term memory...")
                 await live_broadcast.broadcast_log("📖 Reading context...", "info")
@@ -281,7 +283,7 @@ class OrchestratorService:
             await live_broadcast.broadcast_log("📸 Salvando na galeria...", "info")
             await self._save_completed_project_from_data(goal_for_gallery)
             await asyncio.sleep(2)
-            await self._start_voting_for_next_project()
+            await self._start_next_project_auto()
 
         cycle_duration = (datetime.utcnow() - cycle_start).total_seconds()
         await self.logger.log_info(f"Cycle completed in {cycle_duration:.2f}s")
@@ -946,7 +948,7 @@ class OrchestratorService:
                     "source_id": goal.source_id,
                     "description": goal.description,
                     "cards": goal.cards,
-                } if goal.source in ["live_mode", "live_mode_voting"] else None
+                } if goal.source in ["live_mode", "live_mode_voting", "live_mode_auto"] else None
             }
         )
 
@@ -1002,6 +1004,7 @@ class OrchestratorService:
                         "like_count": 0
                     }
                 })
+                self._append_project_history(project_title)
 
         except Exception as e:
             logger.exception(f"[Orchestrator] Failed to save to gallery: {e}")
@@ -1072,70 +1075,107 @@ class OrchestratorService:
                     await live_broadcast.broadcast_log(f"⚠️ Erro ao salvar na galeria: {e}", "error")
                     return
 
-    async def _start_voting_for_next_project(self) -> None:
-        """Start a voting round with AI-generated project suggestions."""
-        from .voting_service import get_voting_service
-        from ..database import async_session_maker
+    def _history_path(self) -> Path:
+        history_path = Path(self.settings.project_history_path)
+        if history_path.is_absolute():
+            return history_path
+        return Path(__file__).resolve().parents[2] / history_path
 
+    def _read_project_history(self) -> list[str]:
+        history_path = self._history_path()
+        if not history_path.exists():
+            return []
+        return [line.strip() for line in history_path.read_text().splitlines() if line.strip()]
+
+    def _append_project_history(self, title: str) -> None:
+        history_path = self._history_path()
+        history_path.parent.mkdir(parents=True, exist_ok=True)
+        with history_path.open("a", encoding="utf-8") as handle:
+            handle.write(f"{title.strip()}\n")
+
+    def read_project_history(self) -> list[str]:
+        return self._read_project_history()
+
+    async def decide_next_project(self, history: list[str]) -> Optional[dict]:
+        return await self._decide_next_project(history)
+
+    async def _decide_next_project(self, history: list[str]) -> Optional[dict]:
+        history_text = "\n".join(f"- {item}" for item in history[-25:]) if history else "Nenhum ainda."
+        prompt = f"""Você é o diretor criativo de uma live de programação. Escolha UM próximo projeto divertido e diferente.
+
+Regras:
+- Não repita nenhum item desta lista:
+{history_text}
+- Precisa ter impacto visual/sonoro e interatividade.
+- Deve caber em um único arquivo HTML/CSS/JS inline.
+
+Responda APENAS com JSON neste formato:
+{{"title":"...","description":"...","category":"slug-curto"}}
+
+O campo category deve ser um slug curto (sem espaços, apenas letras, números e hífen)."""
+
+        options = ClaudeAgentOptions(
+            cwd="/opt/zenflow",
+            setting_sources=["user", "project"],
+            allowed_tools=[],
+            permission_mode="acceptEdits",
+            model="sonnet",
+        )
+
+        try:
+            full_response = ""
+            async for message in query(prompt=prompt, options=options):
+                if isinstance(message, AssistantMessage):
+                    for block in message.content:
+                        if isinstance(block, TextBlock):
+                            full_response += block.text
+
+            match = re.search(r"\{.*\}", full_response, re.DOTALL)
+            if not match:
+                return None
+            data = json.loads(match.group(0))
+            return {
+                "title": str(data.get("title", "")).strip(),
+                "description": str(data.get("description", "")).strip(),
+                "category": str(data.get("category", "")).strip(),
+            }
+        except Exception as e:
+            logger.warning(f"[Orchestrator] Failed to decide next project: {e}")
+            return None
+
+    async def _start_next_project_auto(self) -> None:
         live_broadcast = get_live_broadcast_service()
-        voting_service = get_voting_service()
+        history = self._read_project_history()
+        history_set = {h.lower() for h in history}
 
-        # Check if voting is already active
-        if voting_service.is_active:
-            logger.warning("Voting already active, skipping auto-start")
-            return
+        for attempt in range(3):
+            project = await self._decide_next_project(history)
+            if not project or not project["title"]:
+                await live_broadcast.broadcast_log("⚠️ Não foi possível decidir o próximo projeto.", "warning")
+                return
 
-        # Generate AI suggestions for next project
-        await live_broadcast.broadcast_log("🤖 AI gerando sugestões de projetos...", "info")
-        voting_options = await self._generate_ai_project_suggestions()
+            if project["title"].lower() in history_set:
+                await live_broadcast.broadcast_log("⚠️ Projeto repetido ignorado, tentando outro...", "warning")
+                continue
 
-        if not voting_options:
-            # Fallback to default options
-            voting_options = [
-                {"title": "🐍 Jogo da Cobrinha", "description": "Snake game clássico com visual neon", "category": "snake"},
-                {"title": "🧮 Calculadora", "description": "Calculadora com design moderno", "category": "calculator"},
-                {"title": "🎮 Quiz Interativo", "description": "Quiz de perguntas e respostas", "category": "quiz"},
-            ]
+            category_raw = project.get("category") or project["title"]
+            category = re.sub(r"[^a-z0-9-]", "", category_raw.lower()) or "projeto-live"
 
-        # Broadcast that voting is starting
-        await live_broadcast.broadcast_log("⏳ Votação começa em 3 segundos...", "info")
-        await asyncio.sleep(3)
-
-        # Retry logic for SQLite locks - more aggressive delays
-        max_retries = 5
-        for attempt in range(max_retries):
             try:
-                async with async_session_maker() as session:
-                    voting_round, options = await voting_service.start_round(
-                        db=session,
-                        duration_seconds=60,  # 60 seconds for voting
-                        options=voting_options
-                    )
-
-                    # Broadcast voting started
-                    await live_broadcast.broadcast_voting_started(
-                        options=[
-                            {"id": o.id, "title": o.title, "description": o.description, "vote_count": 0}
-                            for o in options
-                        ],
-                        ends_at=voting_round.ends_at.isoformat(),
-                        duration_seconds=60
-                    )
-
-                    await live_broadcast.broadcast_log("🗳️ VOTE AGORA! 60 segundos!", "success")
-                    logger.info(f"[Orchestrator] Auto-started voting with {len(options)} options")
-                    return  # Success, exit retry loop
-
+                from ..routes.live import _start_project_by_id
+                await live_broadcast.broadcast_log(f"🤖 Próximo projeto escolhido: {project['title']}", "info")
+                await _start_project_by_id(
+                    project_id=category,
+                    title=project["title"],
+                    description=project.get("description") or "",
+                )
+                return
             except Exception as e:
-                if "database is locked" in str(e) and attempt < max_retries - 1:
-                    wait_time = (attempt + 1) * 5  # 5s, 10s, 15s, 20s
-                    logger.warning(f"[Orchestrator] DB locked for voting, retry {attempt + 1}/{max_retries} in {wait_time}s...")
-                    await live_broadcast.broadcast_log(f"⏳ DB ocupado para votação, tentando em {wait_time}s...", "warning")
-                    await asyncio.sleep(wait_time)
-                else:
-                    logger.exception(f"[Orchestrator] Failed to start voting: {e}")
-                    await live_broadcast.broadcast_log(f"❌ Erro ao iniciar votação: {e}", "error")
-                    return
+                logger.exception(f"[Orchestrator] Failed to start next project: {e}")
+                await live_broadcast.broadcast_log(f"❌ Erro ao iniciar próximo projeto: {e}", "error")
+                return
+
+        await live_broadcast.broadcast_log("⚠️ Não foi possível escolher um projeto único.", "warning")
 
     async def _generate_ai_project_suggestions(self) -> list[dict]:
         """Use AI to generate creative project suggestions using Claude Agent SDK."""
