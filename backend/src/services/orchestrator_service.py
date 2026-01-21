@@ -29,6 +29,28 @@ from claude_agent_sdk import (
 logger = logging.getLogger(__name__)
 
 
+class _NoopMemoryService:
+    """No-op memory service to disable external memory dependencies."""
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def get_recent_context(self) -> dict:
+        return {}
+
+    def query_relevant_learnings(self, *args, **kwargs) -> list:
+        return []
+
+    async def record_step(self, *args, **kwargs) -> None:
+        return None
+
+    async def flush_pending_logs(self) -> None:
+        return None
+
+    def store_learning(self, *args, **kwargs):
+        return None
+
+
 class OrchestratorDecision(str, Enum):
     """Decisions the orchestrator can make."""
     VERIFY_LIMIT = "verify_limit"
@@ -94,12 +116,13 @@ class OrchestratorService:
 
     def _create_repos(self, session: AsyncSession):
         """Create repository instances with a fresh session."""
+        memory_cls = MemoryService if self.settings.memory_service_enabled else _NoopMemoryService
         return {
             "goal_repo": GoalRepository(session),
             "action_repo": ActionRepository(session),
             "log_repo": LogRepository(session, self.settings.short_term_memory_retention_hours),
             "card_repo": CardRepository(session),
-            "memory": MemoryService(session, self.settings.short_term_memory_retention_hours),
+            "memory": memory_cls(session, self.settings.short_term_memory_retention_hours),
         }
 
     # ==================== LOOP CONTROL ====================

@@ -41,6 +41,13 @@ LIVE_MODE_PROMPT = """⚠️ IMPORTANTE: CRIE APENAS 1 CARD. NÃO DECOMPONHA!
 Projeto: {project_type}
 Pasta do projeto: {project_path}/
 
+## Objetivo da live (entretenimento)
+- Precisa ser divertido de assistir ao vivo.
+- Tem que ter impacto visual/sonoro imediato.
+- Incluir um "wow moment" nos primeiros 2-3 minutos.
+- Preferir interatividade (mouse/teclado/gestos) e feedback instantaneo.
+- Evitar temas repetidos da live (na duvida, escolha algo diferente).
+
 ## Estrutura esperada:
 - {project_path}/spec.md (plano de implementação)
 - {project_path}/index.html (arquivo principal com HTML/CSS/JS inline)
@@ -48,7 +55,7 @@ Pasta do projeto: {project_path}/
 ## Instruções:
 1. Salve o plano de implementação em `{project_path}/spec.md`
 2. Crie o projeto completo em `{project_path}/index.html` com HTML/CSS/JS inline
-3. O projeto deve ser funcional e visualmente atraente
+3. O projeto deve ser funcional, visualmente atraente e divertido
 
 ⚠️ REGRA ABSOLUTA: 1 CARD APENAS. Não divida em múltiplas tarefas."""
 
@@ -129,6 +136,9 @@ async def get_live_kanban(db: AsyncSession = Depends(get_db)):
 async def get_voting_state():
     """Get current voting state."""
     voting = get_voting_service()
+    from ..database import async_session_maker
+    async with async_session_maker() as db:
+        await voting.refresh_state(db)
     return voting.get_state()
 
 
@@ -140,6 +150,7 @@ async def cast_vote(
 ):
     """Cast a vote for the next project."""
     voting = get_voting_service()
+    await voting.refresh_state(db)
 
     # Get IP address for rate limiting
     ip = req.client.host if req.client else None
@@ -316,7 +327,8 @@ async def submit_game_score(
         raise HTTPException(status_code=400, detail="Score must be positive")
 
     # Retry logic for concurrent writes (SQLite database locked)
-    max_retries = 5
+    # With WAL mode, locks should be rare, but we still handle them gracefully
+    max_retries = 8
     game_score = None
 
     for attempt in range(max_retries):
@@ -337,7 +349,7 @@ async def submit_game_score(
         except OperationalError as e:
             if "database is locked" in str(e).lower() and attempt < max_retries - 1:
                 await db.rollback()
-                wait_time = 0.1 * (attempt + 1)  # 0.1s, 0.2s, 0.3s, 0.4s
+                wait_time = 0.5 * (attempt + 1)  # 0.5s, 1s, 1.5s, 2s, 2.5s, 3s, 3.5s
                 logger.warning(f"[GameScore] DB locked, retry {attempt + 1}/{max_retries} in {wait_time}s")
                 await asyncio.sleep(wait_time)
             else:
@@ -400,17 +412,22 @@ async def admin_start_voting(
     voting = get_voting_service()
     broadcast = get_live_broadcast_service()
 
+    await voting.refresh_state(db)
+
     if voting.is_active:
         raise HTTPException(status_code=400, detail="Voting is already active")
 
-    # Use PROJECT_OPTIONS as voting options
+    # Use a random slice of PROJECT_OPTIONS as voting options
+    import random
+    sample_size = min(VOTING_OPTIONS_PER_ROUND, len(PROJECT_OPTIONS))
+    sampled = random.sample(PROJECT_OPTIONS, sample_size)
     voting_options = [
         {
             "title": p["title"],
             "description": p["description"],
             "category": p["id"],  # Use id as category for mapping back
         }
-        for p in PROJECT_OPTIONS
+        for p in sampled
     ]
 
     round, options = await voting.start_round(db, duration_seconds, voting_options)
@@ -443,6 +460,7 @@ async def admin_start_voting(
 async def admin_end_voting(db: AsyncSession = Depends(get_db)):
     """End current voting round early (admin only)."""
     voting = get_voting_service()
+    await voting.refresh_state(db)
 
     if not voting.is_active:
         raise HTTPException(status_code=400, detail="No active voting round")
@@ -513,15 +531,37 @@ async def get_live_mode_status(db: AsyncSession = Depends(get_db)):
 
 
 # Opções de projetos para votação
+VOTING_OPTIONS_PER_ROUND = 7
+
 PROJECT_OPTIONS = [
-    {"id": "snake", "title": "🐍 Jogo da Cobrinha", "description": "Snake game classico com visual neon", "folder": "snake-game"},
-    {"id": "memory", "title": "🎯 Jogo da Memoria", "description": "Jogo de encontrar pares de cartas", "folder": "memory-game"},
-    {"id": "calculator", "title": "🧮 Calculadora Bonita", "description": "Calculadora com design moderno", "folder": "calculator"},
-    {"id": "pomodoro", "title": "🍅 Timer Pomodoro", "description": "Timer de produtividade estilizado", "folder": "pomodoro-timer"},
-    {"id": "quiz", "title": "🎮 Quiz Interativo", "description": "Quiz de perguntas e respostas", "folder": "quiz-game"},
-    {"id": "todo", "title": "📝 Todo List Elegante", "description": "Lista de tarefas com animacoes", "folder": "todo-list"},
-    {"id": "weather", "title": "🌤️ App de Clima", "description": "Mostra clima com visual bonito", "folder": "weather-app"},
+    {"id": "snake", "title": "🐍 Jogo da Cobrinha Neon", "description": "Snake classico com rastro neon e efeitos", "folder": "snake-game"},
+    {"id": "memory", "title": "🎯 Jogo da Memoria Turbo", "description": "Pares de cartas com animacao flip", "folder": "memory-game"},
+    {"id": "quiz", "title": "🎮 Quiz Interativo", "description": "Perguntas rapidas com placar ao vivo", "folder": "quiz-game"},
+    {"id": "rhythm", "title": "🥁 Jogo de Ritmo", "description": "Notas caindo e acerto no tempo", "folder": "rhythm-game"},
+    {"id": "pong", "title": "🏓 Pong Arena", "description": "Pong moderno com boosts e particulas", "folder": "pong-arena"},
+    {"id": "reaction", "title": "⚡ Teste de Reacao", "description": "Clique no momento certo e veja o ranking", "folder": "reaction-test"},
+    {"id": "typing", "title": "⌨️ Desafio de Digitacao", "description": "Frases rapidas com timer e WPM", "folder": "typing-challenge"},
+    {"id": "maze", "title": "🧭 Labirinto Vivo", "description": "Labirinto animado com trilha luminosa", "folder": "live-maze"},
+    {"id": "soundboard", "title": "🔊 Soundboard Divertido", "description": "Botoes sonoros com visual divertido", "folder": "soundboard"},
     {"id": "piano", "title": "🎹 Piano Virtual", "description": "Piano tocavel pelo teclado", "folder": "virtual-piano"},
+    {"id": "drum", "title": "🥁 Bateria Virtual", "description": "Pads com efeitos e gravacao rapida", "folder": "drum-pad"},
+    {"id": "particles", "title": "✨ Arte de Particulas", "description": "Particulas reagindo ao mouse", "folder": "particle-art"},
+    {"id": "fractal", "title": "🌀 Fractal Hipnotico", "description": "Zoom em fractais com cores vivas", "folder": "fractal-viewer"},
+    {"id": "nebula", "title": "🌌 Nebulosa Generativa", "description": "Ruido e gradientes animados", "folder": "nebula-art"},
+    {"id": "boids", "title": "🕊️ Flock Simulation", "description": "Passaros (boids) seguindo regras simples", "folder": "boids-sim"},
+    {"id": "orbit", "title": "🪐 Mini Sistema Solar", "description": "Orbits, gravidade fake e brilho", "folder": "solar-sim"},
+    {"id": "flowfield", "title": "🧠 Flow Field Art", "description": "Linhas organicas seguindo vetores", "folder": "flow-field"},
+    {"id": "fireworks", "title": "🎆 Fogos Interativos", "description": "Explosoes com clique e audio", "folder": "fireworks"},
+    {"id": "meme", "title": "😂 Meme Generator Live", "description": "Texto, stickers e export rapido", "folder": "meme-generator"},
+    {"id": "dance", "title": "🕺 Boneco Dançarino", "description": "Animacao com ritmo e cores", "folder": "dancing-bot"},
+    {"id": "voiceviz", "title": "🎤 Visualizador de Audio", "description": "Bars e ondas reagindo ao microfone", "folder": "audio-visualizer"},
+    {"id": "weather", "title": "🌤️ App de Clima Show", "description": "Clima com ilustracoes animadas", "folder": "weather-app"},
+    {"id": "pomodoro", "title": "🍅 Pomodoro Cinematico", "description": "Timer com cenas e progresso bonito", "folder": "pomodoro-timer"},
+    {"id": "calculator", "title": "🧮 Calculadora Bonita", "description": "Calculadora com design moderno", "folder": "calculator"},
+    {"id": "todo", "title": "📝 Todo List Elegante", "description": "Lista de tarefas com animacoes", "folder": "todo-list"},
+    {"id": "glitch", "title": "📺 Glitch Studio", "description": "Efeitos glitch e scanlines", "folder": "glitch-studio"},
+    {"id": "lens", "title": "🔍 Lente Magica", "description": "Efeito lupa com distorcao", "folder": "magic-lens"},
+    {"id": "cards", "title": "🃏 Cartas Magicas", "description": "Cartas que viram e brilham", "folder": "magic-cards"},
 ]
 
 # Contador de projetos para gerar folders únicos

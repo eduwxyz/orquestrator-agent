@@ -44,6 +44,7 @@ class Settings(BaseSettings):
 
     # Short-term memory settings
     short_term_memory_retention_hours: int = 24
+    memory_service_enabled: bool = False  # Disable external memory service by default
 
     # Live mode settings - use lighter models for VPS with limited memory
     live_mode_model_plan: str = "sonnet-4.5"  # Lighter than opus-4.5 to avoid OOM

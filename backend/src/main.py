@@ -63,12 +63,40 @@ import asyncio
 _orchestrator_task: Optional[asyncio.Task] = None
 
 
+async def _ensure_wal_mode():
+    """Ensure SQLite WAL mode is enabled for better concurrency."""
+    from sqlalchemy import text
+    from .database import engine
+
+    async with engine.begin() as conn:
+        # Check current journal mode
+        result = await conn.execute(text("PRAGMA journal_mode"))
+        current_mode = result.scalar()
+        print(f"[Server] Current SQLite journal mode: {current_mode}")
+
+        if current_mode.lower() != "wal":
+            # Force WAL mode
+            await conn.execute(text("PRAGMA journal_mode=WAL"))
+            result = await conn.execute(text("PRAGMA journal_mode"))
+            new_mode = result.scalar()
+            print(f"[Server] Changed journal mode to: {new_mode}")
+
+        # Set other pragmas for concurrency
+        await conn.execute(text("PRAGMA busy_timeout=60000"))  # 60s timeout
+        await conn.execute(text("PRAGMA synchronous=NORMAL"))
+        print("[Server] SQLite WAL mode and concurrency settings applied")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
     global _orchestrator_task
 
-    # Startup: Create database tables
+    # Startup: Ensure WAL mode first
+    print("[Server] Configuring SQLite for concurrency...")
+    await _ensure_wal_mode()
+
+    # Create database tables
     print("[Server] Creating database tables...")
     await create_tables()
     print("[Server] Database tables created successfully")
