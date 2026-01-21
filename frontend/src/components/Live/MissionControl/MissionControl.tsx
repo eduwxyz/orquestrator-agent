@@ -339,6 +339,11 @@ export function MissionControl({ state, isConnected, rankingUpdate }: MissionCon
           </div>
         </div>
       </header>
+      <div className={styles.statusBanner}>
+        <div className={styles.statusBannerText}>
+          Esperando os tokens recarregarem, voltamos as 20h30... (Status ate agora, 19 projetos feitos)
+        </div>
+      </div>
 
       {/* Main Grid */}
       <main className={styles.main}>
