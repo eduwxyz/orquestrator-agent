@@ -549,6 +549,15 @@ class OrchestratorService:
                 from .card_ws import card_ws_manager
                 from ..schemas.card import CardResponse
 
+                # Safety check: ensure card is a valid Card model with required fields
+                if not hasattr(card, 'column_id') or not hasattr(card, 'created_at'):
+                    logger.error(f"Invalid card object: missing required attributes. Type: {type(card)}")
+                    raise ValueError(f"Invalid card object type: {type(card)}")
+
+                if card.created_at is None:
+                    logger.error(f"Card {card.id} has None created_at, refreshing from DB")
+                    await card_repo.session.refresh(card)
+
                 card_response = CardResponse.model_validate(card)
                 card_dict = card_response.model_dump(by_alias=True, mode='json')
                 await card_ws_manager.broadcast_card_created(
@@ -1080,6 +1089,15 @@ class OrchestratorService:
         try:
             from .card_ws import card_ws_manager
             from ..schemas.card import CardResponse
+
+            # Safety check: ensure card is valid before converting to CardResponse
+            if not hasattr(card, 'column_id') or not hasattr(card, 'created_at'):
+                logger.error(f"Invalid card object in broadcast: type={type(card)}, attrs={dir(card)[:10]}")
+                raise ValueError(f"Invalid card object type: {type(card)}")
+
+            if card.created_at is None:
+                logger.error(f"Card {card.id} has None created_at after move, refreshing")
+                await card_repo.session.refresh(card)
 
             card_response = CardResponse.model_validate(card)
             card_dict = card_response.model_dump(by_alias=True, mode='json')

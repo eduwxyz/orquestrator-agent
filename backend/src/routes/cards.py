@@ -21,8 +21,38 @@ from ..schemas.card import (
     CostStats,
 )
 from ..services.diff_analyzer import DiffAnalyzer
+from ..models.card import Card
 
 router = APIRouter(prefix="/api/cards", tags=["cards"])
+
+
+def card_to_dict(card: Card) -> dict:
+    """Convert Card model to dict, avoiding SQLAlchemy internal state."""
+    return {
+        "id": card.id,
+        "title": card.title,
+        "description": card.description,
+        "column_id": card.column_id,
+        "spec_path": card.spec_path,
+        "model_plan": card.model_plan,
+        "model_implement": card.model_implement,
+        "model_test": card.model_test,
+        "model_review": card.model_review,
+        "images": card.images,
+        "archived": card.archived,
+        "created_at": card.created_at,
+        "updated_at": card.updated_at,
+        "parent_card_id": card.parent_card_id,
+        "is_fix_card": card.is_fix_card,
+        "test_error_context": card.test_error_context,
+        "branch_name": card.branch_name,
+        "worktree_path": card.worktree_path,
+        "base_branch": card.base_branch,
+        "diff_stats": card.diff_stats,
+        "completed_at": card.completed_at,
+        "experts": card.experts,
+        "dependencies": card.dependencies,
+    }
 
 
 @router.get("", response_model=CardsListResponse)
@@ -35,7 +65,7 @@ async def get_all_cards(db: AsyncSession = Depends(get_db)):
     # Para cada card, buscar execução ativa e token stats
     cards_with_execution = []
     for card in cards:
-        card_dict = card.__dict__.copy()
+        card_dict = card_to_dict(card)
 
         # Buscar execução ativa no banco (usar SQL direto por enquanto)
         result = await db.execute(
@@ -98,7 +128,7 @@ async def get_card(card_id: str, db: AsyncSession = Depends(get_db)):
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
 
-    card_dict = card.__dict__.copy()
+    card_dict = card_to_dict(card)
 
     # Buscar token stats para o card
     token_stats = await exec_repo.get_token_stats_for_card(card.id)
