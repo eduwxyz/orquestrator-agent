@@ -1,5 +1,6 @@
 /* ============================================
-   ZEN FLOW - BIBLIOTECA DE ANIMAÇÕES
+   Soft & Rounded - Animations
+   Simplified, clean animations without glows
    ============================================ */
 
 /* === FADE ANIMATIONS === */
@@ -44,28 +45,6 @@
   }
 }
 
-@keyframes fadeInLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes fadeInRight {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
 /* === SLIDE ANIMATIONS === */
 
 @keyframes slideInUp {
@@ -83,24 +62,6 @@
   }
   to {
     transform: translateY(0);
-  }
-}
-
-@keyframes slideInLeft {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes slideInRight {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
   }
 }
 
@@ -128,76 +89,11 @@
   }
 }
 
-@keyframes scaleBounce {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-/* === SPRING ANIMATIONS === */
-
-@keyframes springHover {
-  0% {
-    transform: scale(1) rotate(0deg);
-  }
-  20% {
-    transform: scale(1.05) rotate(1deg);
-  }
-  40% {
-    transform: scale(0.98) rotate(-0.5deg);
-  }
-  60% {
-    transform: scale(1.02) rotate(0.5deg);
-  }
-  100% {
-    transform: scale(1) rotate(0deg);
-  }
-}
-
-@keyframes springIn {
-  0% {
-    transform: scale(0);
-  }
-  50% {
-    transform: scale(1.1);
-  }
-  75% {
-    transform: scale(0.95);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
 /* === ROTATION ANIMATIONS === */
 
 @keyframes spin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-@keyframes spinSlow {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes wiggle {
-  0%, 100% {
-    transform: rotate(0deg);
-  }
-  25% {
-    transform: rotate(-5deg);
-  }
-  75% {
-    transform: rotate(5deg);
   }
 }
 
@@ -212,27 +108,6 @@
   }
 }
 
-@keyframes pulseScale {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-}
-
-@keyframes heartbeat {
-  0%, 100% {
-    transform: scale(1);
-  }
-  10%, 30% {
-    transform: scale(1.1);
-  }
-  20%, 40% {
-    transform: scale(1);
-  }
-}
-
 /* === SHIMMER/LOADING ANIMATIONS === */
 
 @keyframes shimmer {
@@ -241,15 +116,6 @@
   }
   100% {
     background-position: 200% 0;
-  }
-}
-
-@keyframes skeleton {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
   }
 }
 
@@ -266,15 +132,6 @@
   }
 }
 
-@keyframes typingBounce {
-  0%, 60%, 100% {
-    transform: translateY(0);
-  }
-  30% {
-    transform: translateY(-10px);
-  }
-}
-
 /* === MESSAGE ANIMATIONS === */
 
 @keyframes messageSlide {
@@ -288,119 +145,7 @@
   }
 }
 
-@keyframes messageBubble {
-  0% {
-    opacity: 0;
-    transform: scale(0.8) translateY(10px);
-  }
-  50% {
-    transform: scale(1.02) translateY(-2px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-/* === BOUNCE ANIMATIONS === */
-
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-@keyframes bounceIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.05);
-  }
-  70% {
-    transform: scale(0.9);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-/* === SHAKE ANIMATIONS === */
-
-@keyframes shake {
-  0%, 100% {
-    transform: translateX(0);
-  }
-  10%, 30%, 50%, 70%, 90% {
-    transform: translateX(-4px);
-  }
-  20%, 40%, 60%, 80% {
-    transform: translateX(4px);
-  }
-}
-
-@keyframes shakeY {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  10%, 30%, 50%, 70%, 90% {
-    transform: translateY(-4px);
-  }
-  20%, 40%, 60%, 80% {
-    transform: translateY(4px);
-  }
-}
-
-/* === GLOW ANIMATIONS === */
-
-@keyframes glow {
-  0%, 100% {
-    box-shadow: 0 0 5px var(--zen-primary-glow);
-  }
-  50% {
-    box-shadow: 0 0 20px var(--zen-primary-glow);
-  }
-}
-
-@keyframes glowPulse {
-  0%, 100% {
-    filter: drop-shadow(0 0 2px var(--zen-primary));
-  }
-  50% {
-    filter: drop-shadow(0 0 8px var(--zen-primary));
-  }
-}
-
-/* === FLIP ANIMATIONS === */
-
-@keyframes flipX {
-  from {
-    transform: perspective(400px) rotateX(90deg);
-    opacity: 0;
-  }
-  to {
-    transform: perspective(400px) rotateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes flipY {
-  from {
-    transform: perspective(400px) rotateY(90deg);
-    opacity: 0;
-  }
-  to {
-    transform: perspective(400px) rotateY(0);
-    opacity: 1;
-  }
-}
-
-/* === CARD SPECIFIC ANIMATIONS === */
+/* === CARD ANIMATIONS === */
 
 @keyframes cardEnter {
   from {
@@ -424,15 +169,6 @@
   }
 }
 
-@keyframes cardHover {
-  0% {
-    transform: translateY(0);
-  }
-  100% {
-    transform: translateY(-2px);
-  }
-}
-
 /* === DRAG & DROP ANIMATIONS === */
 
 @keyframes dragStart {
@@ -441,42 +177,6 @@
   }
   100% {
     transform: scale(1.05) rotate(2deg);
-  }
-}
-
-@keyframes dropZoneActive {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.02);
-    opacity: 0.8;
-  }
-}
-
-/* === SUCCESS/ERROR ANIMATIONS === */
-
-@keyframes successCheck {
-  0% {
-    stroke-dashoffset: 100;
-  }
-  100% {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes errorX {
-  0% {
-    transform: scale(0);
-    opacity: 0;
-  }
-  50% {
-    transform: scale(1.1);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
   }
 }
 
@@ -494,10 +194,6 @@
   animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.animate-spring {
-  animation: springIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
 .animate-shimmer {
   animation: shimmer 1.5s infinite;
 }
@@ -506,16 +202,8 @@
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-.animate-bounce {
-  animation: bounce 1s infinite;
-}
-
 .animate-spin {
   animation: spin 1s linear infinite;
-}
-
-.animate-spin-slow {
-  animation: spinSlow 3s linear infinite;
 }
 
 /* === STAGGER ANIMATIONS === */
@@ -525,20 +213,11 @@
   animation-delay: calc(var(--stagger-index, 0) * 0.05s);
 }
 
-.stagger-item-fast {
-  animation: fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) backwards;
-  animation-delay: calc(var(--stagger-index, 0) * 0.03s);
-}
-
-.stagger-item-slow {
-  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) backwards;
-  animation-delay: calc(var(--stagger-index, 0) * 0.08s);
-}
-
 /* === HOVER STATES === */
 
 .hover-lift {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .hover-lift:hover {
@@ -547,19 +226,11 @@
 }
 
 .hover-scale {
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .hover-scale:hover {
   transform: scale(1.02);
-}
-
-.hover-glow {
-  transition: filter 0.3s ease;
-}
-
-.hover-glow:hover {
-  filter: drop-shadow(0 0 8px var(--zen-primary-glow));
 }
 
 /* === LOADING STATES === */
@@ -567,9 +238,9 @@
 .loading-skeleton {
   background: linear-gradient(
     90deg,
-    var(--zen-gray-100) 0%,
-    var(--zen-gray-50) 50%,
-    var(--zen-gray-100) 100%
+    var(--bg-elevated) 0%,
+    var(--bg-hover) 50%,
+    var(--bg-elevated) 100%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
@@ -585,7 +256,7 @@
 .loading-dot {
   width: 8px;
   height: 8px;
-  background: var(--zen-gray-400);
+  background: var(--text-tertiary);
   border-radius: 50%;
   animation: typingPulse 1.4s infinite;
 }

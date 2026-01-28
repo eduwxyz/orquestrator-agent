@@ -1,7 +1,6 @@
 /* ============================================
-   Deep Dark Minimalist Theme
-   Design Philosophy: Deep, immersive, functional
-   Inspiration: Autoforge AI (User provided images)
+   Soft & Rounded Theme
+   Design Philosophy: Clean, premium, accessible
    ============================================ */
 
 :root {
@@ -19,73 +18,62 @@
   --font-size-2xl: 1.5rem;     /* 24px */
   --font-size-3xl: 1.875rem;   /* 30px */
   --font-size-4xl: 2.25rem;    /* 36px */
-  --font-size-metric: 3rem;    /* 48px - For metric cards */
+  --font-size-metric: 3rem;    /* 48px */
 
-  /* ===== Deep Dark Color Palette ===== */
-  /* Main Backgrounds - Deep Blue-Black */
-  --bg-primary: #0F0F12;      /* Main App Background */
-  --bg-secondary: #16161a;    /* Sidebar / Panels */
-  --bg-tertiary: #1c1c21;     /* Cards / Inputs */
-  --bg-elevated: #25252b;     /* Hover states / Dropdowns */
-  --bg-glass: rgba(22, 22, 26, 0.8); /* Glassmorphism - Enhanced */
-
-  /* Glass Effects - Enhanced */
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-blur: 30px;
-
-  /* Text - High Contrast */
-  --text-primary: #ffffff;
-  --text-secondary: #a1a1aa;  /* Muted grey */
-  --text-tertiary: #71717a;   /* Darker grey */
-  --text-muted: #52525b;
-  --text-disabled: #3f3f46;
-
-  /* Accents - Neon / Digital */
-  --accent-primary: #7c3aed;  /* Deep Purple */
-  --accent-primary-hover: #8b5cf6;
-  --accent-primary-light: #a78bfa;
-  --accent-primary-glow: rgba(124, 58, 237, 0.5);
-
-  /* Semantic Colors */
-  --accent-success: #10b981;  /* Emerald */
-  --accent-success-glow: rgba(16, 185, 129, 0.3);
-  
-  --accent-warning: #f59e0b;  /* Amber */
-  --accent-warning-glow: rgba(245, 158, 11, 0.3);
-
-  --accent-danger: #ef4444;   /* Red */
-  --accent-danger-glow: rgba(239, 68, 68, 0.3);
-
-  --accent-info: #3b82f6;     /* Blue */
-  --accent-info-glow: rgba(59, 130, 246, 0.3);
-
-  --accent-cyan: #06b6d4;     /* Cyan */
-  --accent-cyan-glow: rgba(6, 182, 212, 0.3);
-
-  /* Column Colors (Kanban) */
-  --col-backlog: #71717a;     /* Grey */
-  --col-plan: #3b82f6;        /* Blue */
-  --col-implement: #8b5cf6;   /* Purple */
-  --col-test: #f97316;        /* Orange */
-  --col-review: #10b981;      /* Emerald */
-  --col-done: #06b6d4;        /* Cyan */
+  /* ===== Soft & Rounded Color Palette ===== */
+  /* Backgrounds */
+  --bg-primary: #121215;
+  --bg-secondary: #1A1A1F;
+  --bg-tertiary: #1A1A1F;
+  --bg-elevated: #222228;
+  --bg-hover: #2A2A31;
+  --bg-inset: #0E0E11;
 
   /* Borders */
-  --border-subtle: rgba(255, 255, 255, 0.03);
-  --border-default: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.06);
   --border-strong: rgba(255, 255, 255, 0.12);
-  --border-highlight: rgba(255, 255, 255, 0.2);
+  --border-highlight: rgba(255, 255, 255, 0.12);
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
-  --shadow-glow: 0 0 15px rgba(124, 58, 237, 0.3);
+  /* Text */
+  --text-primary: #F0F0F3;
+  --text-secondary: #9494A0;
+  --text-tertiary: #5C5C68;
+  --text-muted: #5C5C68;
+  --text-disabled: #3f3f46;
 
-  /* Enhanced Glow Shadows */
-  --shadow-glow-cyan: 0 0 20px rgba(6, 182, 212, 0.4);
-  --shadow-glow-purple: 0 0 20px rgba(124, 58, 237, 0.4);
-  --shadow-glow-mixed: 0 0 20px rgba(6, 182, 212, 0.3), 0 0 40px rgba(124, 58, 237, 0.2);
+  /* Accent */
+  --accent-primary: #8B7BF5;
+  --accent-primary-hover: #9D8FF7;
+  --accent-primary-light: #9D8FF7;
+  --accent-primary-subtle: rgba(139,123,245,0.12);
+  --accent-primary-soft: rgba(139,123,245,0.06);
+
+  /* Semantic Colors */
+  --accent-success: #4ADE80;
+  --accent-warning: #FBBF24;
+  --accent-danger: #F87171;
+  --accent-info: #60A5FA;
+  --accent-cyan: #22D3EE;
+  --accent-orange: #FB923C;
+  --accent-pink: #F472B6;
+
+  /* Subtle backgrounds for tags */
+  --success-subtle: rgba(74,222,128,0.10);
+  --warning-subtle: rgba(251,191,36,0.10);
+  --danger-subtle: rgba(248,113,113,0.10);
+  --info-subtle: rgba(96,165,250,0.10);
+  --cyan-subtle: rgba(34,211,238,0.08);
+  --orange-subtle: rgba(251,146,60,0.10);
+  --pink-subtle: rgba(244,114,182,0.10);
+
+  /* Column Colors (Kanban) */
+  --col-backlog: #5C5C68;
+  --col-plan: #60A5FA;
+  --col-implement: #8B7BF5;
+  --col-test: #FB923C;
+  --col-review: #4ADE80;
+  --col-done: #22D3EE;
 
   /* Spacing */
   --space-1: 4px;
@@ -96,53 +84,24 @@
   --space-6: 32px;
   --space-8: 48px;
 
-  /* Radius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-full: 9999px;
+  /* Radius - LARGER */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 100px;
+
+  /* Shadows - SOFT, NO GLOW */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.15);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,0.3), 0 2px 6px rgba(0,0,0,0.2);
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.06);
 
   /* Animation */
-  --duration-fast: 150ms;
+  --duration-fast: 180ms;
   --duration-normal: 250ms;
   --duration-slow: 350ms;
   --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-spring: cubic-bezier(0.68, -0.55, 0.265, 1.55);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-
-  /* ===== Dashboard Visual Improvements ===== */
-  /* Vibrant accent colors para dashboard */
-  --accent-cyan-vibrant: #00d4ff;
-  --accent-purple-vibrant: #b794f6;
-  --accent-success-vibrant: #68d391;
-  --accent-warning-vibrant: #f6ad55;
-  --accent-info-vibrant: #63b3ed;
-  --accent-danger-vibrant: #fc8181;
-  --accent-primary-vibrant: #8b5cf6;
-
-  /* Glass effects melhorados */
-  --glass-blur-heavy: 40px;
-  --glass-blur-light: 10px;
-  --glass-refraction: rgba(255, 255, 255, 0.05);
-
-  /* Animações avançadas */
-  --spring-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  --smooth-elastic: cubic-bezier(0.175, 0.885, 0.32, 1.275);
-
-  /* Accent glows para efeitos visuais */
-  --accent-purple-glow: rgba(139, 92, 246, 0.3);
-}
-
-/* Base Classes */
-.glass-panel {
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-default);
-  backdrop-filter: blur(8px);
-}
-
-.text-gradient {
-  background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
 }

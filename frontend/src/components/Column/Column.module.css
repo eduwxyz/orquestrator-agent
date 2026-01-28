@@ -1,55 +1,62 @@
-/* Column - Deep Dark Minimalist */
+/* Column - Soft & Rounded Design */
 
 .column {
   flex: 0 0 320px;
   display: flex;
   flex-direction: column;
-  background: transparent; /* No background for column container to blend */
+  background: transparent;
   border-radius: var(--radius-lg);
-  padding-right: var(--space-2); /* Spacing between columns */
+  padding-right: var(--space-2);
   position: relative;
-  transition: all 0.3s ease;
+  transition: all 180ms ease;
 }
 
-/* Column Header - Floating pill style */
+/* Column Header */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: var(--space-4);
-  padding: var(--space-3);
-  background: var(--bg-tertiary);
+  padding: 12px 16px;
+  background: var(--bg-secondary);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   position: sticky;
   top: 0;
   z-index: 10;
+  transition: all 180ms ease;
+  box-shadow: var(--shadow-sm);
 }
 
 .headerLeft {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 10px;
+}
+
+/* Colored Dot */
+.colorDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .title {
-  font-family: var(--font-display);
   font-size: 13px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-  transition: color 0.2s;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  transition: color 180ms ease;
 }
 
 .count {
-  font-family: var(--font-mono);
   font-size: 11px;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
   background: var(--bg-elevated);
   color: var(--text-tertiary);
-  border: 1px solid var(--border-subtle);
 }
 
 .cards {
@@ -68,51 +75,43 @@
 }
 
 .columnOver .header {
-  border-color: var(--border-highlight);
+  border-color: var(--border-strong);
   background: var(--bg-elevated);
+  box-shadow: var(--shadow-md);
 }
 
 /* ========================================
-   Column Specific Colors (Icons & Accents)
+   Column Specific Colors (Dots)
    ======================================== */
 
 /* BACKLOG */
-.column_backlog .title { color: var(--col-backlog); }
-.column_backlog .header { border-left: 3px solid var(--col-backlog); }
+.column_backlog .colorDot { background: var(--col-backlog); }
 
 /* PLAN */
-.column_plan .title { color: var(--col-plan); }
-.column_plan .header { border-left: 3px solid var(--col-plan); }
+.column_plan .colorDot { background: var(--col-plan); }
 
 /* IMPLEMENT */
-.column_implement .title { color: var(--col-implement); }
-.column_implement .header { border-left: 3px solid var(--col-implement); }
+.column_implement .colorDot { background: var(--col-implement); }
 
 /* TEST */
-.column_test .title { color: var(--col-test); }
-.column_test .header { border-left: 3px solid var(--col-test); }
+.column_test .colorDot { background: var(--col-test); }
 
 /* REVIEW */
-.column_review .title { color: var(--col-review); }
-.column_review .header { border-left: 3px solid var(--col-review); }
+.column_review .colorDot { background: var(--col-review); }
 
 /* DONE */
-.column_done .title { color: var(--col-done); }
-.column_done .header { border-left: 3px solid var(--col-done); }
+.column_done .colorDot { background: var(--col-done); }
 
 /* COMPLETED */
 .column_completed { opacity: 0.7; }
-.column_completed .title { color: var(--text-secondary); }
-.column_completed .header { border-left: 3px solid var(--text-secondary); }
+.column_completed .colorDot { background: var(--text-secondary); }
 
 /* ARCHIVED */
 .column_archived { opacity: 0.6; }
-.column_archived .header { border-left: 3px solid var(--text-disabled); }
+.column_archived .colorDot { background: var(--text-disabled); }
 
 /* CANCELADO */
-.column_cancelado .header { border-left: 3px solid var(--accent-danger); }
-.column_cancelado .title { color: var(--accent-danger); }
-
+.column_cancelado .colorDot { background: var(--accent-danger); }
 
 /* Collapsed State */
 .column.collapsed {
@@ -134,6 +133,10 @@
   margin-top: var(--space-2);
 }
 
+.column.collapsed .colorDot {
+  margin-bottom: var(--space-2);
+}
+
 .column.collapsed .cards {
   display: none;
 }
@@ -142,6 +145,9 @@
 .clickableHeader {
   cursor: pointer;
 }
+
 .clickableHeader:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }

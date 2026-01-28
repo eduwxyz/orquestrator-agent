@@ -1,3 +1,5 @@
+/* ChatPage - Soft & Rounded Design */
+
 .chatPage {
   display: flex;
   flex-direction: column;
@@ -11,11 +13,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-4) var(--space-5);
-  background: var(--glass-bg);
-  border: 1px solid var(--border-subtle);
+  padding: 20px 24px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
-  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-sm);
+  transition: all 180ms ease;
 }
 
 .chatInfo {
@@ -47,23 +50,24 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  padding: 8px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(10px);
+  transition: all 180ms ease;
+  box-shadow: var(--shadow-sm);
 }
 
 .newChatButton:hover:not(:disabled) {
   background: var(--bg-hover);
   border-color: var(--accent-cyan);
   color: var(--accent-cyan);
-  box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .newChatButton:active:not(:disabled) {
@@ -79,18 +83,17 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-surface);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
+  padding: 6px 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-default);
 }
 
 .statusIndicator {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent-green);
-  box-shadow: 0 0 10px var(--accent-green);
+  background: var(--accent-success);
   animation: pulse 2s ease-in-out infinite;
 }
 
@@ -113,11 +116,12 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: var(--glass-bg);
-  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   overflow: hidden;
   min-height: 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .messagesArea {
@@ -168,7 +172,7 @@
 
 .emptySubtext {
   font-size: 0.875rem;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   margin-bottom: var(--space-6);
   max-width: 400px;
 }
@@ -190,29 +194,31 @@
 }
 
 .suggestionButton {
-  padding: var(--space-3) var(--space-4);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-size: 0.875rem;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition: all 180ms ease;
   text-align: left;
+  box-shadow: var(--shadow-sm);
 }
 
 .suggestionButton:hover {
   background: var(--bg-hover);
   border-color: var(--accent-cyan);
   color: var(--text-primary);
-  transform: translateX(4px);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .typingIndicator {
   display: flex;
   gap: 6px;
-  padding: var(--space-3) var(--space-4);
-  background: var(--bg-surface);
+  padding: 12px 16px;
+  background: var(--bg-elevated);
   border-radius: var(--radius-md);
   width: fit-content;
   margin-left: var(--space-2);
@@ -249,11 +255,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  background: rgba(251, 113, 133, 0.1);
-  border: 1px solid var(--accent-rose);
+  padding: 12px 16px;
+  background: var(--danger-subtle);
+  border: 1px solid var(--accent-danger);
   border-radius: var(--radius-md);
-  color: var(--accent-rose);
+  color: var(--accent-danger);
   font-size: 0.875rem;
 }
 
@@ -263,7 +269,7 @@
 
 .inputArea {
   padding: var(--space-4);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--border-default);
   background: var(--bg-elevated);
 }
 

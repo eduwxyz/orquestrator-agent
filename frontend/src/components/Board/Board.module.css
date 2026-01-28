@@ -1,20 +1,30 @@
+/* Board - Soft & Rounded Design */
+
 .board {
   display: flex;
-  gap: var(--space-2); /* Reduced gap as columns have padding-right */
+  gap: var(--space-2);
   padding: var(--space-4) var(--space-2);
   min-height: calc(100vh - 120px);
-  overflow-x: auto; /* Allow horizontal scroll */
-  align-items: flex-start; /* Align columns to top */
+  overflow-x: auto;
+  align-items: flex-start;
 }
 
-/* Ensure nice scrolling */
+/* Custom Scrollbar */
 .board::-webkit-scrollbar {
-  height: 8px;
+  height: 10px;
 }
+
 .board::-webkit-scrollbar-thumb {
   background: var(--bg-elevated);
-  border-radius: 4px;
+  border-radius: var(--radius-full);
+  transition: background 180ms ease;
 }
+
+.board::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-hover);
+}
+
 .board::-webkit-scrollbar-track {
   background: transparent;
+  border-radius: var(--radius-full);
 }
