@@ -10,6 +10,9 @@ Expert em fluxo do Kanban: workflow de cards, transicoes de status, automacoes S
 
 | Path | Responsabilidade |
 |------|------------------|
+| `frontend/src/components/Board/Board.module.css` | Novo arquivo (revisar descrição) |
+| `frontend/src/components/Column/Column.module.css` | Novo arquivo (revisar descrição) |
+| `frontend/src/components/Card/Card.module.css` | Novo arquivo (revisar descrição) |
 | `frontend/src/components/Board/Board.tsx` | Board principal com drag-drop |
 | `frontend/src/components/Column/Column.tsx` | Coluna com droppable zone |
 | `frontend/src/components/Card/Card.tsx` | Card draggable com status + ExpertBadges |

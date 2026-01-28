@@ -1,56 +1,13 @@
 .workspace {
   display: flex;
+  flex-direction: column;
   min-height: 100vh;
   background: var(--bg-primary);
-  position: relative;
-  overflow: hidden;
-}
-
-.mainContent {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  position: relative;
-}
-
-.header {
-  position: sticky;
-  top: 0;
-  z-index: 90;
-  padding: var(--space-4) var(--space-6);
-  background: var(--bg-primary); /* Blend with body */
-  /* border-bottom: 1px solid var(--border-subtle); */
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: 13px;
-  font-family: var(--font-body);
-}
-
-.breadcrumbItem {
-  color: var(--text-tertiary);
-}
-
-.breadcrumbSeparator {
-  color: var(--text-disabled);
-}
-
-.breadcrumbItemActive {
-  color: var(--text-primary);
-  font-weight: 500;
 }
 
 .content {
   flex: 1;
-  padding: 0 var(--space-6) var(--space-6);
+  padding: var(--space-5) var(--space-6);
   overflow-y: auto;
   overflow-x: hidden;
-  position: relative;
 }

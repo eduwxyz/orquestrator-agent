@@ -39,6 +39,7 @@ export function Column({ column, cards, onRemoveCard, onUpdateCard, getExecution
         style={isCollapsible ? { cursor: 'pointer' } : undefined}
       >
         <div className={styles.headerLeft}>
+          <div className={styles.colorDot} />
           <h2 className={styles.title}>{column.title}</h2>
           <span className={styles.count}>{cards.length}</span>
         </div>

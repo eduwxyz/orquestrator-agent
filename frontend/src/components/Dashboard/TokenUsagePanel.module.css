@@ -1,4 +1,4 @@
-/* TokenUsagePanel - Consistent with existing design */
+/* TokenUsagePanel - Soft & Rounded Design */
 
 .panel {
   background: var(--bg-secondary);
@@ -9,6 +9,7 @@
   flex-direction: column;
   gap: var(--space-4);
   min-height: 250px;
+  box-shadow: var(--shadow-sm);
 }
 
 .skeleton {
@@ -63,19 +64,6 @@
   overflow: hidden;
 }
 
-.simpleChart::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    circle at 50% 100%,
-    var(--accent-primary-glow),
-    transparent 70%
-  );
-  opacity: 0.1;
-  pointer-events: none;
-}
-
 .chartBar {
   flex: 1;
   display: flex;
@@ -83,19 +71,6 @@
   align-items: center;
   gap: var(--space-1);
   min-width: 20px;
-  animation: barSlideUp 0.6s ease-out backwards;
-  animation-delay: calc(var(--bar-index, 0) * 0.05s);
-}
-
-@keyframes barSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .barFill {
@@ -104,39 +79,15 @@
   background: linear-gradient(
     to top,
     var(--accent-primary),
-    var(--accent-primary-light)
+    var(--accent-primary)
   );
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  transition: all 0.3s ease;
+  transition: all 180ms ease;
   position: relative;
-  box-shadow: 0 -2px 8px var(--accent-primary-glow);
-}
-
-.barFill::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to top,
-    transparent,
-    rgba(255, 255, 255, 0.2)
-  );
-  opacity: 0;
-  transition: opacity 0.3s ease;
 }
 
 .barFill:hover {
-  background: linear-gradient(
-    to top,
-    var(--accent-primary-light),
-    var(--accent-primary-vibrant, var(--accent-primary-light))
-  );
   transform: scaleY(1.05);
-  box-shadow: 0 -4px 16px var(--accent-primary-glow);
-}
-
-.barFill:hover::after {
-  opacity: 1;
 }
 
 .barLabel {
@@ -179,7 +130,7 @@
 .statDivider {
   width: 1px;
   height: 32px;
-  background: var(--border-subtle);
+  background: var(--border-default);
 }
 
 /* Responsive */

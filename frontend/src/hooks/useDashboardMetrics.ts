@@ -5,7 +5,8 @@ interface DashboardMetricsData {
   tokenData: any;
   costData: any;
   executionData: any;
-  insights: any;
+  insights: any[];
+  productivityData: any;
   isLoading: boolean;
   error: string | null;
   lastUpdate: number;
@@ -21,12 +22,14 @@ export const useDashboardMetrics = (projectId: string = 'current'): DashboardMet
     tokenData: any;
     costData: any;
     executionData: any;
-    insights: any;
+    insights: any[];
+    productivityData: any;
   }>({
     tokenData: null,
     costData: null,
     executionData: null,
-    insights: null,
+    insights: [],
+    productivityData: null,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,11 +50,14 @@ export const useDashboardMetrics = (projectId: string = 'current'): DashboardMet
 
     try {
       // Fetch all metrics in parallel using existing API
-      const [tokens, costs, executions, executionTimes] = await Promise.all([
+      const [tokens, costs, executions, executionTimes, projectMetrics, insightsData, productivity] = await Promise.all([
         metricsApi.getTokenUsage(projectId, '7d', 'day'),
         metricsApi.getCostAnalysis(projectId, 'model'),
         metricsApi.getExecutionPerformance(projectId),
         metricsApi.getExecutionTimes(projectId, undefined, 10),
+        metricsApi.getProjectMetrics(projectId).catch(() => null),
+        metricsApi.getInsights(projectId).catch(() => ({ insights: [] })),
+        metricsApi.getProductivityMetrics(projectId).catch(() => null),
       ]);
 
       // Only update state if this is still the latest request
@@ -95,7 +101,7 @@ export const useDashboardMetrics = (projectId: string = 'current'): DashboardMet
       const transformedExecutionData = executions ? {
         avg_duration_ms: executions.mean || 0,
         p95_duration_ms: executions.p95 || 0,
-        success_rate: 100, // Default to 100% if no data
+        success_rate: projectMetrics?.successRate ?? 100,
         recent_executions: executionTimes?.data ? executionTimes.data.map((item: any) => ({
           command: item.command,
           duration_ms: item.durationMs,
@@ -108,7 +114,8 @@ export const useDashboardMetrics = (projectId: string = 'current'): DashboardMet
         tokenData: transformedTokenData,
         costData: transformedCostData,
         executionData: transformedExecutionData,
-        insights: [],
+        insights: insightsData?.insights || [],
+        productivityData: productivity || null,
       });
 
       setLastUpdate(Date.now());

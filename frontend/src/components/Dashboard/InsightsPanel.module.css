@@ -1,4 +1,4 @@
-/* InsightsPanel - AI insights display */
+/* InsightsPanel - Soft & Rounded Design */
 
 .insightsPanel {
   background: var(--bg-secondary);
@@ -6,6 +6,7 @@
   border-radius: var(--radius-lg);
   padding: var(--space-4);
   min-height: 250px;
+  box-shadow: var(--shadow-sm);
 }
 
 .emptyState {
@@ -34,16 +35,17 @@
 .insightCard {
   display: flex;
   gap: var(--space-3);
-  padding: var(--space-3);
-  background: var(--bg-tertiary);
+  padding: 14px;
+  background: var(--bg-elevated);
   border-radius: var(--radius-md);
   border-left: 3px solid var(--border-default);
-  transition: all 0.2s;
+  transition: all 180ms ease;
 }
 
 .insightCard:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-hover);
   transform: translateX(2px);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Insight Types */

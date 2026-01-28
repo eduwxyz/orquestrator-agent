@@ -7,6 +7,7 @@ import ProgressChart from '../components/Dashboard/ProgressChart';
 import TokenUsagePanel from '../components/Dashboard/TokenUsagePanel';
 import CostBreakdown from '../components/Dashboard/CostBreakdown';
 import ExecutionMetrics from '../components/Dashboard/ExecutionMetrics';
+import InsightsPanel from '../components/Dashboard/InsightsPanel';
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
 import styles from './HomePage.module.css';
 import '../styles/dashboard-theme.css';
@@ -22,6 +23,8 @@ const HomePage = ({ cards, onNavigate }: HomePageProps) => {
     tokenData,
     costData,
     executionData,
+    insights,
+    productivityData,
     isLoading: metricsLoading,
     error: metricsError,
     lastUpdate: metricsLastUpdate,
@@ -86,17 +89,6 @@ const HomePage = ({ cards, onNavigate }: HomePageProps) => {
     const activeCards = total - archived - cancelled;
     const completionRate = activeCards > 0 ? (done / activeCards) * 100 : 0;
 
-    // Calcular velocidade (cards completados nos últimos 7 dias - simulado)
-    const velocity = 3; // TODO: Implementar cálculo real baseado em timestamps
-
-    // Gerar sparkline data simulado para os últimos 7 dias
-    const generateSparkline = () => {
-      const days = 7;
-      return Array.from({ length: days }, () =>
-        Math.floor(Math.random() * 5) + inProgress - 2
-      );
-    };
-
     return {
       backlog,
       planning,
@@ -105,15 +97,24 @@ const HomePage = ({ cards, onNavigate }: HomePageProps) => {
       total,
       activeCards,
       completionRate,
-      velocity,
       implementing,
       testing,
       reviewing,
       archived,
       cancelled,
-      sparkline: generateSparkline(),
     };
   }, [cards]);
+
+  // Velocity real do backend
+  const velocity = productivityData?.velocity ?? 0;
+
+  // Sparkline real baseado em token usage diário (proxy de atividade)
+  const sparkline = useMemo(() => {
+    if (tokenData?.daily_usage && tokenData.daily_usage.length > 0) {
+      return tokenData.daily_usage.map((d: any) => d.tokens || 0);
+    }
+    return [];
+  }, [tokenData]);
 
   // Determinar hora do dia para saudação personalizada
   const getGreeting = () => {
@@ -220,9 +221,7 @@ const HomePage = ({ cards, onNavigate }: HomePageProps) => {
               icon={<i className="fa-solid fa-bolt"></i>}
               color="amber"
               subtitle={`${metrics.implementing} impl • ${metrics.testing} test • ${metrics.reviewing} review`}
-              sparkline={metrics.sparkline}
-              trend={12}
-              trendPeriod="vs. semana passada"
+              sparkline={sparkline.length > 0 ? sparkline : undefined}
               highlighted={true}
             />
           </div>
@@ -241,9 +240,7 @@ const HomePage = ({ cards, onNavigate }: HomePageProps) => {
               value={metrics.done}
               icon={<i className="fa-solid fa-circle-check"></i>}
               color="green"
-              subtitle="Prontos para produção"
-              trend={8}
-              trendPeriod="últimos 7 dias"
+              subtitle={velocity > 0 ? `${velocity.toFixed(1)} cards/dia` : "Prontos para produção"}
             />
           </div>
         </div>
@@ -302,6 +299,18 @@ const HomePage = ({ cards, onNavigate }: HomePageProps) => {
             <ExecutionMetrics data={executionData} loading={metricsLoading} />
           </div>
         </div>
+
+        {/* Insights Row */}
+        {insights && insights.length > 0 && (
+          <div className={styles.metricsRow}>
+            <div className={styles.executionColumn}>
+              <div className={styles.sectionHeader}>
+                <h2 className={styles.sectionTitle}>Insights</h2>
+              </div>
+              <InsightsPanel insights={insights} />
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Quick Actions */}

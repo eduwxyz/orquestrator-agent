@@ -1,4 +1,4 @@
-/* ExecutionMetrics - Consistent visual style */
+/* ExecutionMetrics - Soft & Rounded Design */
 
 .executionPanel {
   background: var(--bg-secondary);
@@ -9,6 +9,7 @@
   flex-direction: column;
   gap: var(--space-4);
   min-height: 250px;
+  box-shadow: var(--shadow-sm);
 }
 
 .skeleton {
@@ -62,66 +63,30 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3);
-  background: var(--bg-tertiary);
+  padding: 14px;
+  background: var(--bg-elevated);
   border-radius: var(--radius-md);
-  transition: all 0.3s ease;
-  opacity: 0;
-  animation: scaleIn 0.5s ease-out forwards;
-  animation-delay: calc(var(--card-index, 0) * 0.1s);
-  position: relative;
-  overflow: hidden;
-  border: 1px solid transparent;
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.miniCard::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    circle at 50% 50%,
-    var(--accent-primary-glow),
-    transparent 70%
-  );
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: all 180ms ease;
+  border: 1px solid var(--border-default);
 }
 
 .miniCard:hover {
-  background: var(--bg-elevated);
-  transform: translateY(-4px);
+  background: var(--bg-hover);
+  transform: translateY(-2px);
   border-color: var(--accent-primary);
-  box-shadow: 0 4px 16px var(--accent-primary-glow);
-}
-
-.miniCard:hover::before {
-  opacity: 0.2;
+  box-shadow: var(--shadow-md);
 }
 
 .miniIcon {
   font-size: 16px;
   color: var(--accent-primary);
   opacity: 0.8;
-  transition: all 0.3s ease;
-  position: relative;
-  z-index: 1;
+  transition: all 180ms ease;
 }
 
 .miniCard:hover .miniIcon {
   opacity: 1;
-  transform: scale(1.1) rotate(5deg);
-  filter: drop-shadow(0 0 8px var(--accent-primary-glow));
+  transform: scale(1.1);
 }
 
 .miniValue {
@@ -137,6 +102,7 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   text-align: center;
+  font-weight: 600;
 }
 
 /* Recent Section */
@@ -148,7 +114,7 @@
 
 .recentHeader {
   padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .recentTitle {
@@ -169,31 +135,18 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-tertiary);
+  padding: 10px 12px;
+  background: var(--bg-elevated);
   border-radius: var(--radius-sm);
-  transition: all 0.3s ease;
-  opacity: 0;
-  animation: slideInExec 0.4s ease-out forwards;
-  animation-delay: calc(var(--exec-index, 0) * 0.05s);
+  transition: all 180ms ease;
   border-left: 2px solid transparent;
 }
 
-@keyframes slideInExec {
-  from {
-    opacity: 0;
-    transform: translateX(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
 .execRow:hover {
-  background: var(--bg-elevated);
-  transform: translateX(4px);
+  background: var(--bg-hover);
+  transform: translateX(2px);
   border-left-color: var(--accent-success);
+  box-shadow: var(--shadow-sm);
 }
 
 .execInfo {
@@ -216,7 +169,7 @@
 }
 
 .statusError {
-  background: var(--accent-error);
+  background: var(--accent-danger);
 }
 
 .execCommand {
