@@ -131,3 +131,27 @@ class CompletedProject(Base):
 
     def __repr__(self) -> str:
         return f"<CompletedProject(id={self.id}, title={self.title}, likes={self.like_count})>"
+
+
+class GameScore(Base):
+    """Game score for leaderboard system."""
+
+    __tablename__ = "game_scores"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+
+    # Player info
+    player_name: Mapped[str] = mapped_column(String(50), nullable=False)
+    session_id: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    # Game info
+    game_type: Mapped[str] = mapped_column(String(50), nullable=False)  # snake, tetris, etc.
+    score: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Timestamp
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return f"<GameScore(id={self.id}, player={self.player_name}, game={self.game_type}, score={self.score})>"

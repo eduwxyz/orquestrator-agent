@@ -1,0 +1,1139 @@
+/* ============================================================================
+   Mission Control - Entertainment Live Mode
+   ============================================================================ */
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px currentColor, 0 0 10px currentColor;
+  }
+  50% {
+    box-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor;
+  }
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes typewriter {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes progressPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+  20%, 40%, 60%, 80% { transform: translateX(2px); }
+}
+
+@keyframes successFlash {
+  0% { background-color: transparent; }
+  50% { background-color: rgba(34, 197, 94, 0.3); }
+  100% { background-color: transparent; }
+}
+
+@keyframes errorFlash {
+  0% { background-color: transparent; }
+  50% { background-color: rgba(239, 68, 68, 0.3); }
+  100% { background-color: transparent; }
+}
+
+@keyframes gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes borderGlow {
+  0%, 100% { border-color: #22c55e; }
+  50% { border-color: #22d3ee; }
+}
+
+@keyframes textGlow {
+  0%, 100% { text-shadow: 0 0 5px currentColor; }
+  50% { text-shadow: 0 0 20px currentColor, 0 0 30px currentColor; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.5); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================================
+   Container
+   ============================================================================ */
+
+.container {
+  min-height: 100vh;
+  background: #0a0a0f;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', monospace;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Scanline overlay */
+.container::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.1) 0px,
+    rgba(0, 0, 0, 0.1) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* CRT glow effect */
+.container::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.3) 100%);
+  pointer-events: none;
+  z-index: 999;
+}
+
+/* ============================================================================
+   Header
+   ============================================================================ */
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(180deg, #111118 0%, #0a0a0f 100%);
+  border-bottom: 1px solid #1e293b;
+  position: relative;
+  z-index: 10;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.liveIndicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid #ef4444;
+  border-radius: 4px;
+}
+
+.liveDot {
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  animation: pulse 1s ease-in-out infinite;
+  box-shadow: 0 0 10px #ef4444;
+}
+
+.liveText {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ef4444;
+  letter-spacing: 0.1em;
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #22d3ee;
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+}
+
+.headerCenter {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.statIcon {
+  font-size: 1rem;
+  opacity: 0.7;
+}
+
+.statValue {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #22c55e;
+  font-variant-numeric: tabular-nums;
+}
+
+.statLabel {
+  font-size: 0.625rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.galleryButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.15) 0%, rgba(34, 197, 94, 0.15) 100%);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  border-radius: 8px;
+  color: #22d3ee;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.galleryButton:hover {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.25) 0%, rgba(34, 197, 94, 0.25) 100%);
+  border-color: #22d3ee;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34, 211, 238, 0.2);
+}
+
+.galleryIcon {
+  font-size: 1rem;
+}
+
+.galleryText {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.timer {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #f59e0b;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
+.connectionStatus {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.connectionStatus.connected {
+  background: rgba(34, 197, 94, 0.2);
+  border: 1px solid #22c55e;
+  color: #22c55e;
+}
+
+.connectionStatus.disconnected {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid #ef4444;
+  color: #ef4444;
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ============================================================================
+   Main Grid
+   ============================================================================ */
+
+.main {
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  grid-template-rows: auto 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  height: calc(100vh - 60px);
+  position: relative;
+  z-index: 5;
+}
+
+/* ============================================================================
+   Terminal Display
+   ============================================================================ */
+
+.terminalSection {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 280px;
+  overflow: hidden;
+}
+
+.terminal {
+  flex: 1;
+  min-height: 0;
+  max-height: 280px;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminalHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+}
+
+.terminalDots {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.terminalDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.terminalDot.red { background: #ff5f56; }
+.terminalDot.yellow { background: #ffbd2e; }
+.terminalDot.green { background: #27c93f; }
+
+.terminalTitle {
+  flex: 1;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #8b949e;
+}
+
+.terminalBody {
+  flex: 1;
+  min-height: 0; /* Permite shrink para scroll funcionar */
+  padding: 1rem;
+  overflow-y: auto;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.terminalLine {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+  animation: slideIn 0.3s ease-out;
+}
+
+.terminalPrompt {
+  color: #22c55e;
+  user-select: none;
+}
+
+.terminalContent {
+  color: #e6edf3;
+  word-break: break-word;
+}
+
+.terminalContent.info { color: #8b949e; }
+.terminalContent.success { color: #22c55e; }
+.terminalContent.error { color: #ef4444; }
+.terminalContent.warning { color: #f59e0b; }
+.terminalContent.tool { color: #22d3ee; }
+.terminalContent.result { color: #a78bfa; }
+.terminalContent.text { color: #e6edf3; }
+
+.terminalCursor {
+  display: inline-block;
+  width: 8px;
+  height: 1em;
+  background: #22c55e;
+  animation: blink 1s step-end infinite;
+  vertical-align: text-bottom;
+}
+
+/* ============================================================================
+   Agents Panel
+   ============================================================================ */
+
+.agentsSection {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+}
+
+.panelTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #30363d;
+}
+
+.panelTitleIcon {
+  font-size: 1rem;
+}
+
+/* Agent Card */
+.agentCard {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 1rem;
+  transition: all 0.3s ease;
+}
+
+.agentCard:hover {
+  border-color: #484f58;
+}
+
+.agentCard.active {
+  border-color: #22c55e;
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
+}
+
+.agentCard.error {
+  border-color: #ef4444;
+  animation: shake 0.5s ease-in-out;
+}
+
+.agentHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.agentAvatar {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #22d3ee 0%, #a78bfa 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+.agentInfo {
+  flex: 1;
+}
+
+.agentName {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #e6edf3;
+}
+
+.agentRole {
+  font-size: 0.6875rem;
+  color: #8b949e;
+}
+
+.agentStatus {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.agentStatus.idle {
+  background: rgba(100, 116, 139, 0.2);
+  color: #64748b;
+}
+
+.agentStatus.working {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.agentStatus.error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.agentTask {
+  font-size: 0.75rem;
+  color: #8b949e;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  border-left: 2px solid #22d3ee;
+}
+
+.agentProgress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.progressHeader {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.625rem;
+  color: #8b949e;
+}
+
+.progressBar {
+  height: 6px;
+  background: #21262d;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e 0%, #22d3ee 100%);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+  animation: progressPulse 2s ease-in-out infinite;
+}
+
+/* ============================================================================
+   Game Section
+   ============================================================================ */
+
+.gameSection {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  gap: 1rem;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ============================================================================
+   Name Prompt Modal
+   ============================================================================ */
+
+.namePromptOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.namePromptModal {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  min-width: 280px;
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.namePromptTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f59e0b;
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
+.namePromptScore {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #22c55e;
+  font-variant-numeric: tabular-nums;
+}
+
+.namePromptInput {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #e6edf3;
+  font-size: 1rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.namePromptInput:focus {
+  border-color: #22d3ee;
+}
+
+.namePromptInput::placeholder {
+  color: #6e7681;
+}
+
+.namePromptButtons {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+/* ============================================================================
+   Status Banner
+   ============================================================================ */
+
+.statusBanner {
+  margin: 0 1.5rem 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9));
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.statusBannerText {
+  font-size: 0.95rem;
+  color: #e2e8f0;
+  text-align: center;
+}
+/* ============================================================================
+   Onboarding Modal
+   ============================================================================ */
+
+.onboardingOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 120;
+  backdrop-filter: blur(6px);
+}
+
+.onboardingModal {
+  width: min(520px, 92vw);
+  background: linear-gradient(180deg, rgba(13, 17, 23, 0.98), rgba(22, 27, 34, 0.98));
+  border: 1px solid #30363d;
+  border-radius: 16px;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  color: #e6edf3;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.onboardingHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.onboardingHeader h2 {
+  font-size: 1.35rem;
+  margin: 0;
+  font-weight: 700;
+}
+
+.onboardingBadge {
+  background: linear-gradient(135deg, #22c55e, #22d3ee);
+  color: #0b0f14;
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+}
+
+.onboardingModal p {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.45;
+}
+
+.onboardingActions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.onboardingActions a {
+  color: #22d3ee;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.onboardingActions a:hover {
+  text-decoration: underline;
+}
+
+.onboardingActions button {
+  border: none;
+  border-radius: 8px;
+  background: #22c55e;
+  color: #0d1117;
+  font-weight: 700;
+  padding: 0.6rem 1.2rem;
+  cursor: pointer;
+}
+
+.onboardingActions button:hover {
+  opacity: 0.9;
+}
+
+.onboardingHint {
+  font-size: 0.75rem;
+  color: #8b949e;
+  text-align: right;
+}
+
+.namePromptButton {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #22c55e 0%, #22d3ee 100%);
+  border: none;
+  border-radius: 6px;
+  color: #0d1117;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.namePromptButton:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+.namePromptButton:active {
+  transform: scale(0.98);
+}
+
+.namePromptCancelButton {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #8b949e;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.namePromptCancelButton:hover {
+  border-color: #6e7681;
+  color: #e6edf3;
+}
+
+/* ============================================================================
+   Status Cards (Bottom of agents section)
+   ============================================================================ */
+
+.statusCards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-top: auto;
+}
+
+.statusCard {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 0.75rem;
+  text-align: center;
+}
+
+.statusCardValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #22c55e;
+  font-variant-numeric: tabular-nums;
+}
+
+.statusCardLabel {
+  font-size: 0.625rem;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.statusCard.highlight {
+  border-color: #22d3ee;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.1) 0%, rgba(167, 139, 250, 0.1) 100%);
+}
+
+.statusCard.highlight .statusCardValue {
+  color: #22d3ee;
+}
+
+/* ============================================================================
+   Activity Indicator
+   ============================================================================ */
+
+.activityIndicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.activityIndicator.idle {
+  background: rgba(100, 116, 139, 0.1);
+  border-color: rgba(100, 116, 139, 0.3);
+}
+
+.activityIndicator.idle .activityIcon {
+  animation: none;
+}
+
+.activityIcon {
+  font-size: 1rem;
+  animation: spin 2s linear infinite;
+}
+
+.activityText {
+  font-size: 0.75rem;
+  color: #22c55e;
+  font-weight: 500;
+}
+
+.activityIndicator.idle .activityText {
+  color: #64748b;
+}
+
+/* ============================================================================
+   Audio Visualizer (Fake)
+   ============================================================================ */
+
+.audioVisualizer {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 20px;
+  padding: 0 0.5rem;
+}
+
+.audioBar {
+  width: 3px;
+  background: linear-gradient(to top, #22c55e, #22d3ee);
+  border-radius: 1px;
+  animation: wave 0.5s ease-in-out infinite;
+}
+
+.audioBar:nth-child(1) { animation-delay: 0s; height: 60%; }
+.audioBar:nth-child(2) { animation-delay: 0.1s; height: 80%; }
+.audioBar:nth-child(3) { animation-delay: 0.2s; height: 40%; }
+.audioBar:nth-child(4) { animation-delay: 0.3s; height: 90%; }
+.audioBar:nth-child(5) { animation-delay: 0.4s; height: 50%; }
+.audioBar:nth-child(6) { animation-delay: 0.15s; height: 70%; }
+.audioBar:nth-child(7) { animation-delay: 0.25s; height: 45%; }
+.audioBar:nth-child(8) { animation-delay: 0.35s; height: 85%; }
+
+/* ============================================================================
+   Current Task Display
+   ============================================================================ */
+
+.currentTask {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.1) 0%, rgba(167, 139, 250, 0.1) 100%);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  animation: borderGlow 2s ease-in-out infinite;
+}
+
+.currentTaskHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.currentTaskLabel {
+  font-size: 0.625rem;
+  color: #22d3ee;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+
+.currentTaskStage {
+  padding: 0.25rem 0.5rem;
+  background: rgba(34, 211, 238, 0.2);
+  border-radius: 4px;
+  font-size: 0.625rem;
+  color: #22d3ee;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.currentTaskTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e6edf3;
+  margin-bottom: 0.5rem;
+  animation: textGlow 2s ease-in-out infinite;
+}
+
+.currentTaskProgress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.currentTaskProgressBar {
+  flex: 1;
+  height: 8px;
+  background: #21262d;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.currentTaskProgressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #22d3ee, #a78bfa);
+  background-size: 200% 100%;
+  animation: gradient 2s ease infinite, progressPulse 1s ease-in-out infinite;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.currentTaskPercent {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #22d3ee;
+  font-variant-numeric: tabular-nums;
+  min-width: 40px;
+  text-align: right;
+}
+
+/* ============================================================================
+   Kanban Mini View
+   ============================================================================ */
+
+.kanbanMini {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.kanbanMiniTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.75rem;
+}
+
+.kanbanMiniColumns {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.kanbanMiniColumn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.kanbanMiniColumnHeader {
+  font-size: 0.5rem;
+  color: #6e7681;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.kanbanMiniColumnCount {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #21262d;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #8b949e;
+  transition: all 0.3s ease;
+}
+
+.kanbanMiniColumn.active .kanbanMiniColumnCount {
+  background: linear-gradient(135deg, #22c55e 0%, #22d3ee 100%);
+  color: #0d1117;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.kanbanMiniColumn.done .kanbanMiniColumnCount {
+  background: #22c55e;
+  color: #0d1117;
+}
+
+/* ============================================================================
+   Voting Section
+   ============================================================================ */
+
+.votingSection {
+  margin-top: 1rem;
+}
+
+/* ============================================================================
+   Responsive
+   ============================================================================ */
+
+@media (max-width: 1024px) {
+  .main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+  }
+
+  .agentsSection {
+    grid-column: 1;
+    grid-row: 1;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 0.75rem;
+  }
+
+  .agentCard {
+    min-width: 250px;
+    flex-shrink: 0;
+  }
+
+  .terminalSection {
+    grid-row: 2;
+  }
+
+  .eventSection {
+    grid-row: 3;
+  }
+
+  .statusCards {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .headerCenter {
+    gap: 1rem;
+  }
+
+  .stat {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+  }
+
+  .timer {
+    font-size: 1rem;
+  }
+}

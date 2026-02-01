@@ -37,7 +37,7 @@ class Goal(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[GoalStatus] = mapped_column(
-        Enum(GoalStatus),
+        Enum(GoalStatus, native_enum=False, values_callable=lambda obj: [e.value for e in obj]),
         default=GoalStatus.PENDING,
         nullable=False
     )
@@ -94,7 +94,7 @@ class OrchestratorAction(Base):
     )
 
     action_type: Mapped[ActionType] = mapped_column(
-        Enum(ActionType),
+        Enum(ActionType, native_enum=False, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False
     )
 
@@ -147,7 +147,7 @@ class OrchestratorLog(Base):
     )
 
     log_type: Mapped[OrchestratorLogType] = mapped_column(
-        Enum(OrchestratorLogType),
+        Enum(OrchestratorLogType, native_enum=False, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False
     )
 

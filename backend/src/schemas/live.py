@@ -16,6 +16,7 @@ class LiveStatusResponse(BaseModel):
     current_card: Optional[Dict[str, Any]] = Field(None, description="Current card being worked on")
     progress: Optional[int] = Field(None, description="Progress percentage 0-100")
     spectator_count: int = Field(description="Number of spectators watching")
+    live_started_at: Optional[datetime] = Field(None, description="When live mode started")
 
 
 # ============================================================================
@@ -129,6 +130,7 @@ class WSStatusUpdate(WSMessageBase):
     current_stage: Optional[str] = None
     current_card: Optional[Dict[str, Any]] = None
     progress: Optional[int] = None
+    live_started_at: Optional[datetime] = None
 
 
 class WSCardUpdate(WSMessageBase):

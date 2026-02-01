@@ -12,11 +12,12 @@ from ..schemas.card import CardCreate, CardUpdate, ColumnId
 
 
 # Transições permitidas no SDLC
+# NOTE: Live mode permite implement → done diretamente (skip test/review)
 ALLOWED_TRANSITIONS: dict[str, list[str]] = {
     "backlog": ["plan", "cancelado"],
-    "plan": ["implement", "cancelado"],
-    "implement": ["test", "cancelado"],
-    "test": ["review", "cancelado"],
+    "plan": ["implement", "done", "cancelado"],  # Live: pode ir direto para done
+    "implement": ["test", "done", "cancelado"],  # Live: pode ir direto para done
+    "test": ["review", "done", "cancelado"],  # Live: pode ir direto para done
     "review": ["done", "cancelado"],
     "done": ["completed", "archived", "cancelado"],
     "completed": ["archived"],
