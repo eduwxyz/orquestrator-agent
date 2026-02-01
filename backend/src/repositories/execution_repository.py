@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, func
 from typing import Optional, List
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from ..models.execution import Execution, ExecutionLog, ExecutionStatus
 from ..cache import execution_cache
@@ -42,13 +42,13 @@ class ExecutionRepository:
             command=command,
             title=title,
             status=ExecutionStatus.RUNNING,
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
             is_active=True,
             workflow_stage=workflow_stage
         )
 
         self.db.add(execution)
-        await self.db.commit()
+        await self.db.flush()
 
         # Invalida cache para forçar reload da nova execução
         execution_cache.invalidate(card_id)
@@ -77,11 +77,11 @@ class ExecutionRepository:
             type=log_type,
             content=content,
             sequence=last_sequence + 1,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
 
         self.db.add(log)
-        await self.db.commit()
+        await self.db.flush()
 
         # Invalida cache para forçar reload
         execution_result = await self.db.execute(
@@ -116,7 +116,7 @@ class ExecutionRepository:
 
         values = {
             "status": status,
-            "completed_at": datetime.utcnow() if status != ExecutionStatus.RUNNING else None
+            "completed_at": datetime.now(timezone.utc) if status != ExecutionStatus.RUNNING else None
         }
 
         if result:
@@ -134,7 +134,7 @@ class ExecutionRepository:
             .where(Execution.id == execution_id)
             .values(**values)
         )
-        await self.db.commit()
+        await self.db.flush()
 
         # Invalida cache quando execução completa
         if card_id and status in [ExecutionStatus.SUCCESS, ExecutionStatus.ERROR]:
@@ -310,7 +310,7 @@ class ExecutionRepository:
             .where(Execution.id == execution_id)
             .values(**values)
         )
-        await self.db.commit()
+        await self.db.flush()
 
     async def get_token_stats_for_card(self, card_id: str) -> dict:
         """Retorna estatisticas agregadas de tokens para um card"""

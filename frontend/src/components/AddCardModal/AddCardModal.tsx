@@ -8,7 +8,7 @@ import {
 } from '../../utils/imageHandler';
 import { useDraft } from '../../hooks/useDraft';
 import { fetchGitBranches, type GitBranch } from '../../api/git';
-import { ModelCard, type ModelCardData } from '../ModelCard';
+import { WorkflowModelConfig } from '../ModelSelector';
 import styles from './AddCardModal.module.css';
 
 interface AddCardModalProps {
@@ -28,80 +28,6 @@ interface AddCardModalProps {
   submitButtonText?: string;
 }
 
-const MODEL_CARDS: ModelCardData[] = [
-  {
-    value: 'opus-4.5',
-    label: 'Opus 4.5',
-    provider: 'anthropic',
-    tagline: 'Maximum intelligence',
-    performance: 'Highest Quality',
-    icon: '◈',
-    accent: 'opus'
-  },
-  {
-    value: 'sonnet-4.5',
-    label: 'Sonnet 4.5',
-    provider: 'anthropic',
-    tagline: 'Balanced performance',
-    performance: 'Fast & Smart',
-    icon: '◉',
-    accent: 'sonnet'
-  },
-  {
-    value: 'haiku-4.5',
-    label: 'Haiku 4.5',
-    provider: 'anthropic',
-    tagline: 'Lightning fast',
-    performance: 'Rapid Response',
-    icon: '◎',
-    accent: 'haiku'
-  },
-  {
-    value: 'gemini-3-pro',
-    label: 'Gemini Pro',
-    provider: 'google',
-    tagline: 'Advanced reasoning',
-    performance: 'High Performance',
-    icon: '🔷',
-    accent: 'gemini-pro'
-  },
-  {
-    value: 'gemini-3-flash',
-    label: 'Gemini Flash',
-    provider: 'google',
-    tagline: 'Fast responses',
-    performance: 'Quick & Efficient',
-    icon: '⚡',
-    accent: 'gemini-flash'
-  }
-];
-
-const WORKFLOW_STAGES = [
-  {
-    key: 'modelPlan',
-    label: 'Planejamento',
-    icon: '📋',
-    description: 'Estratégia e arquitetura da implementação'
-  },
-  {
-    key: 'modelImplement',
-    label: 'Implementação',
-    icon: '🚀',
-    description: 'Codificação e desenvolvimento da solução'
-  },
-  {
-    key: 'modelTest',
-    label: 'Testes',
-    icon: '✅',
-    description: 'Validação e verificação da qualidade'
-  },
-  {
-    key: 'modelReview',
-    label: 'Revisão',
-    icon: '🔍',
-    description: 'Polimento e refinamento final'
-  }
-];
 
 export function AddCardModal({ isOpen, onClose, onSubmit, title: modalTitle, submitButtonText }: AddCardModalProps) {
   const [title, setTitle] = useState('');
@@ -368,21 +294,6 @@ export function AddCardModal({ isOpen, onClose, onSubmit, title: modalTitle, sub
     }
   };
 
-  const getModelValue = (stage: string): ModelType => {
-    switch (stage) {
-      case 'modelPlan':
-        return modelPlan;
-      case 'modelImplement':
-        return modelImplement;
-      case 'modelTest':
-        return modelTest;
-      case 'modelReview':
-        return modelReview;
-      default:
-        return 'opus-4.5';
-    }
-  };
-
   if (!isOpen) return null;
 
   const portalRoot = document.getElementById('modal-root');
@@ -538,39 +449,14 @@ export function AddCardModal({ isOpen, onClose, onSubmit, title: modalTitle, sub
 
           {/* Model Selection */}
           <div className={styles.formSection}>
-            <div className={styles.sectionHeader}>
-              <h3 className={styles.sectionTitle}>AI Model Configuration</h3>
-              <p className={styles.sectionDescription}>Choose models for each workflow stage</p>
-            </div>
-
-            <div className={styles.workflowStages}>
-              {WORKFLOW_STAGES.map((stage) => (
-                <div key={stage.key} className={styles.stageSection}>
-                  <div className={styles.stageHeader}>
-                    <div className={styles.stageIcon}>{stage.icon}</div>
-                    <div className={styles.stageInfo}>
-                      <h3 className={styles.stageTitle}>{stage.label}</h3>
-                      <p className={styles.stageDescription}>{stage.description}</p>
-                    </div>
-                  </div>
-
-                  <div className={styles.modelCarousel}>
-                    <div className={styles.modelCarouselInner}>
-                      {MODEL_CARDS.map((model) => (
-                        <ModelCard
-                          key={model.value}
-                          model={model}
-                          selected={getModelValue(stage.key) === model.value}
-                          onSelect={() => {
-                            updateModel(stage.key, model.value);
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <WorkflowModelConfig
+              modelPlan={modelPlan}
+              modelImplement={modelImplement}
+              modelTest={modelTest}
+              modelReview={modelReview}
+              onModelChange={updateModel}
+              disabled={isSubmitting}
+            />
           </div>
 
           {/* Image Upload */}

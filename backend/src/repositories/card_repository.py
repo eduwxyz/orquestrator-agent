@@ -174,25 +174,6 @@ class CardRepository:
             description=f"Card movido de '{current_column}' para '{new_column_id}'"
         )
 
-        # Run database migrations when card reaches "done"
-        if new_column_id == "done":
-            from ..services.migration_service import MigrationService
-            from pathlib import Path
-            try:
-                # Get current project database path
-                claude_db = Path(".claude/database.db")
-                if claude_db.exists():
-                    print(f"[CardRepository] Running migrations for card {card.title} reaching done...")
-                    service = MigrationService(str(claude_db))
-                    success, messages = service.apply_all_pending_migrations()
-                    if success:
-                        print(f"[CardRepository] ✅ Migrations completed: {', '.join(messages)}")
-                    else:
-                        print(f"[CardRepository] ⚠️ Migration warnings: {', '.join(messages)}")
-            except Exception as e:
-                # Don't fail the card move if migrations fail
-                print(f"[CardRepository] ⚠️ Failed to run migrations: {e}")
-
         return card, None
 
     async def update_spec_path(self, card_id: str, spec_path: str) -> Optional[Card]:

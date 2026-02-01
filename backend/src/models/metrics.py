@@ -1,9 +1,12 @@
 """Modelos de métricas para análise de desempenho e custos."""
 
-from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Date, Text, JSON, BigInteger, Numeric
-from sqlalchemy.orm import relationship
-from datetime import datetime
-import uuid
+from datetime import datetime, timezone, date
+from decimal import Decimal
+from typing import Optional, Dict, Any
+
+from sqlalchemy import String, Integer, Float, DateTime, ForeignKey, Date, Text, JSON, BigInteger, Numeric
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from ..database import Base
 
 
@@ -12,38 +15,50 @@ class ProjectMetrics(Base):
 
     __tablename__ = "project_metrics"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    project_id = Column(String, ForeignKey("active_project.id"), nullable=False)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("active_project.id", ondelete="CASCADE"),
+        nullable=False
+    )
 
     # Métricas de Tokens
-    total_input_tokens = Column(Integer, default=0)
-    total_output_tokens = Column(Integer, default=0)
-    total_tokens = Column(Integer, default=0)
+    total_input_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_output_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Métricas de Tempo
-    avg_execution_time_ms = Column(Integer)  # Tempo médio em ms
-    min_execution_time_ms = Column(Integer)
-    max_execution_time_ms = Column(Integer)
-    total_execution_time_ms = Column(BigInteger)
+    avg_execution_time_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    min_execution_time_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    max_execution_time_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    total_execution_time_ms: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
 
     # Métricas de Custo
-    total_cost_usd = Column(Numeric(10, 6))
-    cost_by_model = Column(JSON)  # {"opus-4.5": 12.50, "sonnet-4.5": 8.30}
+    total_cost_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 6), nullable=True)
+    cost_by_model: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)  # {"opus-4.5": 12.50, "sonnet-4.5": 8.30}
 
     # Métricas de Produtividade
-    cards_completed = Column(Integer, default=0)
-    cards_in_progress = Column(Integer, default=0)
-    success_rate = Column(Float)  # Percentual de execuções bem-sucedidas
+    cards_completed: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    cards_in_progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    success_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     # Agregações Temporais
-    metrics_date = Column(Date)
-    metrics_hour = Column(Integer)  # 0-23 para agregação por hora
+    metrics_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    metrics_hour: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 0-23 para agregação por hora
 
     # Metadados
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False
+    )
+    updated_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=True
+    )
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         """Converte o modelo para um dicionário."""
         return {
             "id": self.id,
@@ -66,46 +81,65 @@ class ProjectMetrics(Base):
             "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
         }
 
+    def __repr__(self) -> str:
+        return f"<ProjectMetrics(id={self.id}, project_id={self.project_id})>"
+
 
 class ExecutionMetrics(Base):
     """Métricas detalhadas por execução."""
 
     __tablename__ = "execution_metrics"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    execution_id = Column(String, ForeignKey("executions.id"), nullable=False)
-    card_id = Column(String, ForeignKey("cards.id"), nullable=False)
-    project_id = Column(String, ForeignKey("active_project.id"), nullable=False)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    execution_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("executions.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    card_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("cards.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    project_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("active_project.id", ondelete="CASCADE"),
+        nullable=False
+    )
 
     # Detalhes da Execução
-    command = Column(String)  # /plan, /implement, /test, /review
-    model_used = Column(String)
+    command: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # /plan, /implement, /test, /review
+    model_used: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
     # Métricas de Tempo
-    started_at = Column(DateTime)
-    completed_at = Column(DateTime)
-    duration_ms = Column(Integer)  # Duração em milissegundos
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    duration_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     # Métricas de Tokens
-    input_tokens = Column(Integer)
-    output_tokens = Column(Integer)
-    total_tokens = Column(Integer)
+    input_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    total_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     # Métricas de Custo
-    estimated_cost_usd = Column(Numeric(10, 6))
+    estimated_cost_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 6), nullable=True)
 
     # Status
-    status = Column(String)  # success, error, cancelled
-    error_message = Column(Text, nullable=True)
+    status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # success, error, cancelled
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Metadados
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False
+    )
 
     # Relacionamentos
     execution = relationship("Execution", foreign_keys=[execution_id])
     card = relationship("Card", foreign_keys=[card_id])
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         """Converte o modelo para um dicionário."""
         return {
             "id": self.id,
@@ -125,3 +159,6 @@ class ExecutionMetrics(Base):
             "errorMessage": self.error_message,
             "createdAt": self.created_at.isoformat() if self.created_at else None,
         }
+
+    def __repr__(self) -> str:
+        return f"<ExecutionMetrics(id={self.id}, execution_id={self.execution_id})>"

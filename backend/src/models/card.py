@@ -1,6 +1,6 @@
 """Card database model."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Boolean, DateTime, JSON, String, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import List, Dict, Any
@@ -25,10 +25,10 @@ class Card(Base):
     images: Mapped[List[Dict[str, Any]] | None] = mapped_column(JSON, nullable=True, default=list)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
 
     # Novos campos para rastreamento de correções
