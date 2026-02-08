@@ -1,0 +1,102 @@
+/* ============================================ */
+/* ModelSelector - Minimal Design              */
+/* ============================================ */
+
+.selector {
+  display: flex;
+  gap: 2px;
+}
+
+.option {
+  padding: 5px 14px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.option:hover:not(:disabled):not(.selected) {
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+}
+
+.option.selected {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================ */
+/* WorkflowModelConfig                         */
+/* ============================================ */
+
+.workflowConfig {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.configHeader {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.configTitle {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.configHint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.stagesGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-2);
+}
+
+.stageRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.stageRow:hover {
+  border-color: var(--border-strong);
+}
+
+.stageLabel {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* ============================================ */
+/* Responsive                                   */
+/* ============================================ */
+
+@media (max-width: 540px) {
+  .stagesGrid {
+    grid-template-columns: 1fr;
+  }
+}

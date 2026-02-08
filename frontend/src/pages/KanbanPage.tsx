@@ -6,7 +6,6 @@ import { Project } from '../types';
 import { ProjectLoader } from '../components/ProjectLoader/ProjectLoader';
 import { ProjectSwitcher } from '../components/ProjectSwitcher';
 import { AddCard } from '../components/AddCard/AddCard';
-import { LiveModeControl } from '../components/LiveModeControl';
 import styles from './KanbanPage.module.css';
 
 interface KanbanPageProps {
@@ -68,7 +67,6 @@ const KanbanPage = ({
           </p>
         </div>
         <div className={styles.projectActions}>
-          <LiveModeControl />
           <AddCard columnId="backlog" onAdd={onAddCard} />
           <ProjectSwitcher
             currentProject={currentProject}

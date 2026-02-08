@@ -10,16 +10,10 @@ from .orchestrator import (
     OrchestratorAction, ActionType,
     OrchestratorLog, OrchestratorLogType
 )
-from .live import (
-    Vote, VoteType,
-    VotingRound, VotingOption,
-    CompletedProject
-)
 
 __all__ = [
     "User", "Card", "Execution", "ExecutionLog", "ExecutionStatus",
     "ActivityLog", "ActivityType", "ProjectMetrics", "ExecutionMetrics",
     "Goal", "GoalStatus", "OrchestratorAction", "ActionType",
     "OrchestratorLog", "OrchestratorLogType",
-    "Vote", "VoteType", "VotingRound", "VotingOption", "CompletedProject"
 ]

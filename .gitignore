@@ -37,6 +37,8 @@ htmlcov/
 
 # SQLite databases
 *.db
+*.db-shm
+*.db-wal
 
 # IDE and editor
 .vscode/

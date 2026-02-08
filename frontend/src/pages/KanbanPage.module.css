@@ -50,7 +50,8 @@
   flex: 1;
   min-height: 0;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* Responsive */

@@ -1,8 +1,9 @@
 .workspace {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
   background: var(--bg-primary);
+  overflow: hidden;
 }
 
 .content {
@@ -10,4 +11,6 @@
   padding: var(--space-5) var(--space-6);
   overflow-y: auto;
   overflow-x: hidden;
+  /* Prevent scroll jumping on re-render */
+  overscroll-behavior: contain;
 }

@@ -520,26 +520,6 @@ def add_log(record: ExecutionRecord, log_type: LogType, content: str) -> None:
 
     print(f"{card_prefix} [Agent] [{log_type.value.upper()}] {content}")
 
-    # Broadcast para espectadores do /live em tempo real
-    try:
-        from .services.live_broadcast_service import get_live_broadcast_service
-        live_broadcast = get_live_broadcast_service()
-
-        # Formatar log para espectadores
-        log_type_str = log_type.value if hasattr(log_type, 'value') else str(log_type)
-        formatted_content = f"{card_prefix} [{log_type_str.upper()}] {content}"
-
-        # Fire-and-forget async broadcast (não bloqueia execução)
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(live_broadcast.broadcast_log(formatted_content, log_type_str))
-        except RuntimeError:
-            # Sem event loop ativo, ignora broadcast
-            pass
-    except Exception as e:
-        # Não falha se broadcast falhar
-        print(f"[Agent] Warning: Failed to broadcast log to live: {e}")
-
 
 def extract_spec_path(text: str) -> Optional[str]:
     """Extrai o caminho do arquivo de spec do texto de resultado."""

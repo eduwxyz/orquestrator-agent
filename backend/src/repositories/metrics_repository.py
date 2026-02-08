@@ -3,7 +3,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, desc, asc, case
 from typing import Optional, List, Dict, Any, Literal
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from decimal import Decimal
 import uuid
 
@@ -52,11 +52,11 @@ class MetricsRepository:
             estimated_cost_usd=estimated_cost_usd,
             status=status,
             error_message=error_message,
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
 
         self.db.add(metric)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(metric)
         return metric
 
@@ -88,7 +88,7 @@ class MetricsRepository:
     ) -> List[Dict[str, Any]]:
         """Retorna uso de tokens agregado por período."""
         # Calcular data de início baseado no período
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if period == "24h":
             start_date = now - timedelta(hours=24)
         elif period == "7d":
@@ -347,31 +347,37 @@ class MetricsRepository:
         end_date: Optional[date] = None
     ) -> Dict[str, Any]:
         """Retorna métricas de produtividade."""
-        # Contar cards por status
+        # Contar cards por column_id (status)
         cards_query = select(
-            Card.status,
+            Card.column_id,
             func.count(Card.id).label('count')
-        ).where(Card.project_id == project_id)
+        )
 
         if start_date:
             cards_query = cards_query.where(func.date(Card.created_at) >= start_date)
         if end_date:
             cards_query = cards_query.where(func.date(Card.created_at) <= end_date)
 
-        cards_query = cards_query.group_by(Card.status)
+        cards_query = cards_query.group_by(Card.column_id)
 
         result = await self.db.execute(cards_query)
-        status_counts = {row.status: row.count for row in result.all()}
+        status_counts = {row.column_id: row.count for row in result.all()}
 
         # Calcular velocidade (cards completados por dia)
         days_range = (end_date - start_date).days if start_date and end_date else 7
-        cards_completed = status_counts.get('done', 0)
+        cards_completed = status_counts.get('done', 0) + status_counts.get('completed', 0)
+        cards_in_progress = (
+            status_counts.get('plan', 0) +
+            status_counts.get('implement', 0) +
+            status_counts.get('test', 0) +
+            status_counts.get('review', 0)
+        )
         velocity = cards_completed / days_range if days_range > 0 else 0
 
         return {
             "cardsCompleted": cards_completed,
-            "cardsInProgress": status_counts.get('in_progress', 0),
-            "cardsTodo": status_counts.get('todo', 0),
+            "cardsInProgress": cards_in_progress,
+            "cardsTodo": status_counts.get('backlog', 0),
             "velocity": round(velocity, 2),
             "totalCards": sum(status_counts.values())
         }

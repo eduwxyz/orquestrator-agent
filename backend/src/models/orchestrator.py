@@ -1,7 +1,7 @@
 """Orchestrator database models for autonomous execution."""
 
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -44,7 +44,7 @@ class Goal(Base):
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -106,7 +106,7 @@ class OrchestratorAction(Base):
 
     # Timestamps
     started_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
@@ -143,7 +143,7 @@ class OrchestratorLog(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     timestamp: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
 
     log_type: Mapped[OrchestratorLogType] = mapped_column(

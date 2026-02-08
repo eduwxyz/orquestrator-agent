@@ -12,6 +12,8 @@
 
 html {
   background: var(--bg-primary);
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -19,11 +21,17 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.55;
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-size: 14px;
   transition: background-color 180ms ease, color 180ms ease;
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
 }
 
 .app {

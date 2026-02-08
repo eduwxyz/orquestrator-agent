@@ -87,14 +87,6 @@ export const API_ENDPOINTS = {
     get triage() { return `${API_CONFIG.BASE_URL}/api/expert-triage`; },
     get sync() { return `${API_CONFIG.BASE_URL}/api/expert-sync`; },
   },
-
-  // Live spectator endpoints
-  live: {
-    get status() { return `${API_CONFIG.BASE_URL}/api/live/status`; },
-    get projects() { return `${API_CONFIG.BASE_URL}/api/live/projects`; },
-    get voting() { return `${API_CONFIG.BASE_URL}/api/live/voting`; },
-    get vote() { return `${API_CONFIG.BASE_URL}/api/live/vote`; },
-  },
 };
 
 // WebSocket endpoints centralizados - usando getters para avaliação em runtime
@@ -107,7 +99,4 @@ export const WS_ENDPOINTS = {
 
   // Chat WebSocket (com sessionId dinâmico)
   chat: (sessionId: string) => `${API_CONFIG.WS_URL}/api/chat/ws/${sessionId}`,
-
-  // Live spectator WebSocket
-  get live() { return `${API_CONFIG.WS_URL}/api/live/ws`; },
 };

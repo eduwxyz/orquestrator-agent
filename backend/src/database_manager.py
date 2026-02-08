@@ -21,16 +21,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import event
 import logging
 
-from .database import Base
-
-
-def _set_sqlite_pragma(dbapi_conn, connection_record):
-    """Set SQLite pragmas for better concurrency."""
-    cursor = dbapi_conn.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.execute("PRAGMA synchronous=NORMAL")
-    cursor.execute("PRAGMA busy_timeout=30000")
-    cursor.close()
+from .database import Base, _set_sqlite_pragma
 
 logger = logging.getLogger(__name__)
 
@@ -269,17 +260,100 @@ class DatabaseManager:
         if self._history_engine:
             await self._history_engine.dispose()
 
-    async def cleanup_old_databases(self, days_old: int = 30, keep_count: int = 10):
+    async def cleanup_old_databases(self, days_old: int = 30, keep_count: int = 10) -> dict:
         """
         Cleanup old project databases that haven't been accessed recently.
 
         Args:
             days_old: Remove databases older than this many days
             keep_count: Always keep at least this many most recent databases
+
+        Returns:
+            Dictionary with cleanup results
         """
-        # TODO: Implement cleanup logic based on last access time
-        # This would query the history database and remove old project databases
-        pass
+        from datetime import datetime, timezone, timedelta
+
+        results = {
+            "scanned": 0,
+            "removed": 0,
+            "kept": 0,
+            "errors": [],
+            "removed_paths": []
+        }
+
+        # Check legacy .project_data directory
+        if not self.base_data_dir.exists():
+            logger.info("[DatabaseManager] No .project_data directory found")
+            return results
+
+        # Collect all project databases with their access times
+        project_dbs = []
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_old)
+
+        for project_folder in self.base_data_dir.iterdir():
+            if not project_folder.is_dir():
+                continue
+
+            db_path = project_folder / "database.db"
+            if not db_path.exists():
+                continue
+
+            results["scanned"] += 1
+
+            try:
+                # Get file modification time as proxy for last access
+                stat = db_path.stat()
+                mtime = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
+                project_dbs.append({
+                    "path": project_folder,
+                    "db_path": db_path,
+                    "mtime": mtime,
+                    "project_id": project_folder.name
+                })
+            except Exception as e:
+                results["errors"].append(f"Error reading {db_path}: {e}")
+
+        # Sort by modification time (newest first)
+        project_dbs.sort(key=lambda x: x["mtime"], reverse=True)
+
+        # Determine which to remove
+        for i, db_info in enumerate(project_dbs):
+            # Always keep the most recent `keep_count` databases
+            if i < keep_count:
+                results["kept"] += 1
+                continue
+
+            # Keep if accessed within `days_old`
+            if db_info["mtime"] > cutoff_date:
+                results["kept"] += 1
+                continue
+
+            # Skip if this is the currently active project
+            if db_info["project_id"] == self.current_project_id:
+                results["kept"] += 1
+                continue
+
+            # Skip if engine is currently loaded
+            if db_info["project_id"] in self.engines:
+                results["kept"] += 1
+                continue
+
+            # Remove the old database
+            try:
+                # Remove the entire project folder
+                shutil.rmtree(db_info["path"])
+                results["removed"] += 1
+                results["removed_paths"].append(str(db_info["path"]))
+                logger.info(f"[DatabaseManager] Removed old database: {db_info['path']}")
+            except Exception as e:
+                results["errors"].append(f"Error removing {db_info['path']}: {e}")
+
+        logger.info(
+            f"[DatabaseManager] Cleanup complete: scanned={results['scanned']}, "
+            f"removed={results['removed']}, kept={results['kept']}"
+        )
+
+        return results
 
 
 # Global instance
